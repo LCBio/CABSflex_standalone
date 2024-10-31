@@ -1,7 +1,6 @@
 import os
 import glob
 import re
-import sys
 
 from tempfile import mkstemp
 from contextlib import closing
@@ -15,7 +14,7 @@ _PIR_TEMPLATE = '\n'.join(
 )
 
 if sys.platform == 'win32':
-	_PIR_TEMPLATE = _PIR_TEMPLATE.replace('\n', '\r\n');
+    _PIR_TEMPLATE = _PIR_TEMPLATE.replace('\n', '\r\n')
 
 try:
     from modeller import *
@@ -104,7 +103,7 @@ def ca2all(
 
         models = [m for m in mdl.outputs if m['failure'] is None]
         cmp_key = 'DOPE score'
-        models.sort(lambda x, y: cmp(x[cmp_key], y[cmp_key]))
+        models.sort(key=lambda x: x[cmp_key])
         final = models[0]['name'].rsplit('.', 1)[0] + '_fit.pdb'
 
         sys.stdout.close()
@@ -122,7 +121,7 @@ def ca2all(
                     res = line[21:27]
                     if not current or current != res:
                         current = res
-                        ch, r, t = a.next()[1:]
+                        ch, r, t = a.__next__()[1:]
                     nl = line[:21] + ch + r + line[27:54] + t
                     if len(line) > 66:
                         nl += line[66:]
@@ -136,4 +135,4 @@ def ca2all(
         try:
             map(os.remove, junk)
         except OSError as err:
-            logger.warning(_name, err.message)
+            logger.warning(_name, err)

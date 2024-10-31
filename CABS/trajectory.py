@@ -329,7 +329,7 @@ class Trajectory(object):
             out = True
         else:
             out = [
-                StringIO.StringIO(
+                StringIO(
                     Trajectory(self.template, m, None).to_atoms().make_pdb()
                 )
                 for m in execution_mode[mode][0]

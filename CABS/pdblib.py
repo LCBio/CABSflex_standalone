@@ -371,7 +371,7 @@ class Pdb(object):
             return getStart, getEnd
 
         def szip(lst):
-            lst = [None] + lst + [None]
+            lst = [None] + list(lst) + [None]
             return zip(lst, lst[1:], lst[2:])
 
         pickMidSS = lambda it: it[1][0]
