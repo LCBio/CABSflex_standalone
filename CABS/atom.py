@@ -54,6 +54,11 @@ class Atom(object):
             self.occ = float(line[54:60])
             self.bfac = float(line[60:66])
             self.tail = line[66:].replace('\n', '')
+            self.ss = self.occ
+            self.flexibility = self.bfac
+            self.plddt = self.bfac
+            self.category = 0.0
+            self.set_category()
         else:
             self.model = model
             self.hetatm = True
@@ -68,6 +73,11 @@ class Atom(object):
             self.occ = 0.0
             self.bfac = 0.0
             self.tail = ""
+            self.ss = self.occ
+            self.flexibility = self.bfac
+            self.plddt = self.bfac
+            self.category = 0.0
+            self.set_category()
 
         for arg in kwargs:
             if arg in self.__dict__:
@@ -226,6 +236,31 @@ class Atom(object):
                 self.icode = ' '
             self.resnum = int(match.group(1))
             self.chid = match.group(3)
+        return self
+    
+    def set_category(self):
+        category = 0
+        if self.plddt < 0.5:
+            category -= 1
+        elif self.plddt < 0.7:
+            pass
+        elif self.plddt < 0.9:
+            category += 1
+        else:
+            category += 2
+
+        if self.occ == 1:
+            pass
+        elif self.occ == 3:
+            category += 1
+        else:
+            category += 2
+
+        if category < 0:
+            category = 0
+        elif category > 3:
+            category = 3
+        self.category = category
         return self
 
 
@@ -691,6 +726,73 @@ class Atoms(object):
         """
         for atom in self.atoms:
             atom.bfac = bfac
+        return self
+    
+    def update_flexibility(self, flexibility, default=1.0):
+        """
+        Reads dictionary with keys = Atom.resid_id() and values = flexibility and puts it into Atom.flexibility
+        if key is found, default otherwise.
+        :param flexibility: {str: float}
+        :param default: float
+        :return: Atoms
+        """
+        for a in self.atoms:
+            a.flexibility = flexibility.get(a.resid_id(), default)
+        return self
+
+    def set_flexibility(self, flexibility=1.0):
+        """
+        Sets beta factor of all atoms to bfac.
+        :param flexibility: float 
+        :return: Atoms
+        """
+        for atom in self.atoms:
+            atom.flexibility = flexibility
+        return self
+    
+    def update_plddt(self, plddt, default=1.0):
+        """
+        Reads dictionary with keys = Atom.resid_id() and values = plddt and puts it into Atom.plddt
+        if key is found, default otherwise.
+        :param plddt: {str: float}
+        :param default: float
+        :return: Atoms
+        """
+        for a in self.atoms:
+            a.plddt = plddt.get(a.resid_id(), default)
+        return self
+
+    def set_plddt(self, plddt=1.0):
+        """
+        Sets pLDDT of all atoms to plddt.
+        :param plddt: float 
+        :return: Atoms
+        """
+        for atom in self.atoms:
+            atom.plddt = plddt
+        return self
+    
+    def update_category(self, category):
+        """
+        Reads dictionary with keys = Atom.resid_id() and values = beta factors and puts it into Atom.category
+        if key is found, default otherwise.
+        :param category: {str: float}
+        :return: Atoms
+        """
+        for a in self.atoms:
+            if a.resid_id() in category.keys():
+                a.category = category[a.resid_id()]
+            else:
+                a.set_category()
+        return self
+
+    def determine_category(self):
+        """
+        Sets category of all atoms according to plddt and secondary structure.
+        :return: Atoms
+        """
+        for atom in self.atoms:
+            atom.set_category()
         return self
 
     def valid_residues(self, must_have='CA, N, C, O'):
