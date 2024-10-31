@@ -25,7 +25,7 @@ class Protein(Atoms):
     """
 
     def __init__(self, source, flexibility=None, exclude=None, weights=None, plddt=None, work_dir='.', receptor_ss=None,
-                 pdb_cache=None):
+                 pdb_cache=None, category=None):
 
         Atoms.__init__(self)
 
@@ -48,55 +48,71 @@ class Protein(Atoms):
             except InvalidReceptorSS:
                 logger.warning(msg='Invalid data for --receptor-ss option')
 
+        # setup plddt
         if plddt:
-            if plddt.lower() == 'pdb':
+            if plddt.lower() == 'pdb' or plddt.lower() == 'bf':
                 for a in self.atoms:
-                    a.bfac = a.bfac / 100
+                    a.plddt = a.bfac / 100
             else:
                 try:
                     d, de = self.read_plddt(plddt)
-                    self.atoms.update_bfac(d, de)
+                    self.atoms.update_plddt(d, de)
                 except IOError:
                     logger.warning(_name, 'Could not read pLDDT file: %s' % plddt)
-                    logger.warning(_name, 'Using default flexibility(1.0) for all residues.')
-                    self.atoms.set_bfac(1.0)
+                    logger.warning(_name, 'Using default plddt(1.0) for all residues.')
+                    self.atoms.set_plddt(1.0)
                 except Exception as e:
                     logger.warning(_name, '%s' % e)
-                    logger.warning(_name, 'Using default flexibility(1.0) for all residues.')
-                    self.atoms.set_bfac(1.0)
+                    logger.warning(_name, 'Using default plddt(1.0) for all residues.')
+                    self.atoms.set_plddt(1.0)
         else:
-            # setup flexibility
-            if flexibility:
-                try:
-                    bfac = float(flexibility)
-                    self.atoms.set_bfac(bfac)
-                except ValueError:
-                    if flexibility.lower() == 'bf':
-                        pass
-                    elif flexibility.lower() == 'bfi':
-                        for a in self.atoms:
-                            if a.bfac > 1.:
-                                a.bfac = 0.
-                            elif a.bfac < 0.:
-                                a.bfac = 1.
-                            else:
-                                a.bfac = 1. - a.bfac
-                    elif flexibility.lower() == 'bfg':
-                        for a in self.atoms:
-                            if a.bfac < 0.:
-                                a.bfac = 1.
-                            else:
-                                a.bfac = exp(-0.5 * a.bfac ** 2)
-                    else:
-                        try:
-                            d, de = self.read_flexibility(flexibility)
-                            self.atoms.update_bfac(d, de)
-                        except IOError:
-                            logger.warning(_name, 'Could not read flexibility file: %s' % flexibility)
-                            logger.warning(_name, 'Using default flexibility(1.0) for all residues.')
-                            self.atoms.set_bfac(1.0)
-            else:
-                self.atoms.set_bfac(1.0)
+            self.atoms.set_plddt(1.0)
+
+        # setup flexibility
+        if flexibility:
+            try:
+                flex = float(flexibility)
+                self.atoms.set_flexibility(flex)
+            except ValueError:
+                if flexibility.lower() == 'bf':
+                    for a in self.atoms:
+                        a.flexibility = a.bfac
+                elif flexibility.lower() == 'bfi':
+                    for a in self.atoms:
+                        if a.bfac > 1.:
+                            a.flexibility = 0.
+                        elif a.bfac < 0.:
+                            a.flexibility = 1.
+                        else:
+                            a.flexibility = 1. - a.flexibility
+                elif flexibility.lower() == 'bfg':
+                    for a in self.atoms:
+                        if a.bfac < 0.:
+                            a.flexibility = 1.
+                        else:
+                            a.flexibility = exp(-0.5 * a.bfac ** 2)
+                else:
+                    try:
+                        d, de = self.read_flexibility(flexibility)
+                        self.atoms.update_flexibility(d, de)
+                    except IOError:
+                        logger.warning(_name, 'Could not read flexibility file: %s' % flexibility)
+                        logger.warning(_name, 'Using default flexibility(1.0) for all residues.')
+                        self.atoms.set_flexibility(1.0)
+        else:
+            self.atoms.set_flexibility(1.0)
+
+        # setup categories
+        if category:
+            try:
+                d, de = self.read_category(category)
+                self.atoms.update_category(d, de)
+            except IOError:
+                logger.warning(_name, 'Could not read category file: %s' % category)
+                logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
+                self.atoms.determine_category()
+        else:
+            self.atoms.determine_category()
 
         # setup excluding
         self.exclude = {}
@@ -139,7 +155,7 @@ class Protein(Atoms):
         # setup rmsd_weights
         self.weights = None
         if weights and weights.lower() == 'flex':
-            self.weights = [a.bfac for a in self.atoms]
+            self.weights = [a.flexibility for a in self.atoms]
         if weights and weights.lower() == 'ss':
             self.weights = [(a.occ + 1.) % 2 for a in self.atoms]
         if weights and (weights.lower() == 'off' or weights.lower() == 'gauss'):
@@ -223,31 +239,59 @@ class Protein(Atoms):
         d = {}
         def_val = 1.0
         plddt_values = []
-        if filename.endswith('.json'):
+
+        try:
             with open(filename, 'r') as file:
                 json_dict = json.load(file)
-                parsed = json_dict['plddt']
-                for i, entry in enumerate(parsed):
-                    plddt_values.append(float(entry) / 100)
+                plddt_values = [float(entry) / 100 for entry in json_dict['plddt']]
+        except (json.JSONDecodeError, KeyError):
+            try:
+                with open(filename, 'r') as file:
+                    next(file)
+                    for line in file:
+                        columns = line.strip().split('\t')
+                        plddt_values.append(float(columns[1]) / 100)
+            except Exception as e:
+                raise ValueError("Unable to parse pLLDT file as JSON or TSV") from e
 
-        elif filename.endswith('.tsv'):
-            with open(filename, 'r') as file:
-                next(file)
-                for i, line in enumerate(file):
-                    columns = line.strip().split('\t')
-                    plddt_values.append(float(columns[1]) / 100)
-
-        else:
-            raise Exception("pLLDT file format must end with '.json' or '.tsv'")
-
-        if len(plddt_values) != len(self.atoms):
-            raise Exception(f"Number of pLLDT values: {len(plddt_values)}, does not match"
-                            f"the number of atoms: {len(self.atoms)} in the protein")
-        else:
-            for i, a in enumerate(self.atoms):
-                d[a.resid_id()] = plddt_values[i]
+        for i, atom in enumerate(self.atoms):
+            d[atom.resid_id()] = plddt_values[i]
 
         return d, def_val
+
+    @staticmethod
+    def read_category(filename):
+
+        key = r'[0-9A-Z]+:[A-Z]'
+        val = r'[0-9.]+'
+
+        patt_range = re.compile('(%s) *-* *(%s) +(%s)' % (key, key, val))
+        patt_single = re.compile('(%s) +(%s)' % (key, val))
+
+        with open(filename) as f:
+            d = {}
+            def_val = 0.0
+            for line in f:
+                if re.search('default', line):
+                    def_val = float(line.split()[-1])
+                else:
+                    match = re.search(patt_range, line)
+                    if match:
+                        n1, c1 = match.group(1).split(':')
+                        n2, c2 = match.group(2).split(':')
+                        n1 = int(n1)
+                        n2 = int(n2)
+                        if c1 != c2 or n1 > n2:
+                            raise Exception('Invalid range: \'%s\' in file: %s!!!' % (line, filename))
+                        for i in range(n1, n2 + 1):
+                            d[str(i) + ':' + c1] = float(match.group(3))
+                    else:
+                        match = re.search(patt_single, line)
+                        if match:
+                            d[match.group(1)] = float(match.group(2))
+                        else:
+                            raise Exception('Invalid syntax in flexibility file!!!')
+            return d, def_val
 
     def generate_restraints(self, mode, gap, min_d, max_d):
         gap = int(gap)
@@ -263,26 +307,30 @@ class Protein(Atoms):
                     a2 = self.atoms[j]
                     d = (a1.coord - a2.coord).length()
                     if min_d < d < max_d:
-                        w = self.generate_weight(a1, a2)
+                        sum_of_category = a1.category + a2.category
+                        if sum_of_category < 4:
+                            w = 0.0
+                        elif sum_of_category == 4:
+                            w = 0.5
+                        else:
+                            w = 1.0
                         if w:
                             restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
 
-        elif mode in ['min', 'max', 'mean', 'plddt1', 'plddt2', 'plddt_bins']:
+        elif mode in ['min', 'max', 'mean', 'plddt1', 'plddt2']:
             for i in range(_len):
                 a1 = self.atoms[i]
                 for j in range(i + gap, _len):
                     a2 = self.atoms[j]
                     d = (a1.coord - a2.coord).length()
                     if min_d < d < max_d:
-                        if a1.bfac > a2.bfac:
-                            w_bigger = a1.bfac
-                            w_smaller = a2.bfac
+                        if a1.plddt > a2.plddt:
+                            w_bigger = a1.plddt
+                            w_smaller = a2.plddt
                         else:
-                            w_bigger = a2.bfac
-                            w_smaller = a1.bfac
-                        if mode == 'min':
-                            w = w_smaller if w_smaller > 0.5 else 0
-                        elif mode == 'max':
+                            w_bigger = a2.plddt
+                            w_smaller = a1.plddt
+                        if mode == 'max':
                             w = w_bigger if w_bigger > 0.5 else 0
                         elif mode == 'mean':
                             w = (w_bigger + w_smaller) / 2 if (w_bigger + w_smaller) / 2 > 0.5 else 0
@@ -290,8 +338,8 @@ class Protein(Atoms):
                             w = 1.0 if (w_smaller > 0.5 or w_smaller > 0.5) else 0
                         elif mode == 'plddt2':
                             w = 1.0 if w_bigger > 0.5 and w_bigger > 0.5 else 0
-                        elif mode == 'plddt_bins':
-                            w = self.generate_bin_weight(a1, a2)
+                        else:
+                            w = w_smaller if w_smaller > 0.5 else 0
                         if w:
                             restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
 
@@ -308,10 +356,10 @@ class Protein(Atoms):
                         continue
                     d = (a1.coord - a2.coord).length()
                     if min_d < d < max_d:
-                        if a1.bfac < a2.bfac:
-                            w = a1.bfac
+                        if a1.flexibility < a2.flexibility:
+                            w = a1.flexibility
                         else:
-                            w = a2.bfac
+                            w = a2.flexibility
                         if w:
                             restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
         return restr
@@ -331,67 +379,6 @@ class Protein(Atoms):
                 d = (a1.coord - a2.coord).length()
                 out[a1.resid_id()][a2.resid_id()] = "%6.4f" % d
         return out
-
-    @staticmethod
-    def generate_weight(a1, a2):
-
-        sum_of_restraint_strength = 0
-        for atom in [a1, a2]:
-            bfac = atom.bfac
-            occ = atom.occ
-            restraint_strength = 0
-            if bfac < 0.5:
-                restraint_strength -= 1
-            elif bfac < 0.7:
-                pass
-            elif bfac < 0.9:
-                restraint_strength += 1
-            else:
-                restraint_strength += 2
-
-            if occ == 1:
-                restraint_strength += 0
-            elif occ == 3:
-                restraint_strength += 1
-            else:
-                restraint_strength += 2
-
-            if restraint_strength < 0:
-                pass
-            if restraint_strength > 3:
-                sum_of_restraint_strength += 3
-            else:
-                sum_of_restraint_strength += restraint_strength
-
-        if sum_of_restraint_strength < 4:
-            return 0.0
-        if sum_of_restraint_strength == 4:
-            return 0.5
-        else:
-            return 1.0
-
-    @staticmethod
-    def generate_bin_weight(a1, a2):
-        sum_of_restraint_strength = 0
-        for atom in [a1, a2]:
-            bfac = atom.bfac
-            if bfac < 0.5:
-                restraint_strength = 0
-            elif bfac < 0.7:
-                restraint_strength = 1
-            elif bfac < 0.9:
-                restraint_strength = 2
-            else:
-                restraint_strength = 3
-
-            sum_of_restraint_strength += restraint_strength
-
-        if sum_of_restraint_strength < 4:
-            return 0.0
-        if sum_of_restraint_strength == 4:
-            return 0.5
-        else:
-            return 1.0
 
 
 class Peptide(Atoms):
@@ -423,7 +410,7 @@ class ProteinComplex(Atoms):
     Class that assembles the initial complex.
     """
 
-    def __init__(self, protein, flexibility, exclude, weights, plddt, peptides, replicas,
+    def __init__(self, protein, flexibility, exclude, weights, plddt, category, peptides, replicas,
                  separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache):
         logger.debug(module_name=_name, msg="Preparing the complex")
         Atoms.__init__(self)
@@ -434,6 +421,7 @@ class ProteinComplex(Atoms):
             exclude=exclude,
             weights=weights,
             plddt=plddt,
+            category=category,
             work_dir=work_dir,
             receptor_ss=receptor_ss,
             pdb_cache=pdb_cache,

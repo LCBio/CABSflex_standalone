@@ -129,7 +129,7 @@ dock_dict = {
     },
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
-        ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints', 'plddt',
+        ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints', 'protein-plddt',
                              'protein-restraints-reduce', 'no-protein-restraints', 'weighted-fit',
                              'gauss-iterations', 'receptor-ss']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts', 'pairmod']),
@@ -163,7 +163,7 @@ flex_dict = {
     },
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
-        ('PROTEIN OPTIONS', ['protein-flexibility', 'protein-restraints', 'protein-restraints-reduce', 'plddt',
+        ('PROTEIN OPTIONS', ['protein-flexibility', 'protein-restraints', 'protein-restraints-reduce', 'protein-plddt',
                              'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
@@ -603,14 +603,19 @@ options = {
             '[3] PDB file with peptide\'s coordinates, loads only a peptide sequence from a PDB file\n\n'
             '\'--peptide PEPTIDE\' is an alias for \'--add-peptide PEPTIDE random random\''
     },
-    'plddt': {
-        'metavar': 'FLEXIBILITY',
+    'protein-category': {
+        'metavar': 'FILE',
+        'action': 'append',
         'help':
-            'Read pLLDT values in order to modify flexibility of selected protein\'s residues:\n\n'
-            'pLLDT can be either:\n\n'
-            '[1] \'pdb\' - pLLDT for each residue is read from the beta factor column of the CA atom in the '
-            'pdb input file.\n'
-            '[2] <filename> - pLDDT is read from file <filename> and must be either in \'.json\' or \'.tsv\' format.'
+            'Modify category of flexibility for selected protein\'s residues:\n\n'
+            'category = 0.0 - highly flexible backbone\n'
+            'category = 1.0 - medium flexible backbone\n'
+            'category = 2.0 - lowly flexible backbone\n'
+            'category = 3.0 - rigid backbone\n\n'
+            'Category is read from file <filename> in the following format:\n\n'
+            'default <default category value> (if omitted default will be set according to plddt and secondary structure)\n'
+            'resid_ID <category> i.e. 12:A 2.0 OR resid_ID - resid_ID <category> i.e. 12:A - 15:A  1.0\n\n'
+            'Multiple entries can be used.',
     },
     'protein-flexibility': {
         'flag': '-f',
@@ -634,6 +639,16 @@ options = {
             'default <default flexibility value> (if omitted default f = %(default)s)\n'
             'resid_ID <flexibility> i.e. 12:A 0.75 OR resid_ID - resid_ID <flexibility> i.e. 12:A - 15:A  0.75\n\n'
             'Multiple entries can be used.',
+    },
+    'protein-plddt': {
+        'default': 'pdb',
+        'metavar': 'FLEXIBILITY',
+        'help':
+            'Read pLLDT values in order to modify flexibility of selected protein\'s residues:\n\n'
+            'pLLDT can be either:\n\n'
+            '[1] \'pdb\' or \'bf\' - pLLDT for each residue is read from the beta factor column of the CA atom in the '
+            'pdb input file.\n'
+            '[2] <filename> - pLDDT is read from file <filename> and must be either in \'.json\' or \'.tsv\' format.'
     },
     'protein-restraints': {
         'flag': '-g',

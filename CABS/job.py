@@ -76,9 +76,10 @@ class CABSTask(object):
         self.pairmod = kwargs.get('pairmod')
         self.pdb_cache = kwargs.get('pdb_cache_dir')
         self.pdb_output = kwargs.get('pdb_output')
-        self.plddt = kwargs.get('plddt')
         self.peptide = kwargs.get('peptide')
+        self.protein_category = kwargs.get('protein_category')
         self.protein_flexibility = kwargs.get('protein_flexibility')
+        self.protein_plddt = kwargs.get('protein_plddt')
         self.protein_restraints = kwargs.get('protein_restraints')
         self.protein_restraints_reduce = kwargs.get('protein_restraints_reduce')
         self.no_protein_restraints = kwargs.get('no_protein_restraints')
@@ -539,7 +540,8 @@ class DockTask(CABSTask):
             flexibility=self.protein_flexibility,
             exclude=self.exclude,
             weights=self.weighted_fit,
-            plddt=self.plddt,
+            plddt=self.protein_plddt,
+            category=self.protein_category,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,
@@ -755,7 +757,8 @@ class FlexTask(CABSTask):
             flexibility=self.protein_flexibility,
             exclude=self.exclude,
             weights=self.weighted_fit,
-            plddt=self.plddt,
+            plddt=self.protein_plddt,
+            category=self.protein_category,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,
