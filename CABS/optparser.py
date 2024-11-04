@@ -380,7 +380,7 @@ options = {
             'Set contact distance between heavy atoms for contact map plotting. (default: %(default)s)'
     },
     'dssp-command': {
-        'default': 'dssp',
+        'default': 'mkdssp',
         'metavar': 'PATH',
         'help': 'Provide path to dssp binary (default is \'%(default)s\')'
     },

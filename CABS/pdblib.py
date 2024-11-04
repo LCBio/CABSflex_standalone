@@ -246,10 +246,10 @@ class Pdb(object):
         out = err = None
 
         try:
-            proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            proc = Popen([self.DSSP_COMMAND, '--output-format', 'dssp', '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         except OSError:
             try:
-                proc = Popen([self.DSSP_COMMAND, '--output-format', 'dssp', '/dev/stdin'], stdin=PIPE, stdout=PIPE,
+                proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE,
                              stderr=PIPE)
             except OSError:
                 try:
