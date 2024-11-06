@@ -8,6 +8,7 @@ from CABS import logger
 import sys
 
 
+
 _name = 'MODELLER'
 _PIR_TEMPLATE = '\n'.join(
     ['>P1;%s', 'sequence:::::::::', '%s', '*', '', '>P1;model_ca', 'structure:%s:FIRST:@:END:@::::', '*']
@@ -30,6 +31,9 @@ def ca2all(
     """
     Rebuilds ca to all-atom
     """
+
+    old_location = os.getcwd()
+    os.chdir(work_dir)
 
     old_stdout = sys.stdout
     if logger.log_files():
@@ -79,10 +83,10 @@ def ca2all(
         with open(pir, 'w') as f:
             f.write(_PIR_TEMPLATE % (prefix, seq, pdb))
 
-        env = environ()
+        env = Environ()
         env.io.atom_files_directory = ['.']
 
-        class MyModel(automodel):
+        class MyModel(AutoModel):
             def special_patches(self, aln):
                 self.rename_segments(segment_ids=chains)
 
@@ -133,6 +137,9 @@ def ca2all(
     finally:
         junk = glob.glob(prefix + '*')
         try:
-            map(os.remove, junk)
+            for file in junk:
+                os.remove(file)
         except OSError as err:
             logger.warning(_name, err)
+        finally:
+            os.chdir(old_location)
