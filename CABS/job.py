@@ -50,10 +50,12 @@ class CABSTask(object):
         self.ca_rest_add = kwargs.get('ca_rest_add')
         self.ca_rest_file = kwargs.get('ca_rest_file')
         self.ca_rest_weight = kwargs.get('ca_rest_weight')
+        self.category_output = kwargs.get('category_output')
         self.clustering_iterations = kwargs.get('clustering_iterations')
         self.clustering_medoids = kwargs.get('clustering_medoids')
         self.contact_map_colors = kwargs.get('contact_map_colors')
         self.contact_maps = kwargs.get('contact_maps')
+        self.contact_output = kwargs.get('contact_output')
         self.contact_threshold = kwargs.get('contact_threshold')
         self.contact_threshold_aa = kwargs.get('contact_threshold_aa')
         self.dssp_command = kwargs.get('dssp_command')
@@ -77,6 +79,7 @@ class CABSTask(object):
         self.pdb_cache = kwargs.get('pdb_cache_dir')
         self.pdb_output = kwargs.get('pdb_output')
         self.peptide = kwargs.get('peptide')
+        self.plddt_output = kwargs.get('plddt_output')
         self.protein_category = kwargs.get('protein_category')
         self.protein_flexibility = kwargs.get('protein_flexibility')
         self.protein_plddt = kwargs.get('protein_plddt')
@@ -124,7 +127,9 @@ class CABSTask(object):
 
         try:
             logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
-                         save_dssp=self.dssp_output, save_restraints=self.restraints_output)
+                         save_dssp=self.dssp_output, save_restraints=self.restraints_output,
+                         save_plddt=self.plddt_output, save_category=self.category_output,
+                         save_contact=self.contact_output)
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):
@@ -160,11 +165,24 @@ class CABSTask(object):
         if self.add_peptide:
             self.peptides.extend([p for p in self.add_peptide if p])
 
-        # Pdb output processing
-        if 'A' in self.pdb_output:
-            self.pdb_output = 'RFCMS'
-        elif 'N' in self.pdb_output:
-            self.pdb_output = ''
+        valid_letters = set('RFCMSAN')
+
+        try:
+            if not all(letter in valid_letters for letter in self.pdb_output):
+                raise ValueError("Contains letters outside of 'RFCMSAN'.")
+
+            # Process 'A' or 'N' in pdb_output
+            if 'A' in self.pdb_output:
+                self.pdb_output = 'RFCMS'
+            elif 'N' in self.pdb_output:
+                self.pdb_output = ''
+
+        except ValueError as e:
+            logger.exit_program(
+                module_name=_name,
+                msg="Invalid pdb_output. An error occurred: %s" % e,
+                exc=e
+            )
 
         if self.contact_map_colors:
             self.colors = self.contact_map_colors
@@ -294,7 +312,7 @@ class CABSTask(object):
         pass
 
     @abstractmethod
-    def parse_reference(self, ref):
+    def parse_reference(self, ref, pdb_cache):
         mtx_q, mtx_p, dummy_aln = align_to(
             self.reference[0],
             self.reference[1],
@@ -411,7 +429,7 @@ class CABSTask(object):
                     except Exception as e:
                         logger.warning(
                             _name, "Failed to save %s option to config file. Reason: %s." % (
-                                name, e.message)
+                                name, e)
                         )
 
     def setup_cabs_run(self):
@@ -678,7 +696,8 @@ class DockTask(CABSTask):
             )
         logger.info(module_name=_name, msg="Plots successfully saved")
 
-    def _add_cmaps(self,mk_cmap_output):
+    @staticmethod
+    def _add_cmaps(mk_cmap_output):
         # breakpoint()
         map_1, map_2 = mk_cmap_output
         return ContactMap(map_1.cmtx + map_2.cmtx, map_1.s1, map_2.s2, map_1.n + map_2.n)
@@ -739,7 +758,7 @@ class DockTask(CABSTask):
                 ref, pdb_cache=pdb_cache, selection='name CA and (chain %s)' % ','.join(rec + pep),
                 no_exit=True, verify=True
             ).atoms, rec, pep)
-            super(DockTask, self).parse_reference(ref)
+            super(DockTask, self).parse_reference(ref, pdb_cache)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
             logger.info(_name, 'Reference {} loaded.'.format(ref))
@@ -839,6 +858,7 @@ class FlexTask(CABSTask):
         sc_traj_full, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, thra, plots_dir
         )
+        # Here add saving the contact maps
 
         thrt = thra if self.aa_rebuild else thr
 
@@ -870,7 +890,7 @@ class FlexTask(CABSTask):
                     pdblib.Pdb(ref, pdb_cache=pdb_cache, selection='name CA',
                                no_exit=True, verify=True).atoms, trg_chids
                 )
-                super(FlexTask, self).parse_reference(ref)
+                super(FlexTask, self).parse_reference(ref, pdb_cache)
                 logger.info(_name, 'Reference {} loaded.'.format(ref))
             except AttributeError:  # if ref is None it has no split mth
                 ref_stc = self.initial_complex.select(

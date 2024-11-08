@@ -142,7 +142,7 @@ dock_dict = {
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
-                            'restraints-output']),
+                            'restraints-output' 'plddt-output', 'category-output', 'contact-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -174,7 +174,7 @@ flex_dict = {
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
-                            'restraints-output']),
+                            'restraints-output', 'plddt-output', 'category-output', 'contact-output']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -329,6 +329,10 @@ options = {
             'protein) when distance is shorter than minimum (WEIGHT_MIN) or longer than maximum (WEIGHT_MAX) '
             '(default: %(default)s)'
     },
+    'category-output': {
+        'action': 'store_true',
+        'help': 'Store flexibility categories as a file (default is \'%(default)s\')'
+    },
     'clustering-iterations': {
         'default': 100,
         'type': int,
@@ -363,6 +367,10 @@ options = {
         'help':
             'Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.\n'
             '(default: %(default)s)'
+    },
+    'contact-output': {
+        'action': 'store_true',
+        'help': 'Store contacts as a file (default is \'%(default)s\')'
     },
     'contact-threshold': {
         'flag': '-T',
@@ -603,6 +611,10 @@ options = {
             '[3] PDB file with peptide\'s coordinates, loads only a peptide sequence from a PDB file\n\n'
             '\'--peptide PEPTIDE\' is an alias for \'--add-peptide PEPTIDE random random\''
     },
+    'plddt-output': {
+        'action': 'store_true',
+        'help': 'Store pLDDT values as a file (default is \'%(default)s\')'
+    },
     'protein-category': {
         'metavar': 'FILE',
         'action': 'append',
@@ -658,13 +670,19 @@ options = {
         'help':
             'This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the '
             'protein in predefined conformation. (default: %(default)s)\n\n'
-            'MODE can be either:\n'
-            '[1] \'all\' - generate restraints for all protein residues\n'
-            '[2] \'ss1\' - generate restraints only when at least one restrained residue is assigned regular secondary '
-            'structure (helix or sheet)\n'
-            '[3] \'ss2\' - generate restraints only when both restrained residues are assigned regular secondary '
-            'structure (helix, sheet)\n\n'
-            'GAP specifies minimal gap along the main chain for two resiudes to be restrained.\n'
+            'MODE can be either based on plDDT or secondary structure:\n'
+            '[1] \'category\' - Generates restraints based on combination of pLDDT and secondary structure.\n'
+            '[2] \'min\' - Applies the minimum pLDDT score from a residue pair as the restraint strength. No restraints are generated if the score is below 0.5\n'
+            '[3] \'max\' - Uses the maximum pLDDT score of the pair, following the same procedure.\n'
+            '[4] \'mean\' - Uses the average pLDDT score of the pair, following the same procedure.\n'
+            '[5] \'plddt1\' - Generates restraints if at least one of the residues in a pair has a pLDDT score above 50\n.'
+            '[6] \'plddt2\' - Generates restraints only if both residues have pLDDT scores greater than 50.\n'
+            '[7] \'ss1\' - Generates restraints only when at least one restrained residue is assigned regular secondary '
+            'structure (helix or sheet).\n'
+            '[8] \'ss2\' - Generates restraints only when both restrained residues are assigned regular secondary '
+            'structure (helix, sheet).\n'
+            '[9] \'all\' - Generates restraints for all protein residues.\n\n'
+            'GAP specifies minimal gap along the main chain for two residues to be restrained.\n'
             'MIN and MAX are min and max values in Angstroms for two residues to be restrained.'
     },
     'protein-restraints-reduce': {

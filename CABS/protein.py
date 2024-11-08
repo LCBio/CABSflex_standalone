@@ -3,6 +3,7 @@ Classes Protein, Peptide, ProteinComplex - prepares initial complex.
 """
 
 import re
+import os
 import json
 from collections import OrderedDict
 from copy import deepcopy
@@ -15,6 +16,7 @@ from CABS.pdblib import Pdb
 from CABS.atom import Atoms
 from CABS.vector3d import Vector3d
 from CABS import randinit
+from CABS.plots import drop_csv_file
 
 _name = 'Protein'
 
@@ -68,6 +70,15 @@ class Protein(Atoms):
         else:
             self.atoms.set_plddt(1.0)
 
+        if logger.output_plddt():
+            csv_output = os.path.join(work_dir, 'output_data', 'pLDDT')
+            csv_dir = os.path.dirname(csv_output)
+            if not os.path.isdir(csv_dir):
+                os.makedirs(csv_dir)
+            plddt = self.atoms.get_plddt()
+            drop_csv_file(csv_output, [list(plddt.keys()), list(plddt.values())], fmts=["%s", "%s"])
+
+
         # setup flexibility
         if flexibility:
             try:
@@ -113,6 +124,14 @@ class Protein(Atoms):
                 self.atoms.determine_category()
         else:
             self.atoms.determine_category()
+
+        if logger.output_category():
+            csv_output = os.path.join(work_dir, 'output_data', 'category')
+            csv_dir = os.path.dirname(csv_output)
+            if not os.path.isdir(csv_dir):
+                os.makedirs(csv_dir)
+            category = self.atoms.get_category()
+            drop_csv_file(csv_output, [list(category.keys()), list(category.values())], fmts=["%s", "%s"])
 
         # setup excluding
         self.exclude = {}
@@ -165,7 +184,7 @@ class Protein(Atoms):
                 default = 1.0
                 self.weights = []
                 weights_dict = {}
-                with open(weights, 'rb') as _file:
+                with open(weights, 'r') as _file:
                     for line in _file:
                         k, v = line.split()[:2]
                         weights_dict[k] = v
@@ -441,7 +460,12 @@ class ProteinComplex(Atoms):
                 taken_chains += peptide[0].chid
                 self.peptide_chains += peptide[0].chid
                 self.peptides.append(peptide)
-                self.old_ids.update({atom.resid_id(): '%i:PEP%i' % (i + 1, num + 1) for i, atom in enumerate(peptide)})
+                update_dict = {}
+                i = 1
+                for atom in peptide:
+                    update_dict[atom.resid_id()] = '%i:PEP%i' % (i, num + 1)
+                    i += 1
+                self.old_ids.update(update_dict)
                 self.chain_list.update(peptide.list_chains())
         self.new_ids = {v: k for k, v in self.old_ids.items()}
 
@@ -467,7 +491,7 @@ class ProteinComplex(Atoms):
                         model.atoms.extend(peptide)
                         break
                 else:
-                    raise Exception('Maximum number of attempts to insert peptide %s reached!!!' % peptide.name)
+                    raise Exception('Maximum number of attempts to insert peptide %s reached!!!' % peptide) #used to be peptide.name
             self.atoms.extend(model)
         logger.debug(module_name=_name, msg="Complex successfully created")
 
