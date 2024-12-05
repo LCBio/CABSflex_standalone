@@ -9,7 +9,13 @@ setup(
     license='MIT',
     author='Laboratory of Computational Biology',
     author_email='k.wroblewski7@uw.edu.pl',
-    install_requires=['numpy', 'matplotlib', 'requests'],
+    install_requires=[
+        'numpy',
+        'matplotlib',
+        'requests',
+        'biopandas',
+        'tqdm'
+    ],
     description='CABS in python3',
     entry_points={
         'console_scripts': [
