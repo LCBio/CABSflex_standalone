@@ -3,10 +3,6 @@ import sys
 import importlib.util
 import traceback as _tr
 from shutil import rmtree
-from pathlib import Path
-import os
-from tqdm import tqdm
-from CABS.atom import convert_cg_to_all, synchronize_residue_numbers
 
 
 try:
@@ -78,18 +74,6 @@ def run(cabs_cmd: str, cmd_line: str):
         logger.close_log()
         for _file in _JUNK:
             rmtree(_file, ignore_errors=True)
-        output_dir = Path(job.work_dir) / "output_pdbs"
-        input_pdb = Path(job.input_protein)
-        list_of_output_files = [
-            (output_dir /
-             file) for file in os.listdir(output_dir) if 'model' in file]
-        logger.info(module_name, "Converting CG to all-atom")
-        for file in tqdm(list_of_output_files):
-            convert_cg_to_all(file)
-            fetch_flag = False
-            if not input_pdb.is_file():
-                fetch_flag = True
-            synchronize_residue_numbers(input_pdb, file, fetch_flag)
 
 
 def run_dock(cmd_line=sys.argv[1:]):

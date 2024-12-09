@@ -14,9 +14,7 @@ from functools import reduce
 
 from abc import ABCMeta, abstractmethod
 from CABS import logger, pdblib, cabs, utils
-from CABS.align import save_csv
-from CABS.align import AlignError
-from CABS.align import align_to
+from CABS.align import save_csv, AlignError, align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
@@ -27,6 +25,7 @@ from CABS.trajectory import Trajectory
 from CABS.pdblib import Pdb
 import CABS.optparser as opt_parser
 from CABS.cmap import ContactMap
+from CABS.utils import convert_cg_to_all
 
 _name = 'JOB'
 _CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS", "PAIRMOD"]
@@ -39,10 +38,11 @@ class CABSTask(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
-
         # self.__dict__.update(kwargs)
         self.aa_method = kwargs.get('aa_method')
         self.aa_rebuild = kwargs.get('aa_rebuild')
+        # self.cg2all = True  #kwargs.get('cg2all_rebuild')
+        # self.modeller = kwargs.get('modeller-rebuild')
         self.add_peptide = kwargs.get('add_peptide')
         self.align = kwargs.get('align')
         self.align_options = dict(kwargs.get('align_options', []))
@@ -501,7 +501,8 @@ class CABSTask(object):
         return self.trajectory
 
     @abstractmethod
-    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
+    def score_results(self, n_filtered, number_of_medoids,
+                      number_of_iterations):
         pass
 
     def save_models(self):
@@ -530,8 +531,10 @@ class CABSTask(object):
                 cluster.to_pdb(mode='replicas', to_dir=output_folder,
                                name='cluster_{0}'.format(i))
         if 'S' in self.pdb_output:
-            logger.log_file(module_name=_name, msg='Saving starting structure...')
-            self.initial_complex.save_to_pdb(os.path.join(output_folder, 'start.pdb'))
+            logger.log_file(module_name=_name,
+                            msg='Saving starting structure...')
+            self.initial_complex.save_to_pdb(
+                os.path.join(output_folder, 'start.pdb'))
 
         # Saving final models:
         if 'M' in self.pdb_output:
@@ -565,6 +568,8 @@ class CABSTask(object):
                     pdb_medoids = self.medoids.to_pdb()
                     logger.log_file(
                         module_name=_name, msg='Running cg2all to rebuild models')
+                    for i, fname in enumerate(pdb_medoids):
+                        convert_cg_to_all(fname, work_dir=self.work_dir, iter=i)
                     pass
                 else:
                     logger.warning(

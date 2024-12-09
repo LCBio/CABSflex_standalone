@@ -5,10 +5,6 @@ Atoms is a container for Atom objects, without actually specifying if they are i
 
 import re
 import numpy as np
-import subprocess
-from pathlib import Path
-from biopandas.pdb import PandasPdb
-
 from math import sqrt
 from copy import deepcopy
 from itertools import combinations
@@ -968,64 +964,6 @@ class Selection:
 
     def __repr__(self):
         return " ".join(self.tokens)
-
-def convert_cg_to_all(pdb_file: Path):
-    """Converts coarse-grained pdb file to full atom pdb file.
-    
-    Args:
-        output_pdb_file_list (list): List of coarse-grained pdb files.
-    Returns:
-        Full atom PDB via subprocess.CompletedProcess: CompletedProces
-    """
-    # strip .pdb extension
-    out_pdb = pdb_file.parent / f"{pdb_file.stem}_full.pdb"
-    command = f"convert_cg2all -p {pdb_file} -o {out_pdb}"
-    return subprocess.run(command, shell=True, check=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                            text=True)
-
-
-def synchronize_residue_numbers(input_pdb_path, output_pdb_path,
-                                fetch_flag=False):
-    """
-    Synchronizes residue numbering from the input PDB file to the output
-    PDB file, considering chain IDs.
-
-    Args:
-        input_pdb_path (str): Path to the input PDB file with correct
-        residue numbering.
-        output_pdb_path (str): Path to the output PDB file, which will
-        be overwritten.
-        fetch_flag (bool): If True, the input_pdb_path is a PDB ID and
-        should be fetched using the PandasPdb.fetch_pdb method.
-
-    Overwrites the output_pdb_path file with the updated residue numbering.
-    """
-    # Wczytaj oba pliki PDB
-    if fetch_flag is True:
-        input_pdb = PandasPdb().fetch_pdb(str(input_pdb_path).split(':')[0])
-    else:
-        input_pdb = PandasPdb().read_pdb(input_pdb_path)  # Plik wejściowy
-    output_pdb = PandasPdb().read_pdb(output_pdb_path)  # Plik wyjściowy
-
-    input_atoms = input_pdb.df['ATOM']
-    output_atoms = output_pdb.df['ATOM']
-
-    for i, row in input_atoms.iterrows():
-        mask = (
-            (output_atoms['residue_name'] == row['residue_name']) &
-            (output_atoms['atom_name'] == row['atom_name']) &
-            (output_atoms['chain_id'] == row['chain_id'])
-        )
-
-        if mask.any():
-            output_atoms.loc[mask, 'residue_number'] = row['residue_number']
-
-    output_pdb.df['ATOM'] = output_atoms
-    output_pdb.to_pdb(path=output_pdb_path, records=None, gz=False)
-    if fetch_flag:
-        input_pdb_path.unlink()
 
 
 if __name__ == '__main__':
