@@ -137,12 +137,13 @@ dock_dict = {
                                 'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
                                 'replicas-dtemp', 'temperature', 'random-seed', 'binding-interactions']),
-        ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'modeller-iterations']),
+        ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'aa-method', 'modeller-iterations']),
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
-                            'restraints-output', 'plddt-output', 'category-output', 'contact-output']),
+                            'restraints-output', 'plddt-output', 'category-output', 'contact-output',
+                            'renumber_residues_to_original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -169,12 +170,13 @@ flex_dict = {
                                 'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
                                 'replicas-dtemp', 'temperature', 'random-seed', 'binding-interactions']),
-        ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'modeller-iterations']),
+        ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'aa-method', 'modeller-iterations']),
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
-                            'restraints-output', 'plddt-output', 'category-output', 'contact-output']),
+                            'restraints-output', 'plddt-output', 'category-output', 'contact-output',
+                            'renumber_residues_to_original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -222,6 +224,14 @@ groups = {
 
 
 options = {
+    'aa-method': {
+        'metavar': 'ARG',
+        'default': 'cg2all',
+        'help':
+            'Set method for all-atom reconstruction. ARG can be either:\n\n'
+            '[1] \'cg2all\' - use cg2all package for all-atom reconstruction (default)\n'
+            '[2] \'modeller\' - use MODELLER package for all-atom reconstruction\n'
+    },
     'aa-rebuild': {
         'flag': '-A',
         'action': 'store_true',
@@ -720,6 +730,10 @@ options = {
             '[1] [pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...\n'
             '[2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...\n\n'
             'i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE'
+    },
+    'renumber_residues_to_original': {
+        'action': 'store_true',
+        'help': 'Renumber residues to original numbering in the input pdb file.'
     },
     'replicas': {
         'flag': '-r',

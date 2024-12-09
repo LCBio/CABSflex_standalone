@@ -41,6 +41,7 @@ class CABSTask(object):
     def __init__(self, **kwargs):
 
         # self.__dict__.update(kwargs)
+        self.aa_method = kwargs.get('aa_method')
         self.aa_rebuild = kwargs.get('aa_rebuild')
         self.add_peptide = kwargs.get('add_peptide')
         self.align = kwargs.get('align')
@@ -90,6 +91,7 @@ class CABSTask(object):
         self.receptor_ss = kwargs.get('receptor_ss')
         self.reference_pdb = kwargs.get('reference_pdb')
         self.remote = kwargs.get('log')
+        self.renumber = kwargs.get('renumber_residues_to_original')
         self.replicas = kwargs.get('replicas')
         self.replicas_dtemp = kwargs.get('replicas_dtemp')
         self.restraints_output = kwargs.get('restraints_output')
@@ -520,31 +522,53 @@ class CABSTask(object):
         # Saving final models:
         if 'M' in self.pdb_output:
             if self.aa_rebuild:
-                logger.log_file(
-                    module_name=_name, msg='Saving final models (in AA representation)')
-                pdb_medoids = self.medoids.to_pdb()
-                from CABS.ca2all import ca2all
-                from CABS.pdblib import Pdb
-                for i, fname in enumerate(pdb_medoids):
-                    ca2all(
-                        fname,
-                        output=os.path.join(
-                            output_folder, 'model_{0}.pdb'.format(i)),
-                        iterations=self.modeller_iterations,
-                        out_mdl=os.path.join(
-                            self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
-                        work_dir=self.work_dir
-                    )
-                    pth_tmp = os.path.join(
-                        self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
-                    mod = Pdb(pth_tmp)
-                    ssh = mod.mk_ss_header()
-                    mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                if self.aa_method == 'modeller':
+                    logger.log_file(
+                        module_name=_name, msg='Saving final models (in AA representation)')
+                    pdb_medoids = self.medoids.to_pdb()
+                    from CABS.ca2all import ca2all
+                    from CABS.pdblib import Pdb
+                    logger.log_file(
+                        module_name=_name, msg='Running Modeller to rebuild models')
+                    for i, fname in enumerate(pdb_medoids):
+                        ca2all(
+                            fname,
+                            output=os.path.join(
+                                output_folder, 'model_{0}.pdb'.format(i)),
+                            iterations=self.modeller_iterations,
+                            out_mdl=os.path.join(
+                                self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                            work_dir=self.work_dir
+                        )
+                        pth_tmp = os.path.join(
+                            self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                        mod = Pdb(pth_tmp)
+                        ssh = mod.mk_ss_header()
+                        mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                elif self.aa_method == 'cg2all':
+                    logger.log_file(
+                        module_name=_name, msg='Saving final models (in AA representation)')
+                    pdb_medoids = self.medoids.to_pdb()
+                    logger.log_file(
+                        module_name=_name, msg='Running cg2all to rebuild models')
+                    pass
+                else:
+                    logger.warning(
+                        module_name=_name, msg='Unknown AA method: %s' % self.aa_method)
+                    logger.log_file(
+                        module_name=_name, msg='Saving final models (in CA representation)')
+                    self.medoids.to_pdb(
+                        mode='models', to_dir=output_folder, name='model')
             else:
                 logger.log_file(
                     module_name=_name, msg='Saving final models (in CA representation)')
                 self.medoids.to_pdb(
                     mode='models', to_dir=output_folder, name='model')
+
+            if self.renumber:
+                logger.log_file(
+                    module_name=_name, msg='Renumbering residues to original numbering')
+                pass
 
 
 class DockTask(CABSTask):
