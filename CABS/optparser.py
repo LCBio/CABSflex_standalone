@@ -663,7 +663,6 @@ options = {
             'Multiple entries can be used.',
     },
     'protein-plddt': {
-        'default': 'pdb',
         'metavar': 'FLEXIBILITY',
         'help':
             'Read pLLDT values in order to modify flexibility of selected protein\'s residues:\n\n'
