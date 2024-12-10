@@ -38,11 +38,8 @@ class CABSTask(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
-        # self.__dict__.update(kwargs)
         self.aa_method = kwargs.get('aa_method')
         self.aa_rebuild = kwargs.get('aa_rebuild')
-        # self.cg2all = True  #kwargs.get('cg2all_rebuild')
-        # self.modeller = kwargs.get('modeller-rebuild')
         self.add_peptide = kwargs.get('add_peptide')
         self.align = kwargs.get('align')
         self.align_options = dict(kwargs.get('align_options', []))

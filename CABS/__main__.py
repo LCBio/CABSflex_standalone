@@ -84,7 +84,6 @@ def run_flex(cmd_line=sys.argv[1:]):
     run('flex', cmd_line)
 
 
-
 def pre_parser():
     pre_parser = argparse.ArgumentParser(description="Custom command-line utility")
     pre_parser.add_argument("cabs_cmd", choices=["dock", "flex"], help="Specify the command (dock or flex)")

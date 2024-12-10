@@ -238,20 +238,6 @@ options = {
         'help':
             'Rebuild final models to all-atom representation. (default: %(default)s)'
     },
-    'modeller-rebuild': {
-        'flag': '-RM',
-        'default': 'False',
-        'action': 'store_true',
-        'help':
-            'Rebuild final models to all-atom representation using MODELLER package. (default: %(default)s)'
-    },
-    'cg2all-rebuild': {
-        'flag': '-RC',
-        'default': 'True',
-        'action': 'store_true',
-        'help':
-            'Rebuild final models to all-atom representation using CABS-flex2all package. (default: %(default)s)'
-    },
     'add-peptide': {
         'flag': '-P',
         'nargs': 3,
