@@ -240,84 +240,58 @@ class Pdb(object):
                 content = f.read()
         return content
 
+    def run_dssp_command(self, command):
+        """Run a subprocess command and return the output, error, and return code."""
+        try:
+            proc = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+            stdout, stderr = proc.communicate(input=self.body.encode('utf-8'))
+            out = stdout.decode('utf-8')
+            err = stderr.decode('utf-8')
+            if stderr:
+                if err.find('unrecognised option \'--output-format\'') == -1:
+                    logger.critical(
+                        module_name=_name,
+                        msg='DSSP ERROR: %s' % err.replace('\n', ' ')
+                    )
+                return None, None, -1
+            return out, err, proc.returncode
+        except OSError:
+            return None, None, -1
+
     def dssp(self, output=''):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
-        out = err = None
+        commands_to_try = [
+            [self.DSSP_COMMAND, '--output-format', 'dssp', '/dev/stdin'],
+            [self.DSSP_COMMAND, '/dev/stdin'],
+            ['mkdssp', '--output-format', 'dssp', '/dev/stdin'],
+            ['dssp', '/dev/stdin'],
+        ]
 
-        try:
-            proc = Popen([self.DSSP_COMMAND, '--output-format', 'dssp', '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        except OSError:
-            try:
-                proc = Popen([self.DSSP_COMMAND, '/dev/stdin'], stdin=PIPE, stdout=PIPE,
-                             stderr=PIPE)
-            except OSError:
-                try:
-                    proc = Popen(['mkdssp', '--output-format', 'dssp', '/dev/stdin'], stdin=PIPE, stdout=PIPE,
-                                 stderr=PIPE)
-                except OSError:
-                    try:
-                        proc = Popen(['dssp', '/dev/stdin'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-                    except OSError:
-                        logger.warning(
-                            module_name=_name,
-                            msg='DSSP not found.'
-                        )
-                        '''
-                        tempfile = mkstemp(suffix='.pdb', prefix='.tmp.dssp.', dir=PDB_CACHE)[1]
-                        with open(tempfile, 'wb') as f:
-                            f.write(self.body.encode('utf-8'))
-    
-                        try:
-                            logger.debug(
-                                module_name=_name,
-                                msg='Submitting structure to the DSSP server'
-                            )
-                            out, err = self.xssp(tempfile)
-    
-                        except (HTTPError, ConnectionError):
-                            logger.warning(
-                                module_name=_name,
-                                msg='Cannot connect to the DSSP server. DSSP was not ran at all.'
-                            )
-                            return None
-                        finally:
-                            try:
-                                os.remove(tempfile)
-                            except OSError:
-                                pass
-                        '''
-                        logger.warning(
-                            module_name=_name,
-                            msg='DSSP was not ran at all.'
-                        )
-                        return None
+        out, err, return_code = None, None, -1
+        for command in commands_to_try:
+            out, err, return_code = self.run_dssp_command(command)
+            if return_code == 0:
+                logger.debug(_name, 'DSSP successful')
+                break
 
-        b_out, b_err = proc.communicate(input=self.body.encode('utf-8'))
-        out = b_out.decode('utf-8')
-        err = b_err.decode('utf-8')
-        logger.debug(
-            module_name=_name,
-            msg='Running DSSP'
-        )
-        if err:
-            logger.critical(
+        if return_code != 0:
+            logger.warning(
                 module_name=_name,
-                msg='DSSP ERROR: %s' % err.replace('\n', ' ')
+                msg='DSSP was not ran at all.'
             )
             return None
-        else:
-            logger.debug(_name, 'DSSP successful')
-            if output and logger.log_files():
-                output_dssp = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
-                d = os.path.dirname(output_dssp)
-                if not os.path.isdir(d):
-                    os.makedirs(d)
-                logger.to_file(
-                    filename=output_dssp,
-                    content=out,
-                    msg='Saving DSSP output to %s' % output_dssp
-                )
+
+        if output and logger.log_files():
+            output_dssp = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
+            d = os.path.dirname(output_dssp)
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            logger.to_file(
+                filename=output_dssp,
+                content=out,
+                msg='Saving DSSP output to %s' % output_dssp
+            )
 
         sec = OrderedDict()
         p = '^([0-9 ]{5}) ([0-9 ]{4}.)([A-Z ]) ([A-Z])  ([HBEGITSP ])(.*)$'
