@@ -48,10 +48,14 @@ _remote = False
 _prefix = color_prefix
 _save_dssp = False
 _save_restraints = False
+_save_plddt = False
+_save_category = False
+_save_contact = False
 
-
-def setup(log_level=2, remote=False, work_dir='', save_dssp=False, save_restraints=False):
-    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_dssp, _save_restraints
+def setup(log_level=2, remote=False, work_dir='', save_dssp=False, save_restraints=False,
+          save_plddt=False, save_category=False, save_contact=False):
+    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_dssp, _save_restraints, _save_plddt,\
+        _save_category, _save_contact
     global _line_format, _middle_line_format, _first_line_format, _last_line_format
     _remote = remote
     if _remote or not sys.stderr.isatty():
@@ -83,6 +87,9 @@ def setup(log_level=2, remote=False, work_dir='', save_dssp=False, save_restrain
     info(_name, 'Verbosity set to: ' + str(log_level) + ' - ' + log_levels[log_level])
     _save_dssp = save_dssp
     _save_restraints = save_restraints
+    _save_plddt = save_plddt
+    _save_category = save_category
+    _save_contact = save_contact
 
 
 def close_log():
@@ -109,6 +116,27 @@ def output_restraints():
     :return: True if flag --restraints-output was set
     """
     return _save_restraints
+
+
+def output_plddt():
+    """
+    :return: True if flag --plddt-output was set
+    """
+    return _save_plddt
+
+
+def output_category():
+    """
+    :return: True if flag --category-output was set
+    """
+    return _save_category
+
+
+def output_contact():
+    """
+    :return: True if flag --contact-output was set
+    """
+    return _save_contact
 
 
 def coloring(color_name='light_blue', msg=''):
@@ -297,7 +325,7 @@ class CabsObserver(Thread):
         self.exit_event.set()
 
     def run(self):
-        while not self.exit_event.isSet():
+        while not self.exit_event.is_set():
             if self.progress_bar.update(self.status()):
                 self.exit()
             sleep(self.interval)

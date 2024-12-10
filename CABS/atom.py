@@ -5,7 +5,6 @@ Atoms is a container for Atom objects, without actually specifying if they are i
 
 import re
 import numpy as np
-
 from math import sqrt
 from copy import deepcopy
 from itertools import combinations
@@ -771,6 +770,16 @@ class Atoms(object):
         for atom in self.atoms:
             atom.plddt = plddt
         return self
+
+    def get_plddt(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = plddt.
+        :return: {str: float}
+        """
+        plddt = {}
+        for a in self.atoms:
+            plddt[a.resid_id()] = a.plddt
+        return plddt
     
     def update_category(self, category):
         """
@@ -794,6 +803,16 @@ class Atoms(object):
         for atom in self.atoms:
             atom.set_category()
         return self
+
+    def get_category(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = category.
+        :return: {str: float}
+        """
+        category = {}
+        for a in self.atoms:
+            category[a.resid_id()] = a.category
+        return category
 
     def valid_residues(self, must_have='CA, N, C, O'):
         """

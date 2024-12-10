@@ -14,9 +14,7 @@ from functools import reduce
 
 from abc import ABCMeta, abstractmethod
 from CABS import logger, pdblib, cabs, utils
-from CABS.align import save_csv
-from CABS.align import AlignError
-from CABS.align import align_to
+from CABS.align import save_csv, AlignError, align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
@@ -27,6 +25,7 @@ from CABS.trajectory import Trajectory
 from CABS.pdblib import Pdb
 import CABS.optparser as opt_parser
 from CABS.cmap import ContactMap
+from CABS.utils import convert_cg_to_all
 
 _name = 'JOB'
 _CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS", "PAIRMOD"]
@@ -39,9 +38,11 @@ class CABSTask(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
-
         # self.__dict__.update(kwargs)
+        self.aa_method = kwargs.get('aa_method')
         self.aa_rebuild = kwargs.get('aa_rebuild')
+        # self.cg2all = True  #kwargs.get('cg2all_rebuild')
+        # self.modeller = kwargs.get('modeller-rebuild')
         self.add_peptide = kwargs.get('add_peptide')
         self.align = kwargs.get('align')
         self.align_options = dict(kwargs.get('align_options', []))
@@ -50,10 +51,12 @@ class CABSTask(object):
         self.ca_rest_add = kwargs.get('ca_rest_add')
         self.ca_rest_file = kwargs.get('ca_rest_file')
         self.ca_rest_weight = kwargs.get('ca_rest_weight')
+        self.category_output = kwargs.get('category_output')
         self.clustering_iterations = kwargs.get('clustering_iterations')
         self.clustering_medoids = kwargs.get('clustering_medoids')
         self.contact_map_colors = kwargs.get('contact_map_colors')
         self.contact_maps = kwargs.get('contact_maps')
+        self.contact_output = kwargs.get('contact_output')
         self.contact_threshold = kwargs.get('contact_threshold')
         self.contact_threshold_aa = kwargs.get('contact_threshold_aa')
         self.dssp_command = kwargs.get('dssp_command')
@@ -77,6 +80,7 @@ class CABSTask(object):
         self.pdb_cache = kwargs.get('pdb_cache_dir')
         self.pdb_output = kwargs.get('pdb_output')
         self.peptide = kwargs.get('peptide')
+        self.plddt_output = kwargs.get('plddt_output')
         self.protein_category = kwargs.get('protein_category')
         self.protein_flexibility = kwargs.get('protein_flexibility')
         self.protein_plddt = kwargs.get('protein_plddt')
@@ -87,6 +91,7 @@ class CABSTask(object):
         self.receptor_ss = kwargs.get('receptor_ss')
         self.reference_pdb = kwargs.get('reference_pdb')
         self.remote = kwargs.get('log')
+        self.renumber = kwargs.get('renumber_residues_to_original')
         self.replicas = kwargs.get('replicas')
         self.replicas_dtemp = kwargs.get('replicas_dtemp')
         self.restraints_output = kwargs.get('restraints_output')
@@ -124,7 +129,9 @@ class CABSTask(object):
 
         try:
             logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
-                         save_dssp=self.dssp_output, save_restraints=self.restraints_output)
+                         save_dssp=self.dssp_output, save_restraints=self.restraints_output,
+                         save_plddt=self.plddt_output, save_category=self.category_output,
+                         save_contact=self.contact_output)
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):
@@ -160,11 +167,24 @@ class CABSTask(object):
         if self.add_peptide:
             self.peptides.extend([p for p in self.add_peptide if p])
 
-        # Pdb output processing
-        if 'A' in self.pdb_output:
-            self.pdb_output = 'RFCMS'
-        elif 'N' in self.pdb_output:
-            self.pdb_output = ''
+        valid_letters = set('RFCMSAN')
+
+        try:
+            if not all(letter in valid_letters for letter in self.pdb_output):
+                raise ValueError("Contains letters outside of 'RFCMSAN'.")
+
+            # Process 'A' or 'N' in pdb_output
+            if 'A' in self.pdb_output:
+                self.pdb_output = 'RFCMS'
+            elif 'N' in self.pdb_output:
+                self.pdb_output = ''
+
+        except ValueError as e:
+            logger.exit_program(
+                module_name=_name,
+                msg="Invalid pdb_output. An error occurred: %s" % e,
+                exc=e
+            )
 
         if self.contact_map_colors:
             self.colors = self.contact_map_colors
@@ -176,6 +196,20 @@ class CABSTask(object):
         if self.gauss and self.gauss_iterations:
 
             utils.GAUSS_MAX_ITER = self.gauss_iterations
+
+        # Check whether to use restraints based on pLDDT
+        mode, gap, min_d, max_d = self.protein_restraints
+        if (
+        mode in ['min', 'max', 'mean', 'plddt1', 'plddt2'] and not self.protein_plddt
+        ) or (
+        mode == 'category' and not (self.protein_plddt or self.protein_category)
+        ):
+            logger.warning(
+                _name, 'No information about pLDDT or flexibility categories provided. '
+                       'Changing protein restraints  mode to \'all\'. '
+                       'If you want to use restraints based on pLDDT or flexibility categories, '
+                       'please provide the necessary data.')
+            self.protein_restraints = ('all', gap, min_d, max_d)
 
         # pairwise potential modification
         if self.pairmod:
@@ -294,7 +328,7 @@ class CABSTask(object):
         pass
 
     @abstractmethod
-    def parse_reference(self, ref):
+    def parse_reference(self, ref, pdb_cache):
         mtx_q, mtx_p, dummy_aln = align_to(
             self.reference[0],
             self.reference[1],
@@ -411,7 +445,7 @@ class CABSTask(object):
                     except Exception as e:
                         logger.warning(
                             _name, "Failed to save %s option to config file. Reason: %s." % (
-                                name, e.message)
+                                name, e)
                         )
 
     def setup_cabs_run(self):
@@ -467,7 +501,8 @@ class CABSTask(object):
         return self.trajectory
 
     @abstractmethod
-    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
+    def score_results(self, n_filtered, number_of_medoids,
+                      number_of_iterations):
         pass
 
     def save_models(self):
@@ -496,37 +531,63 @@ class CABSTask(object):
                 cluster.to_pdb(mode='replicas', to_dir=output_folder,
                                name='cluster_{0}'.format(i))
         if 'S' in self.pdb_output:
-            logger.log_file(module_name=_name, msg='Saving starting structure...')
-            self.initial_complex.save_to_pdb(os.path.join(output_folder, 'start.pdb'))
+            logger.log_file(module_name=_name,
+                            msg='Saving starting structure...')
+            self.initial_complex.save_to_pdb(
+                os.path.join(output_folder, 'start.pdb'))
 
         # Saving final models:
         if 'M' in self.pdb_output:
             if self.aa_rebuild:
-                logger.log_file(
-                    module_name=_name, msg='Saving final models (in AA representation)')
-                pdb_medoids = self.medoids.to_pdb()
-                from CABS.ca2all import ca2all
-                from CABS.pdblib import Pdb
-                for i, fname in enumerate(pdb_medoids):
-                    ca2all(
-                        fname,
-                        output=os.path.join(
-                            output_folder, 'model_{0}.pdb'.format(i)),
-                        iterations=self.modeller_iterations,
-                        out_mdl=os.path.join(
-                            self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
-                        work_dir=self.work_dir
-                    )
-                    pth_tmp = os.path.join(
-                        self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
-                    mod = Pdb(pth_tmp)
-                    ssh = mod.mk_ss_header()
-                    mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                if self.aa_method == 'modeller':
+                    logger.log_file(
+                        module_name=_name, msg='Saving final models (in AA representation)')
+                    pdb_medoids = self.medoids.to_pdb()
+                    from CABS.ca2all import ca2all
+                    from CABS.pdblib import Pdb
+                    logger.log_file(
+                        module_name=_name, msg='Running Modeller to rebuild models')
+                    for i, fname in enumerate(pdb_medoids):
+                        ca2all(
+                            fname,
+                            output=os.path.join(
+                                output_folder, 'model_{0}.pdb'.format(i)),
+                            iterations=self.modeller_iterations,
+                            out_mdl=os.path.join(
+                                self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                            work_dir=self.work_dir
+                        )
+                        pth_tmp = os.path.join(
+                            self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                        mod = Pdb(pth_tmp)
+                        ssh = mod.mk_ss_header()
+                        mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                elif self.aa_method == 'cg2all':
+                    logger.log_file(
+                        module_name=_name, msg='Saving final models (in AA representation)')
+                    pdb_medoids = self.medoids.to_pdb()
+                    logger.log_file(
+                        module_name=_name, msg='Running cg2all to rebuild models')
+                    for i, fname in enumerate(pdb_medoids):
+                        convert_cg_to_all(fname, work_dir=self.work_dir, iter=i)
+                    pass
+                else:
+                    logger.warning(
+                        module_name=_name, msg='Unknown AA method: %s' % self.aa_method)
+                    logger.log_file(
+                        module_name=_name, msg='Saving final models (in CA representation)')
+                    self.medoids.to_pdb(
+                        mode='models', to_dir=output_folder, name='model')
             else:
                 logger.log_file(
                     module_name=_name, msg='Saving final models (in CA representation)')
                 self.medoids.to_pdb(
                     mode='models', to_dir=output_folder, name='model')
+
+            if self.renumber:
+                logger.log_file(
+                    module_name=_name, msg='Renumbering residues to original numbering')
+                pass
 
 
 class DockTask(CABSTask):
@@ -678,7 +739,8 @@ class DockTask(CABSTask):
             )
         logger.info(module_name=_name, msg="Plots successfully saved")
 
-    def _add_cmaps(self,mk_cmap_output):
+    @staticmethod
+    def _add_cmaps(mk_cmap_output):
         # breakpoint()
         map_1, map_2 = mk_cmap_output
         return ContactMap(map_1.cmtx + map_2.cmtx, map_1.s1, map_2.s2, map_1.n + map_2.n)
@@ -739,7 +801,7 @@ class DockTask(CABSTask):
                 ref, pdb_cache=pdb_cache, selection='name CA and (chain %s)' % ','.join(rec + pep),
                 no_exit=True, verify=True
             ).atoms, rec, pep)
-            super(DockTask, self).parse_reference(ref)
+            super(DockTask, self).parse_reference(ref, pdb_cache)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
             logger.info(_name, 'Reference {} loaded.'.format(ref))
@@ -839,6 +901,7 @@ class FlexTask(CABSTask):
         sc_traj_full, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, thra, plots_dir
         )
+        # Here add saving the contact maps
 
         thrt = thra if self.aa_rebuild else thr
 
@@ -870,7 +933,7 @@ class FlexTask(CABSTask):
                     pdblib.Pdb(ref, pdb_cache=pdb_cache, selection='name CA',
                                no_exit=True, verify=True).atoms, trg_chids
                 )
-                super(FlexTask, self).parse_reference(ref)
+                super(FlexTask, self).parse_reference(ref, pdb_cache)
                 logger.info(_name, 'Reference {} loaded.'.format(ref))
             except AttributeError:  # if ref is None it has no split mth
                 ref_stc = self.initial_complex.select(
