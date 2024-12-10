@@ -75,6 +75,7 @@ def run(cabs_cmd: str, cmd_line: str):
         for _file in _JUNK:
             rmtree(_file, ignore_errors=True)
 
+
 def run_dock(cmd_line=sys.argv[1:]):
     run('dock', cmd_line)
 

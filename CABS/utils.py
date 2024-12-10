@@ -4,6 +4,12 @@ import warnings
 from string import ascii_uppercase
 from pkg_resources import resource_filename
 from random import uniform
+from pathlib import Path
+import subprocess
+from CABS import logger
+import os
+from tempfile import mkstemp
+from contextlib import closing
 
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
@@ -996,3 +1002,46 @@ def random_rotation_matrix():
     rz = np.array([[cos(z), -sin(z), 0], [sin(z), cos(z), 0], [0, 0, 1]])
 
     return (rx.dot(ry)).dot(rz)
+
+
+def convert_cg_to_all(filename, work_dir='.', iter=0):
+    """
+    Convert coarse-grained model to all-atom
+    """
+    pdb = mkstemp(prefix='.', suffix='.pdb', dir=work_dir, text=True)[1]
+
+    atoms = []
+    pattern = re.compile('ATOM.{9}CA .([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*')
+    with closing(filename) as f, open(pdb, 'w') as tmp:
+        for line in f:
+            if line.startswith('ENDMDL'):
+                break
+            else:
+                match = re.match(pattern, line)
+                if match:
+                    atoms.append(match.groups())
+                    tmp.write(line)
+    output_dir = Path(work_dir) / "output_pdbs"
+    input_pdb = Path(tmp.name)
+    logger.info("CG2ALL", "Converting CG to all-atom")
+    fout = f"model_{iter}.pdb"
+    command = f"convert_cg2all -p {input_pdb} -o {output_dir / fout}"
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed with exit code {e.returncode}")
+        print("Standard output:")
+        print(e.stdout)
+        print("Standard error:")
+        print(e.stderr)
+        raise
+    finally:
+        os.remove(tmp.name)
