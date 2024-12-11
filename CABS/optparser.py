@@ -143,7 +143,7 @@ dock_dict = {
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
                             'restraints-output', 'plddt-output', 'category-output', 'contact-output',
-                            'renumber_residues_to_original']),
+                            'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -166,8 +166,8 @@ flex_dict = {
         ('BASIC OPTIONS', ['input-protein', 'config']),
         ('PROTEIN OPTIONS', ['protein-flexibility', 'protein-restraints', 'protein-restraints-reduce', 'protein-plddt',
                              'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss']),
-        ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
-                                'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
+        ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight', 'sc-rest-weight', 'ca-rest-file',
+                                'sc-rest-file', 'disulfide-bonds', 'backbone-cyclization']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
                                 'replicas-dtemp', 'temperature', 'random-seed', 'binding-interactions']),
         ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'aa-method', 'modeller-iterations']),
@@ -176,7 +176,7 @@ flex_dict = {
                               'contact-map-colors', 'align', 'align-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
                             'restraints-output', 'plddt-output', 'category-output', 'contact-output',
-                            'renumber_residues_to_original']),
+                            'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -293,6 +293,20 @@ options = {
         'type': lambda x: x.split('='),
         'help': 'Path to alignment with reference structure. If set, the \'--align\' option is ignored'
     },
+    'backbone-cyclization': {
+        'nargs': '?',
+        'const': 'A',
+        'action': 'append',
+        'metavar': 'CHAIN',
+        'help':
+            'Indicate if this is a backbone cyclic peptide protein. CABS adds a restraint between the first and last residues '
+            'of the specified chains. By default, cyclization is added for chain \'A\' if no argument is provided.\n\n'
+            'Examples:\n'
+            '--backbone-cyclization       # Chain A is cyclic\n'
+            '--backbone-cyclization --backbone-cyclization B  # Chains A and B are both cyclic\n'
+            'Invalid:\n'
+            '--backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-cyclization'
+    },
     'binding-interactions': {
         'flag': '-b',
         'metavar': 'FACTOR',
@@ -396,6 +410,17 @@ options = {
         'metavar': 'DIST',
         'help':
             'Set contact distance between heavy atoms for contact map plotting. (default: %(default)s)'
+    },
+    'disulfide-bonds': {
+        'flag': '-F',
+        'nargs': 2,
+        'action': 'append',
+        'metavar': ('RESIDE1', 'RESIDUE2'),
+        'help':
+            'Add disulfide bonds to the structure. This option can be used multiple times to add multiple bonds.\n\n'
+            'Each input should be in the form of exactly one pair: "1:A 14:A".\n'
+            'Example: "-F 1:A 14:A -F 3:A 13:A" appends the disulfide bonds (1:A, 14:A) and (3:A, 13:A).\n'
+            'NOTE: Ensure that the residues in each pair are valid and appropriate for disulfide bonding.'
     },
     'dssp-command': {
         'default': 'mkdssp',
@@ -730,7 +755,7 @@ options = {
             '[2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...\n\n'
             'i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE'
     },
-    'renumber_residues_to_original': {
+    'renumber-residues-to-original': {
         'action': 'store_true',
         'help': 'Renumber residues to original numbering in the input pdb file.'
     },

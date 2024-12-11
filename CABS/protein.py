@@ -440,6 +440,42 @@ class Protein(Atoms):
                             restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
         return restr
 
+    def generate_backbone_restraints(self, cyclic_chains):
+        restr = []
+        for chain in cyclic_chains:
+            first_res = None
+            for atom in self.atoms:
+                if atom.chid == chain:
+                    first_res = atom.resid_id()
+                    break
+            last_res = None
+            for atom in reversed(self.atoms):
+                if atom.chid == chain:
+                    last_res = atom.resid_id()
+                    break
+            if first_res and last_res:
+                restr.append('%s %s 3.8 1.0' % (first_res, last_res))
+            else:
+                logger.warning(module_name=_name, msg='Cyclic backbone could not be created in chain %s' % chain)
+
+        return restr
+
+    def generate_disulfide_restraints(self, disulfide_bonds):
+        restr = []
+        for bond in disulfide_bonds:
+            res1 = None
+            res2 = None
+            for atom in self.atoms:
+                if atom.resid_id() == bond[0] and atom.resname == 'CYS':
+                    res1 = atom.resid_id()
+                elif atom.resid_id() == bond[1] and atom.resname == 'CYS':
+                    res2 = atom.resid_id()
+            if res1 and res2:
+                restr.append('%s %s 2.0 1.0' % (res1, res2))
+            else:
+                logger.warning(module_name=_name, msg='Disulfide bond between residues %s %s could not be created' % (bond[0], bond[1]))
+        return restr
+
     def calculate_distances(self):
         """
         Generate a matrix of distances between each C-alpha in the protein (server uses this)
