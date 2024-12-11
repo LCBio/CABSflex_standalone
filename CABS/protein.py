@@ -254,27 +254,84 @@ class Protein(Atoms):
                             raise Exception('Invalid syntax in flexibility file!!!')
             return d, def_val
 
+    @staticmethod
+    def validate_plddt_file(file_path):
+        """
+        Validates a pLDDT file, ensuring it's either a valid JSON or TSV format containing pLDDT values.
+
+        Parameters:
+            file_path (str): Path to the file to validate.
+
+        Returns:
+            str: "valid_json" or "valid_tsv" if the file is valid.
+            Raises a ValueError if the file is invalid.
+        """
+        try:
+            # Try to validate as JSON
+            with open(file_path, 'r') as file:
+                json_dict = json.load(file)
+                if "plddt" not in json_dict:
+                    raise ValueError("Validation failed: Missing 'plddt' field in JSON.")
+                plddt_values = json_dict["plddt"]
+                if not isinstance(plddt_values, list):
+                    raise ValueError("Validation failed: 'plddt' field must be a list.")
+                if not all(isinstance(value, (int, float)) and 0 <= value <= 100 for value in plddt_values):
+                    raise ValueError("Validation failed: All pLDDT scores must be numbers between 0 and 100.")
+            return "valid_json"
+        except json.JSONDecodeError:
+            # Not JSON, try TSV
+            try:
+                with open(file_path, 'r') as file:
+                    # Skip the header line if present
+                    next(file)
+                    for line in file:
+                        columns = line.strip().split('\t')
+                        if len(columns) < 2:
+                            raise ValueError("Validation failed: TSV file must have at least two columns.")
+                        float(columns[1])  # Ensure the second column is a valid number
+                return "valid_tsv"
+            except Exception as e:
+                raise ValueError("Validation failed: File is neither valid JSON nor TSV.") from e
+
     def read_plddt(self, filename):
+        """
+        Reads pLDDT values from a validated JSON or TSV file and maps them to residues.
+
+        Parameters:
+            filename (str): Path to the pLDDT file.
+
+        Returns:
+            dict: Mapping of residue IDs to pLDDT values.
+            float: Default pLDDT value.
+        """
+
         d = {}
         def_val = 1.0
         plddt_values = []
 
+        file_type = self.validate_plddt_file(filename)
+        print (file_type)
+
         try:
-            with open(filename, 'r') as file:
-                json_dict = json.load(file)
-                plddt_values = [float(entry) / 100 for entry in json_dict['plddt']]
-        except (json.JSONDecodeError, KeyError):
-            try:
+            if file_type == "valid_json":
+                with open(filename, 'r') as file:
+                    json_dict = json.load(file)
+                    plddt_values = [float(entry) / 100 for entry in json_dict['plddt']]
+            elif file_type == "valid_tsv":
+
                 with open(filename, 'r') as file:
                     next(file)
                     for line in file:
                         columns = line.strip().split('\t')
                         plddt_values.append(float(columns[1]) / 100)
-            except Exception as e:
-                raise ValueError("Unable to parse pLLDT file as JSON or TSV") from e
+        except Exception as e:
+            raise ValueError("Error while reading pLDDT values.") from e
 
         for i, atom in enumerate(self.atoms):
-            d[atom.resid_id()] = plddt_values[i]
+            if i < len(plddt_values):
+                d[atom.resid_id()] = plddt_values[i]
+            else:
+                raise ValueError("Mismatch between the number of residues and pLDDT values.")
 
         return d, def_val
 
