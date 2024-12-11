@@ -56,6 +56,8 @@ class CABSTask(object):
         self.contact_output = kwargs.get('contact_output')
         self.contact_threshold = kwargs.get('contact_threshold')
         self.contact_threshold_aa = kwargs.get('contact_threshold_aa')
+        self.cyclization = kwargs.get('backbone_cyclization')
+        self.disulfide_bonds = kwargs.get('disulfide_bonds')
         self.dssp_command = kwargs.get('dssp_command')
         self.dssp_output = kwargs.get('dssp_output')
         self.exclude = kwargs.get('exclude')
@@ -195,18 +197,19 @@ class CABSTask(object):
             utils.GAUSS_MAX_ITER = self.gauss_iterations
 
         # Check whether to use restraints based on pLDDT
-        mode, gap, min_d, max_d = self.protein_restraints
-        if (
-        mode in ['min', 'max', 'mean', 'plddt1', 'plddt2'] and not self.protein_plddt
-        ) or (
-        mode == 'category' and not (self.protein_plddt or self.protein_category)
-        ):
-            logger.warning(
-                _name, 'No information about pLDDT or flexibility categories provided. '
-                       'Changing protein restraints  mode to \'all\'. '
-                       'If you want to use restraints based on pLDDT or flexibility categories, '
-                       'please provide the necessary data.')
-            self.protein_restraints = ('all', gap, min_d, max_d)
+        if not self.no_protein_restraints:
+            mode, gap, min_d, max_d = self.protein_restraints
+            if (
+            mode in ['min', 'max', 'mean', 'plddt1', 'plddt2'] and not self.protein_plddt
+            ) or (
+            mode == 'category' and not (self.protein_plddt or self.protein_category)
+            ):
+                logger.warning(
+                    _name, 'No information about pLDDT or flexibility categories provided. '
+                           'Changing protein restraints  mode to \'all\'. '
+                           'If you want to use restraints based on pLDDT or flexibility categories, '
+                           'please provide the necessary data.')
+                self.protein_restraints = ('all', gap, min_d, max_d)
 
         # pairwise potential modification
         if self.pairmod:
@@ -412,6 +415,18 @@ class CABSTask(object):
         if self.sc_rest_file:
             for filename in self.sc_rest_file:
                 add_restraints += Restraints.from_file(filename, sg=True)
+
+        if self.cyclization:
+            add_restraints += Restraints(
+                self.initial_complex.protein.generate_backbone_restraints(
+                    self.cyclization)
+            )
+
+        if self.disulfide_bonds:
+            add_restraints += Restraints(
+                self.initial_complex.protein.generate_disulfide_restraints(
+                    self.disulfide_bonds), sg=True
+            )
 
         protein_restraints += add_restraints.update_id(
             self.initial_complex.new_ids)
