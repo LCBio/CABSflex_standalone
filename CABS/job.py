@@ -25,7 +25,7 @@ from CABS.trajectory import Trajectory
 from CABS.pdblib import Pdb
 import CABS.optparser as opt_parser
 from CABS.cmap import ContactMap
-from CABS.utils import convert_cg_to_all
+from CABS.utils import convert_cg_to_all, sync_residues
 
 _name = 'JOB'
 _CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS", "PAIRMOD"]
@@ -581,8 +581,11 @@ class CABSTask(object):
                     logger.log_file(
                         module_name=_name, msg='Running cg2all to rebuild models')
                     for i, fname in enumerate(pdb_medoids):
-                        convert_cg_to_all(fname, work_dir=self.work_dir, iter=i)
-                    pass
+                        convert_cg_to_all(fname, work_dir=self.work_dir,
+                                          iter=i,
+                                          reference_pdb=self.input_protein,
+                                          renumber_flag=self.renumber)
+
                 else:
                     logger.warning(
                         module_name=_name, msg='Unknown AA method: %s' % self.aa_method)
