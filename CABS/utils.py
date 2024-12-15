@@ -11,6 +11,7 @@ import os
 from tempfile import mkstemp
 from contextlib import closing
 from biopandas.pdb import PandasPdb
+import pandas as pd
 
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
@@ -1057,6 +1058,10 @@ def sync_residues(input_pdb_path: Path, output_pdb_path: Path):
     input_pdb = PandasPdb().read_pdb(input_pdb_path)
     output_pdb = PandasPdb().read_pdb(output_pdb_path)
     input_atom_df = input_pdb.df['ATOM']
+    hetatm_df = input_pdb.df['HETATM']
+    hetatm_df['residue_name'] = hetatm_df['residue_name'].map(AA_SUB_NAMES)
+    input_atom_df = pd.concat([input_atom_df,
+                               hetatm_df]).dropna(subset=['residue_name'])
     output_atom_df = output_pdb.df['ATOM']
     output_atom_df.loc[output_atom_df['atom_name'] == 'CA',
                        'residue_number'] = input_atom_df.loc[
