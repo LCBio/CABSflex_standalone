@@ -10,6 +10,8 @@ from CABS import logger
 import os
 from tempfile import mkstemp
 from contextlib import closing
+from biopandas.pdb import PandasPdb
+import pandas as pd
 
 
 # Dictionary for conversion of secondary structure from DSSP to CABS
@@ -1004,7 +1006,8 @@ def random_rotation_matrix():
     return (rx.dot(ry)).dot(rz)
 
 
-def convert_cg_to_all(filename, work_dir='.', iter=0):
+def convert_cg_to_all(filename, work_dir='.', iter=0, reference_pdb=None,
+                      renumber_flag=False):
     """
     Convert coarse-grained model to all-atom
     """
@@ -1021,6 +1024,10 @@ def convert_cg_to_all(filename, work_dir='.', iter=0):
                 if match:
                     atoms.append(match.groups())
                     tmp.write(line)
+    if renumber_flag:
+        sync_residues(input_pdb_path=reference_pdb,
+                      output_pdb_path=tmp.name)
+
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(tmp.name)
     logger.info("CG2ALL", "Converting CG to all-atom")
@@ -1045,3 +1052,21 @@ def convert_cg_to_all(filename, work_dir='.', iter=0):
         raise
     finally:
         os.remove(tmp.name)
+
+
+def sync_residues(input_pdb_path: Path, output_pdb_path: Path):
+    input_pdb = PandasPdb().read_pdb(input_pdb_path)
+    output_pdb = PandasPdb().read_pdb(output_pdb_path)
+    input_atom_df = input_pdb.df['ATOM']
+    hetatm_df = input_pdb.df['HETATM']
+    hetatm_df['residue_name'] = hetatm_df['residue_name'].map(AA_SUB_NAMES)
+    input_atom_df = pd.concat([input_atom_df,
+                               hetatm_df]).dropna(subset=['residue_name'])
+    output_atom_df = output_pdb.df['ATOM']
+    output_atom_df.loc[output_atom_df['atom_name'] == 'CA',
+                       'residue_number'] = input_atom_df.loc[
+                           input_atom_df['atom_name'] == 'CA',
+                           'residue_number'].values
+    output_pdb.df['ATOM'] = output_atom_df
+    output_pdb.to_pdb(output_pdb_path)
+    return "Residues synchronized"
