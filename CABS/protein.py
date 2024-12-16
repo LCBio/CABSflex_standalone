@@ -310,7 +310,6 @@ class Protein(Atoms):
         plddt_values = []
 
         file_type = self.validate_plddt_file(filename)
-        print (file_type)
 
         try:
             if file_type == "valid_json":

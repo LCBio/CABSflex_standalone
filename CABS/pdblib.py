@@ -47,9 +47,10 @@ class Pdb(object):
             remove_hetero=True,
             verify=False,
             no_exit=False,  # does not exit on error, raises InvalidPdbInput instead
+            create_from_aa=False
     ):
-
-        logger.debug(_name, 'Creating Pdb object from {}'.format(source))
+        if not create_from_aa:
+            logger.debug(_name, 'Creating Pdb object from {}'.format(source))
         self.atoms = Atoms()
 
         words = source.split(':')
@@ -99,7 +100,8 @@ class Pdb(object):
                     )
 
         try:
-            logger.debug(_name, 'Processing {}'.format(name))
+            if not create_from_aa:
+                logger.debug(_name, 'Processing {}'.format(name))
             current_model = 0
             self.body = self.body.decode('utf-8')
             new_body = 'HEADER' + 74 * ' ' + '\n'
@@ -127,15 +129,18 @@ class Pdb(object):
                     selection = 'chain {}'.format(','.join(chains))
 
             if remove_alternative_locations:
-                logger.debug(_name, 'Removing alternative locations from {}'.format(name))
+                if not create_from_aa:
+                    logger.debug(_name, 'Removing alternative locations from {}'.format(name))
                 self.atoms.remove_alternative_locations()
 
             if remove_water:
-                logger.debug(_name, 'Removing water molecules from {}'.format(name))
+                if not create_from_aa:
+                    logger.debug(_name, 'Removing water molecules from {}'.format(name))
                 self.atoms = self.atoms.drop('resname HOH')
 
             if fix_non_standard_aa:
-                logger.debug(_name, 'Scanning {} for non-standard amino acids'.format(name))
+                if not create_from_aa:
+                    logger.debug(_name, 'Scanning {} for non-standard amino acids'.format(name))
                 aa_names = [AA_NAMES[k] for k in AA_NAMES]
                 for model in self.atoms.models():
                     for residue in model.residues():
@@ -159,11 +164,13 @@ class Pdb(object):
                                 )
 
             if remove_hetero:
-                logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
+                if not create_from_aa:
+                    logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
                 self.atoms = self.atoms.drop('hetero')
 
             if selection:
-                logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name))
+                if not create_from_aa:
+                    logger.debug(_name, 'Selecting [{}] from {}'.format(selection, name))
                 self.atoms = self.atoms.select(selection)
 
             if ' ' in set([i.chid for i in self.atoms]):
