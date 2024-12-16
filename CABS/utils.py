@@ -1030,7 +1030,6 @@ def convert_cg_to_all(filename, work_dir='.', iter=0, reference_pdb=None,
 
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(tmp.name)
-    logger.info("CG2ALL", "Converting CG to all-atom")
     fout = f"model_{iter}.pdb"
     command = f"convert_cg2all -p {input_pdb} -o {output_dir / fout}"
     try:

@@ -29,6 +29,7 @@ from CABS.utils import convert_cg_to_all
 
 _name = 'JOB'
 _CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS", "PAIRMOD"]
+_allowed_aa_methods = ['modeller', 'cg2all']
 DEFAULT_COLORS = ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']
 
 
@@ -104,10 +105,6 @@ class CABSTask(object):
         self.verbose = kwargs.get('verbose')
         self.work_dir = kwargs.get('work_dir')
         self.weighted_fit = kwargs.get('weighted_fit')
-
-        if self.aa_rebuild and self.aa_method == 'modeller':
-            from CABS.ca2all import ca2all
-            from CABS.pdblib import Pdb
 
         # Job attributes collected.
         self.config = kwargs
@@ -349,9 +346,9 @@ class CABSTask(object):
     def load_all_atom_tops(self):
         if self.aa_rebuild:
             pth = os.path.join(self.work_dir, "output_pdbs", "model_%i.pdb")
-            med_traj = np.array([Pdb(pth % i).atoms.to_numpy() for i in range(10)])
+            med_traj = np.array([Pdb(pth % i, create_from_aa=True).atoms.to_numpy() for i in range(10)])
             med_traj = np.expand_dims(med_traj, axis=1)
-            mod0 = Pdb(os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"))
+            mod0 = Pdb(os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"), create_from_aa=True)
             self.medoids = Trajectory(mod0, med_traj, self.medoids.headers)
         else:
             self.medoids.coordinates = np.swapaxes(self.medoids.coordinates, 0, 1)
@@ -554,54 +551,46 @@ class CABSTask(object):
 
         # Saving final models:
         if 'M' in self.pdb_output:
+            save_to_ca = True
             if self.aa_rebuild:
-                logger.log_file(module_name=_name,
-                msg='Saving final models (in AA representation)')
-                pdb_medoids = self.medoids.to_pdb()
-                for i, fname in enumerate(pdb_medoids):
+                if self.aa_method in _allowed_aa_methods:
+                    logger.log_file(module_name=_name, msg='Saving final models (in AA representation).')
                     if self.aa_method == 'modeller':
-                        logger.log_file(
-                        module_name=_name, msg='Running Modeller to rebuild models')
-                        ca2all(
-                            fname,
-                            output=os.path.join(
-                                output_folder, 'model_{0}.pdb'.format(i)),
-                            iterations=self.modeller_iterations,
-                            out_mdl=os.path.join(
-                                self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
-                            work_dir=self.work_dir
-                        )
-                        pth_tmp = os.path.join(
-                            self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
-                        mod = Pdb(pth_tmp)
-                        ssh = mod.mk_ss_header()
-                        mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                        try:
+                            from CABS.ca2all import ca2all
+                        except ImportError:
+                            logger.warning(_name, msg="Modeller not found. Skipping AA rebuild.")
+                        else:
+                            logger.log_file(module_name=_name, msg='Running Modeller to rebuild models.')
+                            pdb_medoids = self.medoids.to_pdb()
+                            for i, fname in enumerate(pdb_medoids):
+                                ca2all(
+                                    fname,
+                                    output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                                    iterations=self.modeller_iterations,
+                                    out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                                    work_dir=self.work_dir
+                                )
+                                pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                                mod = Pdb(pth_tmp)
+                                ssh = mod.mk_ss_header()
+                                mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                            save_to_ca = False
                     elif self.aa_method == 'cg2all':
-                        logger.log_file(
-                            module_name=_name, msg='Saving final models (in AA representation)')
-                        logger.log_file(
-                            module_name=_name, msg='Running cg2all to rebuild models')
-                        convert_cg_to_all(fname, work_dir=self.work_dir,
-                                        iter=i,
-                                        reference_pdb=self.input_protein,
-                                        renumber_flag=self.renumber)
-                    else:
-                        logger.warning(
-                            module_name=_name, msg='Unknown AA method: %s' % self.aa_method)
-                        logger.log_file(
-                            module_name=_name, msg='Saving final models (in CA representation)')
-                        self.medoids.to_pdb(
-                            mode='models', to_dir=output_folder, name='model')
-            else:
-                logger.log_file(
-                    module_name=_name, msg='Saving final models (in CA representation)')
-                self.medoids.to_pdb(
-                    mode='models', to_dir=output_folder, name='model')
+                        logger.log_file(module_name=_name, msg='Running cg2all to rebuild models.')
+                        pdb_medoids = self.medoids.to_pdb()
+                        for i, fname in enumerate(pdb_medoids):
+                            convert_cg_to_all(fname, work_dir=self.work_dir,
+                                              iter=i,
+                                              reference_pdb=self.input_protein,
+                                              renumber_flag=self.renumber)
+                        save_to_ca = False
+                else:
+                    logger.warning(module_name=_name, msg='Unknown AA method: %s. Skipping AA rebuild.' % self.aa_method)
 
-            if self.renumber:
-                logger.log_file(
-                    module_name=_name, msg='Renumbering residues to original numbering')
-                pass
+            if save_to_ca:
+                logger.log_file(module_name=_name, msg='Saving final models (in CA representation).')
+                self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
 
 
 class DockTask(CABSTask):

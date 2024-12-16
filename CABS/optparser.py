@@ -130,7 +130,7 @@ dock_dict = {
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
         ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints', 'protein-plddt',
-                             'protein-restraints-reduce', 'no-protein-restraints', 'weighted-fit',
+                             'protein-category', 'protein-restraints-reduce', 'no-protein-restraints', 'weighted-fit',
                              'gauss-iterations', 'receptor-ss']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts', 'pairmod']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
