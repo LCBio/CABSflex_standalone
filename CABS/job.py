@@ -105,6 +105,10 @@ class CABSTask(object):
         self.work_dir = kwargs.get('work_dir')
         self.weighted_fit = kwargs.get('weighted_fit')
 
+        if self.aa_rebuild and self.aa_method == 'modeller':
+            from CABS.ca2all import ca2all
+            from CABS.pdblib import Pdb
+
         # Job attributes collected.
         self.config = kwargs
         self.initial_complex = None
@@ -551,15 +555,13 @@ class CABSTask(object):
         # Saving final models:
         if 'M' in self.pdb_output:
             if self.aa_rebuild:
-                if self.aa_method == 'modeller':
-                    logger.log_file(
-                        module_name=_name, msg='Saving final models (in AA representation)')
-                    pdb_medoids = self.medoids.to_pdb()
-                    from CABS.ca2all import ca2all
-                    from CABS.pdblib import Pdb
-                    logger.log_file(
+                logger.log_file(module_name=_name,
+                msg='Saving final models (in AA representation)')
+                pdb_medoids = self.medoids.to_pdb()
+                for i, fname in enumerate(pdb_medoids):
+                    if self.aa_method == 'modeller':
+                        logger.log_file(
                         module_name=_name, msg='Running Modeller to rebuild models')
-                    for i, fname in enumerate(pdb_medoids):
                         ca2all(
                             fname,
                             output=os.path.join(
@@ -574,22 +576,22 @@ class CABSTask(object):
                         mod = Pdb(pth_tmp)
                         ssh = mod.mk_ss_header()
                         mod.atoms.save_to_pdb(pth_tmp, header=ssh)
-                elif self.aa_method == 'cg2all':
-                    logger.log_file(
-                        module_name=_name, msg='Saving final models (in AA representation)')
-                    pdb_medoids = self.medoids.to_pdb()
-                    logger.log_file(
-                        module_name=_name, msg='Running cg2all to rebuild models')
-                    for i, fname in enumerate(pdb_medoids):
-                        convert_cg_to_all(fname, work_dir=self.work_dir, iter=i)
-                    pass
-                else:
-                    logger.warning(
-                        module_name=_name, msg='Unknown AA method: %s' % self.aa_method)
-                    logger.log_file(
-                        module_name=_name, msg='Saving final models (in CA representation)')
-                    self.medoids.to_pdb(
-                        mode='models', to_dir=output_folder, name='model')
+                    elif self.aa_method == 'cg2all':
+                        logger.log_file(
+                            module_name=_name, msg='Saving final models (in AA representation)')
+                        logger.log_file(
+                            module_name=_name, msg='Running cg2all to rebuild models')
+                        convert_cg_to_all(fname, work_dir=self.work_dir,
+                                        iter=i,
+                                        reference_pdb=self.input_protein,
+                                        renumber_flag=self.renumber)
+                    else:
+                        logger.warning(
+                            module_name=_name, msg='Unknown AA method: %s' % self.aa_method)
+                        logger.log_file(
+                            module_name=_name, msg='Saving final models (in CA representation)')
+                        self.medoids.to_pdb(
+                            mode='models', to_dir=output_folder, name='model')
             else:
                 logger.log_file(
                     module_name=_name, msg='Saving final models (in CA representation)')
