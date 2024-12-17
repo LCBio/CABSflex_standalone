@@ -26,7 +26,8 @@ except ImportError as e:
 
 def ca2all(
         filename, output=None, iterations=1, work_dir='.',
-        out_mdl=os.path.join(os.getcwd(), 'output_data', 'modeller_output_0.txt')
+        out_mdl=os.path.join(os.getcwd(), 'output_data', 'modeller_output_0.txt'),
+        cyclization=False, disulfide_bonds=None
 ):
     """
     Rebuilds ca to all-atom
@@ -55,7 +56,7 @@ def ca2all(
     aa_names = {v: k for k, v in aa_names.items()}
 
     atoms = []
-    pattern = re.compile('ATOM.{9}CA .([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*')
+    pattern = re.compile('ATOM.{9}(.{3}).([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*')
 
     try:
         with closing(filename) as f, open(pdb, 'w') as tmp:
@@ -65,19 +66,33 @@ def ca2all(
                 else:
                     match = re.match(pattern, line)
                     if match:
-                        atoms.append(match.groups())
-                        tmp.write(line)
+                        if match.groups()[0] == 'CA ':
+                            atoms.append(match.groups()[1:])
+                            tmp.write(line)
 
         if not len(atoms):
             raise Exception('File %s contains no CA atoms' % filename)
+
         chains = [atoms[0][1]]
         seq = ''
+        chain_length = {}  # Dictionary to store chain name and sequence length
+        current_chain = atoms[0][1]
+        current_length = 0
+
         for a in atoms:
             s, c = a[:2]
-            if c not in chains:
+            if c != current_chain:
+                # Update the length of the previous chain
+                chain_length[current_chain] = current_length
+                current_chain = c
+                current_length = 0
                 chains += c
                 seq += '/'
             seq += aa_names[s]
+            current_length += 1
+
+        # Update the last chain
+        chain_length[current_chain] = current_length
 
         pir = prefix + '.pir'
         with open(pir, 'w') as f:
@@ -89,6 +104,12 @@ def ca2all(
         class MyModel(AutoModel):
             def special_patches(self, aln):
                 self.rename_segments(segment_ids=chains)
+                if cyclization:
+                    for ch_id in cyclization:
+                        self.patch(residue_type='LINK', residues=(self.residues[f'1:{ch_id}'], self.residues[f'{chain_length[ch_id]}:{ch_id}']))
+                if disulfide_bonds:
+                    for bond in disulfide_bonds:
+                        self.patch(residue_type='DISU', residues=(self.residues[bond[0]], self.residues[bond[1]]))
 
         mdl = MyModel(
             env,
