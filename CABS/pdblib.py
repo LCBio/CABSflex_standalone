@@ -265,7 +265,7 @@ class Pdb(object):
         except OSError:
             return None, None, -1
 
-    def dssp(self, output=''):
+    def dssp(self, output='', dssp_from_aa=False):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         commands_to_try = [
@@ -279,7 +279,8 @@ class Pdb(object):
         for command in commands_to_try:
             out, err, return_code = self.run_dssp_command(command)
             if return_code == 0:
-                logger.debug(_name, 'DSSP successful')
+                if not dssp_from_aa:
+                    logger.debug(_name, 'DSSP successful')
                 break
 
         if return_code != 0:
@@ -327,8 +328,8 @@ class Pdb(object):
 
         return sec
 
-    def mk_ss_header(self):
-        dct = self.dssp()
+    def mk_ss_header(self, dssp_from_aa=False):
+        dct = self.dssp(dssp_from_aa=dssp_from_aa)
 
         def mark(symbol):
             def getStart(xyz):

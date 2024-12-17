@@ -569,21 +569,47 @@ class CABSTask(object):
                                     output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
                                     iterations=self.modeller_iterations,
                                     out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
-                                    work_dir=self.work_dir
+                                    work_dir=self.work_dir,
+                                    cyclization=self.cyclization,
+                                    disulfide_bonds=self.disulfide_bonds,
                                 )
                                 pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
-                                mod = Pdb(pth_tmp)
-                                ssh = mod.mk_ss_header()
+                                mod = Pdb(pth_tmp, create_from_aa=True)
+                                ssh = mod.mk_ss_header(dssp_from_aa=True)
                                 mod.atoms.save_to_pdb(pth_tmp, header=ssh)
                             save_to_ca = False
                     elif self.aa_method == 'cg2all':
                         logger.log_file(module_name=_name, msg='Running cg2all to rebuild models.')
+                        attempt_cyclization = False
+                        if self.cyclization or self.disulfide_bonds:
+                            try:
+                                from CABS.ca2all import ca2all
+                            except ImportError:
+                                logger.warning(_name, msg="Modeller not found. Skipping backbone and/or disulfide cyclization.")
+                            else:
+                                attempt_cyclization = True
                         pdb_medoids = self.medoids.to_pdb()
                         for i, fname in enumerate(pdb_medoids):
                             convert_cg_to_all(fname, work_dir=self.work_dir,
                                               iter=i,
                                               reference_pdb=self.input_protein,
                                               renumber_flag=self.renumber)
+                            if attempt_cyclization:
+                                pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                                with open(pth_tmp, 'r') as f:
+                                    ca2all(
+                                        f,
+                                        output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                                        iterations=1,
+                                        out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                                        work_dir=self.work_dir,
+                                        cyclization=self.cyclization,
+                                        disulfide_bonds=self.disulfide_bonds,
+                                    )
+                            pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                            mod = Pdb(pth_tmp, create_from_aa=True)
+                            ssh = mod.mk_ss_header(dssp_from_aa=True)
+                            mod.atoms.save_to_pdb(pth_tmp, header=ssh)
                         save_to_ca = False
                 else:
                     logger.warning(module_name=_name, msg='Unknown AA method: %s. Skipping AA rebuild.' % self.aa_method)
