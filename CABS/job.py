@@ -600,11 +600,12 @@ class CABSTask(object):
                                     ca2all(
                                         f,
                                         output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
-                                        iterations=1,
+                                        iterations=2,
                                         out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
                                         work_dir=self.work_dir,
                                         cyclization=self.cyclization,
                                         disulfide_bonds=self.disulfide_bonds,
+                                        only_cyclization=True
                                     )
                             pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
                             mod = Pdb(pth_tmp, create_from_aa=True)
