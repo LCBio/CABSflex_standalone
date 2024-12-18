@@ -27,7 +27,7 @@ except ImportError as e:
 def ca2all(
         filename, output=None, iterations=1, work_dir='.',
         out_mdl=os.path.join(os.getcwd(), 'output_data', 'modeller_output_0.txt'),
-        cyclization=False, disulfide_bonds=None
+        cyclization=False, disulfide_bonds=None, only_cyclization=False
 ):
     """
     Rebuilds ca to all-atom
@@ -69,6 +69,9 @@ def ca2all(
                         if match.groups()[0] == 'CA ':
                             atoms.append(match.groups()[1:])
                             tmp.write(line)
+                        else:
+                            if only_cyclization:
+                                tmp.write(line)
 
         if not len(atoms):
             raise Exception('File %s contains no CA atoms' % filename)
@@ -101,7 +104,7 @@ def ca2all(
         env = Environ()
         env.io.atom_files_directory = ['.']
 
-        class MyModel(AutoModel):
+        class MyModel(AllHModel):
             def special_patches(self, aln):
                 self.rename_segments(segment_ids=chains)
                 if cyclization:
@@ -119,7 +122,10 @@ def ca2all(
             assess_methods=assess.DOPE
         )
 
-        mdl.md_level = refine.slow
+        if only_cyclization:
+            mdl.md_level = refine.very_fast
+        else:
+            mdl.md_level = refine.slow
         mdl.auto_align(matrix_file=prefix + '.mat')
         mdl.starting_model = 1
         mdl.ending_model = int(iterations)
