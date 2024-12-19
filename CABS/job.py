@@ -434,9 +434,9 @@ class CABSTask(object):
 
         if output and logger.output_restraints():
             output_restraints = os.path.join(output, 'output_data', 'restraints.txt')
-            d = os.path.dirname(output_restraints)
-            if not os.path.isdir(d):
-                os.makedirs(d)
+            odir = os.path.dirname(output_restraints)
+            if not os.path.isdir(odir):
+                os.makedirs(odir)
             logger.to_file(
                 filename=output_restraints,
                 content=str(protein_restraints),
@@ -552,6 +552,9 @@ class CABSTask(object):
         # Saving final models:
         if 'M' in self.pdb_output:
             save_to_ca = True
+            odir = os.path.join(self.work_dir, 'output_data')
+            if not os.path.isdir(odir):
+                os.makedirs(odir)
             if self.aa_rebuild:
                 if self.aa_method in _allowed_aa_methods:
                     logger.log_file(module_name=_name, msg='Saving final models (in AA representation).')

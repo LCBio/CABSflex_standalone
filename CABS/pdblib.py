@@ -292,9 +292,9 @@ class Pdb(object):
 
         if output and logger.log_files():
             output_dssp = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
-            d = os.path.dirname(output_dssp)
-            if not os.path.isdir(d):
-                os.makedirs(d)
+            odir = os.path.dirname(output_dssp)
+            if not os.path.isdir(odir):
+                os.makedirs(odir)
             logger.to_file(
                 filename=output_dssp,
                 content=out,
