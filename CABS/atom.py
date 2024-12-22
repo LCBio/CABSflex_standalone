@@ -294,6 +294,7 @@ class Atoms(object):
 
             check_peptide_sequence(seq)
 
+            print("Creating Atoms")
             for i, ch in enumerate(seq):
                 self.atoms.append(
                     Atom(
@@ -788,6 +789,7 @@ class Atoms(object):
         :param category: {str: float}
         :return: Atoms
         """
+        print("Update category")
         for a in self.atoms:
             if a.resid_id() in category.keys():
                 a.category = category[a.resid_id()]

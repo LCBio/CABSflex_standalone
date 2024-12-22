@@ -113,26 +113,6 @@ class Protein(Atoms):
         else:
             self.atoms.set_flexibility(1.0)
 
-        # setup categories
-        if category:
-            try:
-                d, de = self.read_category(category)
-                self.atoms.update_category(d, de)
-            except IOError:
-                logger.warning(_name, 'Could not read category file: %s' % category)
-                logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
-                self.atoms.determine_category()
-        else:
-            self.atoms.determine_category()
-
-        if logger.output_category():
-            csv_output = os.path.join(work_dir, 'output_data', 'category')
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            category = self.atoms.get_category()
-            drop_csv_file(csv_output, [list(category.keys()), list(category.values())], fmts=["%s", "%s"])
-
         # setup excluding
         self.exclude = {}
         if exclude:
@@ -201,6 +181,27 @@ class Protein(Atoms):
                 logger.warning(_name, 'Could not read weights file: %s' % weights)
                 logger.warning(_name, 'Using default weights(1.0) for all atoms.')
                 self.weights = [1.0] * len(self.atoms)
+
+        # setup categories
+        #  Is this the best place to put this? Maybe after fixing chains / exluding something migh happen? Has to be after upadte_sec
+        if category:
+            try:
+                d, de = self.read_category(category)
+                self.atoms.update_category(d, de)
+            except IOError:
+                logger.warning(_name, 'Could not read category file: %s' % category)
+                logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
+                self.atoms.determine_category()
+        else:
+            self.atoms.determine_category()
+
+        if logger.output_category():
+            csv_output = os.path.join(work_dir, 'output_data', 'category')
+            csv_dir = os.path.dirname(csv_output)
+            if not os.path.isdir(csv_dir):
+                os.makedirs(csv_dir)
+            category = self.atoms.get_category()
+            drop_csv_file(csv_output, [list(category.keys()), list(category.values())], fmts=["%s", "%s"])
 
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
