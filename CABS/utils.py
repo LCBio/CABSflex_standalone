@@ -1048,7 +1048,8 @@ def convert_cg_to_all(filename, work_dir='.', iter=0, reference_pdb=None,
         print(e.stdout)
         print("Standard error:")
         print(e.stderr)
-        raise
+    except Exception as e:
+        print(f"An error occurred: {e}")
     finally:
         os.remove(tmp.name)
 
