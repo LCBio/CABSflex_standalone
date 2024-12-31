@@ -1048,8 +1048,11 @@ def convert_cg_to_all(filename, work_dir='.', iter=0, reference_pdb=None,
         print(e.stdout)
         print("Standard error:")
         print(e.stderr)
+        logger.critical(module_name="CG2ALL", msg=f'CG2ALL failed with exit code: {e.returncode} and error: {e.stderr}')
+        raise
     except Exception as e:
         print(f"An error occurred: {e}")
+        logger.warning(module_name="CG2ALL", msg=f'CG2ALL failed with error: {e}')
     finally:
         os.remove(tmp.name)
 
