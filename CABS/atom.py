@@ -52,7 +52,7 @@ class Atom(object):
             )
             self.occ = float(line[54:60])
             self.bfac = float(line[60:66])
-            self.tail = line[66:].replace('\n', '')
+            self.tail = ' ' * 11 + line[77:].replace('\n', '')
             self.ss = self.occ
             self.flexibility = self.bfac
             self.plddt = self.bfac
@@ -629,6 +629,7 @@ class Atoms(object):
             bar = None
         if len(models) == 1:
             s = str(self)
+            s += '\n'
         else:
             s = ''
             for m in models:
