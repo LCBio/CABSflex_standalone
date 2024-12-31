@@ -255,8 +255,8 @@ class Pdb(object):
             out = stdout.decode('utf-8')
             err = stderr.decode('utf-8')
             if stderr:
-                if err.find('unrecognised option \'--output-format\'') == -1:
-                    logger.critical(
+                if err.find('output-format') == -1:
+                    logger.warning(
                         module_name=_name,
                         msg='DSSP ERROR: %s' % err.replace('\n', ' ')
                     )
