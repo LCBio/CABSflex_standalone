@@ -1031,7 +1031,7 @@ def convert_cg_to_all(filename, work_dir='.', iter=0, reference_pdb=None,
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(tmp.name)
     fout = f"model_{iter}.pdb"
-    command = f"convert_cg2all -p {input_pdb} -o {output_dir / fout}"
+    command = f"convert_cg2all -p {input_pdb} -o {output_dir / fout} --device cpu"
     try:
         result = subprocess.run(
             command,
@@ -1043,16 +1043,11 @@ def convert_cg_to_all(filename, work_dir='.', iter=0, reference_pdb=None,
         )
         return result.stdout
     except subprocess.CalledProcessError as e:
-        print(f"Command failed with exit code {e.returncode}")
-        print("Standard output:")
-        print(e.stdout)
-        print("Standard error:")
-        print(e.stderr)
         logger.critical(module_name="CG2ALL", msg=f'CG2ALL failed with exit code: {e.returncode} and error: {e.stderr}')
-        raise
+        raise Exception(f'CG2ALL failed to convert CG model to all-atom model')
     except Exception as e:
-        print(f"An error occurred: {e}")
         logger.warning(module_name="CG2ALL", msg=f'CG2ALL failed with error: {e}')
+        raise Exception(f'CG2ALL failed to convert CG model to all-atom model')
     finally:
         os.remove(tmp.name)
 
