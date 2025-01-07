@@ -294,7 +294,6 @@ class Atoms(object):
 
             check_peptide_sequence(seq)
 
-            print("Creating Atoms")
             for i, ch in enumerate(seq):
                 self.atoms.append(
                     Atom(

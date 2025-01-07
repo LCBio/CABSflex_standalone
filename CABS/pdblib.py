@@ -329,77 +329,99 @@ class Pdb(object):
         return sec
 
     def mk_ss_header(self, dssp_from_aa=False):
-        dct = self.dssp(dssp_from_aa=dssp_from_aa)
+        dssp_data = self.dssp(dssp_from_aa=dssp_from_aa)
 
-        def mark(symbol):
-            def getStart(xyz):
-                """Returns 1 for residues that are at the beginning of seq of ss elements of the same type."""
-                x, y, z = xyz
-                if y[1] != symbol:
+        def identify_boundaries(ss_type):
+            def is_start(residue_triplet):
+                """Returns 1 if a residue starts an SS sequence of the specified type."""
+                prev, current, _ = residue_triplet
+                if current[1] != ss_type:
                     return 0
-                if x[1] != y[1]:
+                if prev[1] != current[1]:
                     return 1
                 return 0
 
-            def getEnd(xyz):
-                """Returns 1 for residues that are at the end of seq of ss elements of the same type."""
-                x, y, z = xyz
-                if y[1] != symbol:
+            def is_end(residue_triplet):
+                """Returns 1 if a residue ends an SS sequence of the specified type."""
+                _, current, next_ = residue_triplet
+                if current[1] != ss_type:
                     return 0
-                if y[1] != z[1]:
+                if current[1] != next_[1]:
                     return 1
                 return 0
 
-            return getStart, getEnd
+            return is_start, is_end
 
-        def szip(lst):
-            lst = [None] + list(lst) + [None]
-            return zip(lst, lst[1:], lst[2:])
+        def sliding_window(sequence):
+            """Creates a triplet sliding window over a sequence."""
+            sequence = [None] + list(sequence) + [None]
+            return zip(sequence, sequence[1:], sequence[2:])
 
-        pickMidSS = lambda it: it[1][0]
+        extract_middle_residue = lambda triplet: triplet[1][0]
 
-        sseq = szip(dct.items())
-        getSt, getEn = mark('H')
-        rngH = zip(map(pickMidSS, filter(getSt, sseq)), map(pickMidSS, filter(getEn, sseq)))
-        getSt, getEn = mark('E')
-        rngS = zip(map(pickMidSS, filter(getSt, sseq)), map(pickMidSS, filter(getEn, sseq)))
+        residue_triplets = list(sliding_window(dssp_data.items()))
 
-        out = []
+        # Identify helices (H)
+        helix_start, helix_end = identify_boundaries('H')
+        helix_ranges = list(zip(
+            map(extract_middle_residue, filter(helix_start, residue_triplets)),
+            map(extract_middle_residue, filter(helix_end, residue_triplets))
+        ))
 
-        serNum = 0
-        helixID = ''
-        hlxClass = 1
-        comment = ''
-        cas = self.atoms.select('NAME CA')
-        recName = 'HELIX'
-        # ~ for st, en in zip(rngH[::2], rngH[1::2]):
-        for st, en in rngH:
-            serNum += 1
-            stNm, stChID = st.split(":")
-            atSt = max(self.atoms.select('RESNUM %s' % stNm).select('CHAIN %s' % stChID).select('NAME CA'))
-            enNm, enChID = en.split(":")
-            atEn = max(self.atoms.select('RESNUM %s' % enNm).select('CHAIN %s' % enChID).select('NAME CA'))
-            length = cas.atoms.index(atEn) - cas.atoms.index(atSt)
-            inp = (recName, serNum, helixID, atSt.resname, stChID, atSt.resnum, atSt.icode, atEn.resname, enChID, atEn.resnum, atEn.icode, hlxClass, comment, length)
-            line = "%-6s %3i %3s %3s %1s %4i%1s %3s %1s %4i%1s%2i%30s %5i\n" % inp
-            out.append(line)
+        # Identify sheets (E)
+        sheet_start, sheet_end = identify_boundaries('E')
+        sheet_ranges = list(zip(
+            map(extract_middle_residue, filter(sheet_start, residue_triplets)),
+            map(extract_middle_residue, filter(sheet_end, residue_triplets))
+        ))
 
-        recName = 'SHEET'
-        serNum = 0
-        sheetID = ''
-        numStrs = 1
-        sense = 0
-        for st, en in rngS:
-            serNum += 1
-            stNm, stChID = st.split(":")
-            atSt = max(self.atoms.select('RESNUM %s' % stNm).select('CHAIN %s' % stChID).select('NAME CA'))
-            enNm, enChID = en.split(":")
-            atEn = max(self.atoms.select('RESNUM %s' % enNm).select('CHAIN %s' % enChID).select('NAME CA'))
-            inp = (recName, serNum, sheetID, numStrs, atSt.resname, stChID, atSt.resnum, atSt.icode, atEn.resname, enChID, atEn.resnum, atEn.icode, sense, '')
-            line = "%-6s %3i %3s%2i %3s %1s%4i%1s %3s %1s%4i%1s%2i %29s\n" % inp
-            out.append(line)
+        output_lines = []
 
-        return ''.join(out)
+        # Generate HELIX records
+        serial_number = 0
+        helix_id = ''
+        helix_class = 1
+        helix_comment = ''
+        ca_atoms = self.atoms.select('NAME CA')
+
+        for start_residue, end_residue in helix_ranges:
+            serial_number += 1
+            start_num, start_chain = start_residue.split(":")
+            start_atom = max(
+                self.atoms.select('RESNUM %s' % start_num).select('CHAIN %s' % start_chain).select('NAME CA'))
+            end_num, end_chain = end_residue.split(":")
+            end_atom = max(self.atoms.select('RESNUM %s' % end_num).select('CHAIN %s' % end_chain).select('NAME CA'))
+            helix_length = ca_atoms.atoms.index(end_atom) - ca_atoms.atoms.index(start_atom)
+            helix_record = (
+                "HELIX", serial_number, helix_id, start_atom.resname, start_chain,
+                start_atom.resnum, start_atom.icode, end_atom.resname, end_chain,
+                end_atom.resnum, end_atom.icode, helix_class, helix_comment, helix_length
+            )
+            line = "%-6s %3i %3s %3s %1s %4i%1s %3s %1s %4i%1s%2i%30s %5i\n" % helix_record
+            output_lines.append(line)
+
+        # Generate SHEET records
+        serial_number = 0
+        sheet_id = ''
+        num_strands = 1
+        strand_sense = 0
+
+        for start_residue, end_residue in sheet_ranges:
+            serial_number += 1
+            start_num, start_chain = start_residue.split(":")
+            start_atom = max(
+                self.atoms.select('RESNUM %s' % start_num).select('CHAIN %s' % start_chain).select('NAME CA'))
+            end_num, end_chain = end_residue.split(":")
+            end_atom = max(self.atoms.select('RESNUM %s' % end_num).select('CHAIN %s' % end_chain).select('NAME CA'))
+            sheet_record = (
+                "SHEET", serial_number, sheet_id, num_strands, start_atom.resname,
+                start_chain, start_atom.resnum, start_atom.icode, end_atom.resname,
+                end_chain, end_atom.resnum, end_atom.icode, strand_sense, ''
+            )
+            line = "%-6s %3i %3s%2i %3s %1s%4i%1s %3s %1s%4i%1s%2i %29s\n" % sheet_record
+            output_lines.append(line)
+
+        return ''.join(output_lines)
 
     @staticmethod
     def xssp(filename, server='https://www3.cmbi.umcn.nl/xssp'):
