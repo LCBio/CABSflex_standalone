@@ -612,7 +612,8 @@ class CABSTask(object):
                                     )
                             pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
                             mod = Pdb(pth_tmp, create_from_aa=True)
-                            ssh = mod.mk_ss_header(dssp_from_aa=True)
+                            # ssh = mod.mk_ss_header(dssp_from_aa=True)
+                            ssh=''
                             mod.atoms.save_to_pdb(pth_tmp, header=ssh)
                         save_to_ca = False
                 else:
