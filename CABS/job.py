@@ -603,7 +603,7 @@ class CABSTask(object):
                                     ca2all(
                                         f,
                                         output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
-                                        iterations=2,
+                                        iterations=1,
                                         out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
                                         work_dir=self.work_dir,
                                         cyclization=self.cyclization,

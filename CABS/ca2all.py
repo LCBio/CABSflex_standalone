@@ -102,6 +102,7 @@ def ca2all(
             f.write(_PIR_TEMPLATE % (prefix, seq, pdb))
 
         env = Environ()
+        env.patch_default = False
         env.io.atom_files_directory = ['.']
 
         class MyModel(AllHModel):
@@ -109,7 +110,8 @@ def ca2all(
                 self.rename_segments(segment_ids=chains)
                 if cyclization:
                     for ch_id in cyclization:
-                        self.patch(residue_type='LINK', residues=(self.residues[f'1:{ch_id}'], self.residues[f'{chain_length[ch_id]}:{ch_id}']))
+                        self.patch(residue_type='LINK', residues=(self.residues[f'{chain_length[ch_id]}:{ch_id}'],
+                                                                  self.residues[f'1:{ch_id}']))
                 if disulfide_bonds:
                     for bond in disulfide_bonds:
                         self.patch(residue_type='DISU', residues=(self.residues[bond[0]], self.residues[bond[1]]))
