@@ -165,7 +165,8 @@ flex_dict = {
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
         ('PROTEIN OPTIONS', ['protein-flexibility', 'protein-restraints', 'protein-restraints-reduce', 'protein-plddt',
-                             'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss']),
+                             'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss',
+                             'peptide-structure-prediction']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight', 'sc-rest-weight', 'ca-rest-file',
                                 'sc-rest-file', 'disulfide-bonds', 'backbone-cyclization']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
@@ -177,7 +178,7 @@ flex_dict = {
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
                             'restraints-output', 'plddt-output', 'category-output', 'contact-output',
                             'renumber-residues-to-original']),
-        ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
+        ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
 }
@@ -596,6 +597,14 @@ options = {
             'the latter. With this flag on restraints can still be added with the \'--ca-rest-add\' or '
             '\'--ca-rest-file\' options.'
     },
+    'nsp3-model-path': {
+    'metavar': 'PATH',
+    'help': 'Path to the NetSurfP-3.0 model weights. Providing this path allows CABS-flex to predict '
+            'the secondary structure of peptides when it is not included in the input. '
+            'Ensure that NetSurfP-3.0 is installed and provide the path to its model weights file here. '
+            'If NetSurfP-3.0 is not installed or the path is not provided, peptides will '
+            'default to a secondary structure consisting only of coil (C).'
+    },
     'pairmod': {
         'metavar': 'FILENAME',
         'help':
@@ -645,6 +654,11 @@ options = {
             'i.e. \'-p 1CE1:P\' loads the sequence of the chain P from 1CE1 protein\n'
             '[3] PDB file with peptide\'s coordinates, loads only a peptide sequence from a PDB file\n\n'
             '\'--peptide PEPTIDE\' is an alias for \'--add-peptide PEPTIDE random random\''
+    },
+    'peptide-structure-prediction': {
+        'action': 'store_true',
+        'help':
+            'Treat input as a string \'SEQUENCE\' or \'SEQUENCE:SECONDARY\' for peptide structure prediction. '
     },
     'plddt-output': {
         'action': 'store_true',
