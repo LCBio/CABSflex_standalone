@@ -25,23 +25,75 @@ class Protein(Atoms):
     """
     Class for the protein molecule.
     """
+    NSP3_MODEL_PATH = ''
 
     def __init__(self, source, flexibility=None, exclude=None, weights=None, plddt=None, work_dir='.', receptor_ss=None,
-                 pdb_cache=None, category=None):
+                 pdb_cache=None, category=None, predict_peptide_structure=False):
 
         Atoms.__init__(self)
 
         logger.info(module_name=_name, msg="Loading %s as input protein" % source)
 
-        try:
-            self.atoms = randinit.RandomInitialStructure(source).pdb
-            CABS_SS = 'CHTE'
-            ss = OrderedDict([(a.resid_id(), CABS_SS[int(a.occ) - 1]) for a in self.atoms])
+        # Only happens if user explicitly wants to predict peptide structure
+        if predict_peptide_structure:
+            try:
+                self.atoms = randinit.RandomInitialStructure(source).pdb
+            except Exception as e:
+                logger.exit_program(
+                    module_name=_name,
+                    msg=f'Invalid input {source} for peptide structure prediction',
+                    exc=e
+                )
+            predictor = None
+            if ':' not in source:
+                if self.NSP3_MODEL_PATH:
+                        try:
+                            from CABS.secstrpredictor import SecStrPredictor
+                            predictor = SecStrPredictor(self.NSP3_MODEL_PATH)
+                        except ImportError:
+                            logger.warning(
+                                module_name=_name,
+                                msg='NetSurfP-3.0 library cannot be imported.'
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                module_name=_name,
+                                msg=f'Cannot load NetSurfP-3.0 model: {str(e)}'
+                            )
+                else:
+                    logger.warning(
+                        module_name=_name,
+                        msg='NSP3 model path not provided.'
+                    )
 
-        except:
-            pdb = Pdb(source=source, selection='name CA', pdb_cache=pdb_cache)
-            self.atoms = pdb.atoms.models()[0]
-            ss = pdb.dssp(output=work_dir)
+                if not predictor:
+                    logger.warning(
+                        module_name=_name,
+                        msg='Secondary structure prediction will not be performed.'
+                    )
+
+            if predictor:
+                logger.info(
+                    module_name=_name,
+                    msg='Running secondary structure prediction for the peptide using NetSurfP-3.0.'
+                )
+                sec_str = predictor.predict_q3(sequence_to_predict=source)
+                ss = OrderedDict((a.resid_id(), sec_str[i]) for i, a in enumerate(self.atoms))
+            else:
+                CABS_SS = 'CHTE'
+                ss = OrderedDict((a.resid_id(), CABS_SS[int(a.occ) - 1]) for a in self.atoms)
+
+        # This is the default case, the same as before
+        else:
+            try:
+                self.atoms = randinit.RandomInitialStructure(source).pdb
+                CABS_SS = 'CHTE'
+                ss = OrderedDict((a.resid_id(), CABS_SS[int(a.occ) - 1]) for a in self.atoms)
+
+            except:
+                pdb = Pdb(source=source, selection='name CA', pdb_cache=pdb_cache)
+                self.atoms = pdb.atoms.models()[0]
+                ss = pdb.dssp(output=work_dir)
 
         if receptor_ss:
             logger.info('Running manual assignment of receptor\'s II structure.')
@@ -523,7 +575,8 @@ class ProteinComplex(Atoms):
     """
 
     def __init__(self, protein, flexibility, exclude, weights, plddt, category, peptides, replicas,
-                 separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache):
+                 separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache,
+                 predict_peptide_structure=False):
         logger.debug(module_name=_name, msg="Preparing the complex")
         Atoms.__init__(self)
 
@@ -537,6 +590,7 @@ class ProteinComplex(Atoms):
             work_dir=work_dir,
             receptor_ss=receptor_ss,
             pdb_cache=pdb_cache,
+            predict_peptide_structure=predict_peptide_structure
         )
         self.chain_list = self.protein.list_chains()
         self.protein_chains = ''.join(self.chain_list.keys())

@@ -13,7 +13,7 @@ import random
 from functools import reduce
 
 from abc import ABCMeta, abstractmethod
-from CABS import logger, pdblib, cabs, utils
+from CABS import logger, pdblib, cabs, utils, protein
 from CABS.align import save_csv, AlignError, align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
@@ -76,10 +76,12 @@ class CABSTask(object):
         self.mc_cycles = kwargs.get('mc_cycles')
         self.mc_steps = kwargs.get('mc_steps')
         self.modeller_iterations = kwargs.get('modeller_iterations')
+        self.nsp3_model_path = kwargs.get('nsp3_model_path')
         self.pairmod = kwargs.get('pairmod')
         self.pdb_cache = kwargs.get('pdb_cache_dir')
         self.pdb_output = kwargs.get('pdb_output')
         self.peptide = kwargs.get('peptide')
+        self.peptide_structure_prediction = kwargs.get('peptide_structure_prediction')
         self.plddt_output = kwargs.get('plddt_output')
         self.protein_category = kwargs.get('protein_category')
         self.protein_flexibility = kwargs.get('protein_flexibility')
@@ -146,6 +148,9 @@ class CABSTask(object):
 
         if self.fortran_command:
             cabs.CabsRun.FORTRAN_COMMAND = self.fortran_command
+
+        if self.nsp3_model_path:
+            protein.Protein.NSP3_MODEL_PATH = self.nsp3_model_path
 
         self.file_TRAF = self.file_SEQ = None
         if self.load_cabs_files:
@@ -863,6 +868,7 @@ class FlexTask(CABSTask):
             work_dir=self.work_dir,
             receptor_ss=self.receptor_ss,
             pdb_cache=self.pdb_cache,
+            predict_peptide_structure=self.peptide_structure_prediction,
         )
 
         if self.reference_pdb is None:

@@ -1,4 +1,4 @@
-name: cabsflex_plus
+name: flex_prod
 channels:
   - conda-forge
   - salilab
