@@ -163,3 +163,4 @@ cython_debug/
 
 # Examples
 example/
+NetSurfP-3.0_standalone/*
