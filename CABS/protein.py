@@ -50,10 +50,10 @@ class Protein(Atoms):
                         try:
                             from CABS.secstrpredictor import SecStrPredictor
                             predictor = SecStrPredictor(self.NSP3_MODEL_PATH)
-                        except ImportError:
+                        except ImportError as e:
                             logger.warning(
                                 module_name=_name,
-                                msg='NetSurfP-3.0 library cannot be imported.'
+                                msg=f'NetSurfP-3.0 library or its dependencies are missing: {str(e)}'
                             )
                         except Exception as e:
                             logger.warning(
@@ -77,8 +77,20 @@ class Protein(Atoms):
                     module_name=_name,
                     msg='Running secondary structure prediction for the peptide using NetSurfP-3.0.'
                 )
-                sec_str = predictor.predict_q3(sequence_to_predict=source)
-                ss = OrderedDict((a.resid_id(), sec_str[i]) for i, a in enumerate(self.atoms))
+                try:
+                    sec_str = predictor.predict_q3(sequence_to_predict=source)
+                    ss = OrderedDict((a.resid_id(), sec_str[i]) for i, a in enumerate(self.atoms))
+                    logger.info(
+                        module_name=_name,
+                        msg='Secondary structure prediction for the peptide successful.'
+                    )
+                except Exception as e:
+                    logger.warning(
+                        module_name=_name,
+                        msg=f'Secondary structure prediction for the peptide failed: {str(e)}'
+                    )
+                    CABS_SS = 'CHTE'
+                    ss = OrderedDict((a.resid_id(), CABS_SS[int(a.occ) - 1]) for a in self.atoms)
             else:
                 CABS_SS = 'CHTE'
                 ss = OrderedDict((a.resid_id(), CABS_SS[int(a.occ) - 1]) for a in self.atoms)
