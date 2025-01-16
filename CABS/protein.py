@@ -95,6 +95,13 @@ class Protein(Atoms):
                 self.atoms = pdb.atoms.models()[0]
                 ss = pdb.dssp(output=work_dir)
 
+        if ss and logger.output_sec_str():
+            csv_output = os.path.join(work_dir, 'output_data', 'sec_str')
+            csv_dir = os.path.dirname(csv_output)
+            if not os.path.isdir(csv_dir):
+                os.makedirs(csv_dir)
+            drop_csv_file(csv_output, [list(ss.keys()), list(ss.values())], fmts=["%s", "%s"])
+
         if receptor_ss:
             logger.info('Running manual assignment of receptor\'s II structure.')
             try:

@@ -102,6 +102,7 @@ class CABSTask(object):
         self.sc_rest_add = kwargs.get('sc_rest_add')
         self.sc_rest_file = kwargs.get('sc_rest_file')
         self.sc_rest_weight = kwargs.get('sc_rest_weight')
+        self.sec_str_output = kwargs.get('sec_str_output')
         self.separation = kwargs.get('separation')
         self.temperature = kwargs.get('temperature')
         self.verbose = kwargs.get('verbose')
@@ -131,9 +132,9 @@ class CABSTask(object):
 
         try:
             logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
-                         save_dssp=self.dssp_output, save_restraints=self.restraints_output,
-                         save_plddt=self.plddt_output, save_category=self.category_output,
-                         save_contact=self.contact_output)
+                         save_sec_str=self.sec_str_output, save_dssp=self.dssp_output,
+                         save_restraints=self.restraints_output, save_plddt=self.plddt_output,
+                         save_category=self.category_output, save_contact=self.contact_output)
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):

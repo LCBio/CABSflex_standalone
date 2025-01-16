@@ -692,20 +692,6 @@ class Atoms(object):
                 a.occ = CABS_SS[sec.get(a.resid_id(), 'C')]
         return self
 
-    def get_dssp(self, sec):
-        """
-        Reads secondary structure dictionary sec[] with Atoms.resid_id() as keys
-        and puts it into Atom.occ in CABS code:
-        Helix - > 2.0, Sheet -> 4.0, Turn -> 3.0, Coil -> 1.0
-        :param sec: {str: str}
-        :return: Atoms
-        """
-        ss = {}
-        if sec:
-            for a in self.atoms:
-                ss[a.resid_id()] = sec.get(a.resid_id(), 'C')
-        return ss
-
     def update_bfac(self, bfac, default=0.0):
         """
         Reads dictionary with keys = Atom.resid_id() and values = beta factors and puts it into Atom.bfac
