@@ -290,8 +290,8 @@ class Pdb(object):
             )
             return None
 
-        if output and logger.log_files():
-            output_dssp = os.path.join(output, 'output_data', 'DSSP_output_%s.txt' % self.name)
+        if output and logger.output_dssp():
+            output_dssp = os.path.join(output, 'output_data', 'DSSP_output.txt')
             odir = os.path.dirname(output_dssp)
             if not os.path.isdir(odir):
                 os.makedirs(odir)
@@ -317,14 +317,6 @@ class Pdb(object):
                 else:
                     val = 'C'
                 sec[key] = val
-
-        if output and logger.output_dssp():
-            csv_output = os.path.join(output, 'output_data', 'DSSP_output_%s' % self.name)
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            ss = self.atoms.get_dssp(sec)
-            drop_csv_file(csv_output, [list(ss.keys()), list(ss.values())], fmts=["%s", "%s"])
 
         return sec
 

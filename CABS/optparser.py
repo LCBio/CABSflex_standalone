@@ -141,8 +141,8 @@ dock_dict = {
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
-        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
-                            'restraints-output', 'plddt-output', 'category-output', 'contact-output',
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output',
+                            'dssp-output', 'restraints-output', 'plddt-output', 'category-output', 'contact-output',
                             'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
@@ -175,8 +175,8 @@ flex_dict = {
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
-        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'dssp-output',
-                            'restraints-output', 'plddt-output', 'category-output', 'contact-output',
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output',
+                            'dssp-output', 'restraints-output', 'plddt-output', 'category-output', 'contact-output',
                             'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
@@ -430,7 +430,7 @@ options = {
     },
     'dssp-output': {
         'action': 'store_true',
-        'help': 'Store secondary structure as a file (default is \'%(default)s\')'
+        'help': 'Store DSSP output as a file (default is \'%(default)s\')'
     },
     'exclude': {
         'flag': '-e',
@@ -824,6 +824,10 @@ options = {
         'metavar': ('WEIGHT_MIN', 'WEIGHT_MAX'),
         'help': 'Set global weight for all SC restraints when distance is shorter than minimum (WEIGHT_MIN) '
                 'or longer than maximum (WEIGHT_MAX) (default: %(default)s)'
+    },
+    'sec-str-output': {
+        'action': 'store_true',
+        'help': 'Store secondary structure as a file (default is \'%(default)s\')'
     },
     'separation': {
         'flag': '-d',
