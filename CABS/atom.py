@@ -713,6 +713,16 @@ class Atoms(object):
         for atom in self.atoms:
             atom.bfac = bfac
         return self
+
+    def get_bfac(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = beta factors.
+        :return: {str: float}
+        """
+        bfac = {}
+        for a in self.atoms:
+            bfac[a.resid_id()] = a.bfac
+        return bfac
     
     def update_flexibility(self, flexibility, default=1.0):
         """

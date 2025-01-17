@@ -48,15 +48,16 @@ _remote = False
 _prefix = color_prefix
 _save_sec_str = False
 _save_dssp = False
+_save_bfac = False
 _save_restraints = False
 _save_plddt = False
 _save_category = False
 _save_contact = False
 
-def setup(log_level=2, remote=False, work_dir='', save_sec_str=False, save_dssp=False, save_restraints=False,
+def setup(log_level=2, remote=False, work_dir='', save_sec_str=False, save_dssp=False, save_bfac=False, save_restraints=False,
           save_plddt=False, save_category=False, save_contact=False):
-    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_sec_str, _save_dssp, _save_restraints,\
-        _save_plddt, _save_category, _save_contact
+    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_sec_str, _save_dssp, _save_bfac,\
+        _save_restraints,_save_plddt, _save_category, _save_contact
     global _line_format, _middle_line_format, _first_line_format, _last_line_format
     _remote = remote
     if _remote or not sys.stderr.isatty():
@@ -88,6 +89,7 @@ def setup(log_level=2, remote=False, work_dir='', save_sec_str=False, save_dssp=
     info(_name, 'Verbosity set to: ' + str(log_level) + ' - ' + log_levels[log_level])
     _save_sec_str = save_sec_str
     _save_dssp = save_dssp
+    _save_bfac = save_bfac
     _save_restraints = save_restraints
     _save_plddt = save_plddt
     _save_category = save_category
@@ -118,6 +120,13 @@ def output_dssp():
     :return: True if flag --dssp-output was set
     """
     return _save_dssp
+
+
+def output_bfac():
+    """
+    :return: True if flag --bfac-output was set
+    """
+    return _save_bfac
 
 
 def output_restraints():
