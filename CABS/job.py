@@ -7,6 +7,7 @@ import re
 import tarfile
 import glob
 import numpy as np
+from copy import deepcopy
 from tempfile import mkstemp
 from time import strftime
 import random
@@ -45,6 +46,7 @@ class CABSTask(object):
         self.align = kwargs.get('align')
         self.align_options = dict(kwargs.get('align_options', []))
         self.align_peptide_options = dict(kwargs.get('align_peptide_options', []))
+        self.bfac_output = kwargs.get('bfac_output')
         self.binding_interactions = kwargs.get('binding_interactions')
         self.ca_rest_add = kwargs.get('ca_rest_add')
         self.ca_rest_file = kwargs.get('ca_rest_file')
@@ -132,7 +134,7 @@ class CABSTask(object):
 
         try:
             logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
-                         save_sec_str=self.sec_str_output, save_dssp=self.dssp_output,
+                         save_sec_str=self.sec_str_output, save_dssp=self.dssp_output, save_bfac=self.bfac_output,
                          save_restraints=self.restraints_output, save_plddt=self.plddt_output,
                          save_category=self.category_output, save_contact=self.contact_output)
             os.makedirs(self.work_dir)
@@ -554,6 +556,32 @@ class CABSTask(object):
                             msg='Saving starting structure...')
             self.initial_complex.save_to_pdb(
                 os.path.join(output_folder, 'start.pdb'))
+
+        if logger.output_bfac():
+            logger.log_file(module_name=_name,
+                            msg='Saving starting structure with beta-factors...')
+            self.initial_complex.save_to_pdb(
+                os.path.join(output_folder, 'start_bfac.pdb'))
+
+        if logger.output_plddt():
+            logger.log(module_name=_name,
+                       msg='Saving starting structure with pLDDT values...')
+            initial_complex_plddt = deepcopy(self.initial_complex)
+            plddt_update_dict = initial_complex_plddt.get_plddt()
+            for key in plddt_update_dict:
+                plddt_update_dict[key] *= 100
+            initial_complex_plddt.update_bfac(plddt_update_dict)
+            initial_complex_plddt.save_to_pdb(
+                os.path.join(output_folder, 'start_plddt.pdb'))
+
+        if logger.output_category():
+            logger.log(module_name=_name,
+                       msg='Saving starting structure with flexibility categories...')
+            initial_complex_category = deepcopy(self.initial_complex)
+            category_update_dict = initial_complex_category.get_category()
+            initial_complex_category.update_bfac(category_update_dict)
+            initial_complex_category.save_to_pdb(
+                os.path.join(output_folder, 'start_category.pdb'))
 
         # Saving final models:
         if 'M' in self.pdb_output:

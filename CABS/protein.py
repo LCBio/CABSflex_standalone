@@ -107,6 +107,7 @@ class Protein(Atoms):
                 self.atoms = pdb.atoms.models()[0]
                 ss = pdb.dssp(output=work_dir)
 
+
         if ss and logger.output_sec_str():
             csv_output = os.path.join(work_dir, 'output_data', 'sec_str')
             csv_dir = os.path.dirname(csv_output)
@@ -120,6 +121,14 @@ class Protein(Atoms):
                 ss = ReceptorSS(current_ss=ss, receptor_ss=receptor_ss).ss
             except InvalidReceptorSS:
                 logger.warning(msg='Invalid data for --receptor-ss option')
+
+        if logger.output_bfac():
+            csv_output = os.path.join(work_dir, 'output_data', 'bfactor')
+            csv_dir = os.path.dirname(csv_output)
+            if not os.path.isdir(csv_dir):
+                os.makedirs(csv_dir)
+            bfactor = self.atoms.get_bfac()
+            drop_csv_file(csv_output, [list(bfactor.keys()), list(bfactor.values())], fmts=["%s", "%s"])
 
         # setup plddt
         if plddt:

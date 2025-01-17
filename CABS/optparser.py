@@ -141,7 +141,7 @@ dock_dict = {
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
-        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output',
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output', 'bfac-output',
                             'dssp-output', 'restraints-output', 'plddt-output', 'category-output', 'contact-output',
                             'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
@@ -175,7 +175,7 @@ flex_dict = {
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
-        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output',
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output', 'bfac-output',
                             'dssp-output', 'restraints-output', 'plddt-output', 'category-output', 'contact-output',
                             'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
@@ -307,6 +307,10 @@ options = {
             '--backbone-cyclization --backbone-cyclization B  # Chains A and B are both cyclic\n'
             'Invalid:\n'
             '--backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-cyclization'
+    },
+    'bfac-output': {
+        'action': 'store_true',
+        'help': 'Store B-factors as a file (default is \'%(default)s\')'
     },
     'binding-interactions': {
         'flag': '-b',
