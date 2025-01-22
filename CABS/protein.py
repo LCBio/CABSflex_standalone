@@ -28,7 +28,7 @@ class Protein(Atoms):
     NSP3_MODEL_PATH = ''
 
     def __init__(self, source, flexibility=None, exclude=None, weights=None, plddt=None, work_dir='.', receptor_ss=None,
-                 pdb_cache=None, category=None, predict_peptide_structure=False):
+                 pdb_cache=None, category=None, save_initial_pdb=False, predict_peptide_structure=False):
 
         Atoms.__init__(self)
 
@@ -105,7 +105,9 @@ class Protein(Atoms):
             except:
                 pdb = Pdb(source=source, selection='name CA', pdb_cache=pdb_cache)
                 self.atoms = pdb.atoms.models()[0]
-                ss = pdb.dssp(output=work_dir)
+                ss = pdb.dssp(work_dir=work_dir)
+                if save_initial_pdb:
+                    pdb.save_initial_pdb(work_dir=work_dir)
 
 
         if ss and logger.output_sec_str():
@@ -220,7 +222,29 @@ class Protein(Atoms):
                         chains = re.sub(r'[^%s]*' % word, '', ascii_uppercase)
                         self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
 
-        self.old_ids = self.atoms.update_sec(ss).fix_broken_chains()
+        self.atoms.update_sec(ss)
+
+        # setup categories
+        if category:
+            try:
+                d, de = self.read_category(category)
+                self.atoms.update_category(d, de)
+            except IOError:
+                logger.warning(_name, 'Could not read category file: %s' % category)
+                logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
+                self.atoms.determine_category()
+        else:
+            self.atoms.determine_category()
+
+        if logger.output_category():
+            csv_output = os.path.join(work_dir, 'output_data', 'category')
+            csv_dir = os.path.dirname(csv_output)
+            if not os.path.isdir(csv_dir):
+                os.makedirs(csv_dir)
+            category = self.atoms.get_category()
+            drop_csv_file(csv_output, [list(category.keys()), list(category.values())], fmts=["%s", "%s"])
+
+        self.old_ids = self.atoms.fix_broken_chains()
 
         todrop = [c for c, l in self.list_chains().items() if l < 4]
         if todrop:
@@ -261,27 +285,6 @@ class Protein(Atoms):
                 logger.warning(_name, 'Could not read weights file: %s' % weights)
                 logger.warning(_name, 'Using default weights(1.0) for all atoms.')
                 self.weights = [1.0] * len(self.atoms)
-
-        # setup categories
-        #  Is this the best place to put this? Maybe after fixing chains / exluding something migh happen? Has to be after upadte_sec
-        if category:
-            try:
-                d, de = self.read_category(category)
-                self.atoms.update_category(d, de)
-            except IOError:
-                logger.warning(_name, 'Could not read category file: %s' % category)
-                logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
-                self.atoms.determine_category()
-        else:
-            self.atoms.determine_category()
-
-        if logger.output_category():
-            csv_output = os.path.join(work_dir, 'output_data', 'category')
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            category = self.atoms.get_category()
-            drop_csv_file(csv_output, [list(category.keys()), list(category.values())], fmts=["%s", "%s"])
 
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()
@@ -588,7 +591,7 @@ class Peptide(Atoms):
         try:
             pdb = Pdb(source=source, selection='name CA', pdb_cache=pdb_cache, no_exit=True)
             atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp(output=work_dir))
+            atoms.update_sec(pdb.dssp(work_dir=work_dir))
         except Pdb.InvalidPdbInput:
             atoms = Atoms(source)
         atoms.set_bfac(0.0)
@@ -603,7 +606,7 @@ class ProteinComplex(Atoms):
     """
 
     def __init__(self, protein, flexibility, exclude, weights, plddt, category, peptides, replicas,
-                 separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache,
+                 separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache, save_initial_pdb,
                  predict_peptide_structure=False):
         logger.debug(module_name=_name, msg="Preparing the complex")
         Atoms.__init__(self)
@@ -618,6 +621,7 @@ class ProteinComplex(Atoms):
             work_dir=work_dir,
             receptor_ss=receptor_ss,
             pdb_cache=pdb_cache,
+            save_initial_pdb=save_initial_pdb,
             predict_peptide_structure=predict_peptide_structure
         )
         self.chain_list = self.protein.list_chains()

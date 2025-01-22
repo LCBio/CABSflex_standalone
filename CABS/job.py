@@ -7,7 +7,6 @@ import re
 import tarfile
 import glob
 import numpy as np
-from copy import deepcopy
 from tempfile import mkstemp
 from time import strftime
 import random
@@ -81,6 +80,7 @@ class CABSTask(object):
         self.nsp3_model_path = kwargs.get('nsp3_model_path')
         self.pairmod = kwargs.get('pairmod')
         self.pdb_cache = kwargs.get('pdb_cache_dir')
+        self.pdb_bfac_output = kwargs.get('pdb_bfac_output')
         self.pdb_output = kwargs.get('pdb_output')
         self.peptide = kwargs.get('peptide')
         self.peptide_structure_prediction = kwargs.get('peptide_structure_prediction')
@@ -194,6 +194,30 @@ class CABSTask(object):
                 exc=e
             )
 
+        valid_bfac_letters = set('ABCPRSN')
+
+        try:
+            if not all(letter in valid_bfac_letters for letter in self.pdb_bfac_output):
+                raise ValueError("Contains letters outside of 'ABCPRSN'.")
+
+            # Process 'A' or 'N' in pdb_bfac_output
+            if 'A' in self.pdb_bfac_output:
+                self.pdb_bfac_output = 'BCPRS'
+            elif 'N' in self.pdb_bfac_output:
+                self.pdb_bfac_output = ''
+
+            if self.pdb_bfac_output:
+                self.save_initial_pdb = True
+            else:
+                self.save_initial_pdb = False
+
+        except ValueError as e:
+            logger.exit_program(
+                module_name=_name,
+                msg="Invalid pdb_bfac_output. An error occurred: %s" % e,
+                exc=e
+            )
+
         if self.contact_map_colors:
             self.colors = self.contact_map_colors
         else:
@@ -256,8 +280,8 @@ class CABSTask(object):
             number_of_medoids=self.clustering_medoids,
             number_of_iterations=self.clustering_iterations
         )
-
-        self.save_models()
+        if self.pdb_output: # Is this line necessary
+            self.save_models()
         if self.reference:
             try:
                 self.calculate_rmsd()
@@ -266,6 +290,8 @@ class CABSTask(object):
         self.save_config_file()
         self.load_all_atom_tops()
         self.draw_plots(colors=self.colors)
+        if self.pdb_bfac_output:
+            self.save_bfac_models()
         if self.load_cabs_files:
             for _file in _CABS_files:
                 try:
@@ -557,32 +583,6 @@ class CABSTask(object):
             self.initial_complex.save_to_pdb(
                 os.path.join(output_folder, 'start.pdb'))
 
-        if logger.output_bfac():
-            logger.log_file(module_name=_name,
-                            msg='Saving starting structure with beta-factors...')
-            self.initial_complex.save_to_pdb(
-                os.path.join(output_folder, 'start_bfac.pdb'))
-
-        if logger.output_plddt():
-            logger.log(module_name=_name,
-                       msg='Saving starting structure with pLDDT values...')
-            initial_complex_plddt = deepcopy(self.initial_complex)
-            plddt_update_dict = initial_complex_plddt.get_plddt()
-            for key in plddt_update_dict:
-                plddt_update_dict[key] *= 100
-            initial_complex_plddt.update_bfac(plddt_update_dict)
-            initial_complex_plddt.save_to_pdb(
-                os.path.join(output_folder, 'start_plddt.pdb'))
-
-        if logger.output_category():
-            logger.log(module_name=_name,
-                       msg='Saving starting structure with flexibility categories...')
-            initial_complex_category = deepcopy(self.initial_complex)
-            category_update_dict = initial_complex_category.get_category()
-            initial_complex_category.update_bfac(category_update_dict)
-            initial_complex_category.save_to_pdb(
-                os.path.join(output_folder, 'start_category.pdb'))
-
         # Saving final models:
         if 'M' in self.pdb_output:
             save_to_ca = True
@@ -657,6 +657,70 @@ class CABSTask(object):
                 logger.log_file(module_name=_name, msg='Saving final models (in CA representation).')
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
 
+    def save_bfac_models(self):
+        # output folder
+        pdb_output = os.path.join(self.work_dir, 'output_pdbs')
+        if not os.path.isdir(pdb_output):
+            os.makedirs(pdb_output)
+
+        try:
+            initial_pdb = os.path.join(pdb_output, 'start_all.pdb')
+            if not os.path.exists(initial_pdb):
+                raise FileNotFoundError
+            initial_pdb_file = Pdb(initial_pdb, create_from_aa=True).atoms
+            initial_pdb_file.update_occ(self.initial_complex.get_occ())
+        except FileNotFoundError:
+            logger.warning(_name, 'No start_all.pdb file found. Skipping beta-factor calculations.')
+            return
+
+        if 'B' in self.pdb_bfac_output:
+            logger.log_file(module_name=_name,
+                            msg='Saving starting structure with beta-factors...')
+            bfac_update_dict = self.initial_complex.get_bfac()
+            initial_pdb_file.update_bfac(bfac_update_dict)
+            initial_pdb_file.save_to_pdb(
+                os.path.join(pdb_output, 'start_bfac.pdb'))
+
+        if 'C' in self.pdb_bfac_output:
+            logger.log(module_name=_name,
+                       msg='Saving starting structure with flexibility categories...')
+            category_update_dict = self.initial_complex.get_category()
+            initial_pdb_file.update_bfac(category_update_dict)
+            initial_pdb_file.save_to_pdb(
+                os.path.join(pdb_output, 'start_category.pdb'))
+
+        if 'P' in self.pdb_bfac_output:
+            logger.log(module_name=_name,
+                       msg='Saving starting structure with pLDDT values...')
+            plddt_update_dict = self.initial_complex.get_plddt()
+            for key in plddt_update_dict:
+                plddt_update_dict[key] = plddt_update_dict[key] * 100
+            initial_pdb_file.update_bfac(plddt_update_dict)
+            initial_pdb_file.save_to_pdb(
+                os.path.join(pdb_output, 'start_plddt.pdb'))
+
+        if 'R' in self.pdb_bfac_output:
+            logger.log(module_name=_name,
+                       msg='Saving starting structure with RMSF values...')
+            rmsfs = self.trajectory.rmsf(self.initial_complex.protein_chains)
+            rmsf_update_dict = {}
+            i = 0
+            for atom in self.trajectory.template.atoms:
+                if atom.chid in self.initial_complex.protein_chains:
+                    rmsf_update_dict[atom.resid_id()] = rmsfs[i]
+                    i += 1
+            initial_pdb_file.update_bfac(rmsf_update_dict)
+            initial_pdb_file.save_to_pdb(
+                os.path.join(pdb_output, 'start_rmsf.pdb'))
+
+        if 'S' in self.pdb_bfac_output:
+            logger.log(module_name=_name,
+                       msg='Saving starting structure with secondary structure...')
+            ss_update_dict = self.initial_complex.get_occ()
+            initial_pdb_file.update_bfac(ss_update_dict)
+            initial_pdb_file.save_to_pdb(
+                os.path.join(pdb_output, 'start_secsstr.pdb'))
+
 
 class DockTask(CABSTask):
     """Class representing single CABS job."""
@@ -679,6 +743,7 @@ class DockTask(CABSTask):
             work_dir=self.work_dir,
             receptor_ss=self.receptor_ss,
             pdb_cache=self.pdb_cache,
+            save_initial_pdb=self.save_initial_pdb,
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -897,6 +962,7 @@ class FlexTask(CABSTask):
             work_dir=self.work_dir,
             receptor_ss=self.receptor_ss,
             pdb_cache=self.pdb_cache,
+            save_initial_pdb=self.save_initial_pdb,
             predict_peptide_structure=self.peptide_structure_prediction,
         )
 
