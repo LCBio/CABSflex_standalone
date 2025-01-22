@@ -6,6 +6,7 @@ import gzip
 import json
 import requests as req
 from typing import Tuple
+from copy import deepcopy
 
 from tempfile import mkstemp
 from time import sleep
@@ -122,11 +123,10 @@ class Pdb(object):
             self.body = new_body
 
             if chains:
-                logger.debug(_name, 'Selected chains {}'.format(chains))
-                if selection:
-                    selection = '({}) and chain {}'.format(selection, ','.join(chains))
-                else:
-                    selection = 'chain {}'.format(','.join(chains))
+                if not create_from_aa:
+                    logger.debug(_name, 'Selected chains {}'.format(chains))
+                chains_selection = 'chain {}'.format(','.join(chains))
+                self.atoms = self.atoms.select(chains_selection)
 
             if remove_alternative_locations:
                 if not create_from_aa:
@@ -167,6 +167,8 @@ class Pdb(object):
                 if not create_from_aa:
                     logger.debug(_name, 'Removing heteroatoms from {}'.format(name))
                 self.atoms = self.atoms.drop('hetero')
+
+            self.all_atoms = deepcopy(self.atoms)
 
             if selection:
                 if not create_from_aa:
@@ -265,7 +267,7 @@ class Pdb(object):
         except OSError:
             return None, None, -1
 
-    def dssp(self, output='', dssp_from_aa=False):
+    def dssp(self, work_dir='', dssp_from_aa=False):
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         commands_to_try = [
@@ -290,8 +292,8 @@ class Pdb(object):
             )
             return None
 
-        if output and logger.output_dssp():
-            output_dssp = os.path.join(output, 'output_data', 'DSSP_output.txt')
+        if work_dir and logger.output_dssp():
+            output_dssp = os.path.join(work_dir, 'output_data', 'DSSP_output.txt')
             odir = os.path.dirname(output_dssp)
             if not os.path.isdir(odir):
                 os.makedirs(odir)
@@ -443,6 +445,14 @@ class Pdb(object):
                 sleep(1)
 
         return out, err
+
+    def save_initial_pdb(self, work_dir=''):
+        if work_dir:
+            initial_pdb = os.path.join(work_dir, 'output_pdbs', 'start_all.pdb')
+            odir = os.path.dirname(initial_pdb)
+            if not os.path.isdir(odir):
+                os.makedirs(odir)
+            self.all_atoms.save_to_pdb(initial_pdb)
 
     def __str__(self):
         return self.body

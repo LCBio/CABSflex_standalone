@@ -141,9 +141,9 @@ dock_dict = {
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
-        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output', 'bfac-output',
-                            'dssp-output', 'restraints-output', 'plddt-output', 'category-output', 'contact-output',
-                            'renumber-residues-to-original']),
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
+                            'sec-str-output', 'bfac-output', 'dssp-output', 'restraints-output', 'plddt-output',
+                            'category-output', 'contact-output', 'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -175,9 +175,9 @@ flex_dict = {
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
-        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'sec-str-output', 'bfac-output',
-                            'dssp-output', 'restraints-output', 'plddt-output', 'category-output', 'contact-output',
-                            'renumber-residues-to-original']),
+        ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
+                            'sec-str-output', 'bfac-output', 'dssp-output', 'restraints-output', 'plddt-output',
+                            'category-output', 'contact-output', 'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -622,6 +622,21 @@ options = {
         'metavar': 'DIR',
         'help': 'Set the directory where a subdirectory .cabsPDBcache will be created\n'
                 'to store downloaded PDB files (default: %(default)s)'
+    },
+    'pdb-bfac-output': {
+        'default': 'N',
+        'metavar': 'SELECTION',
+        'help':
+            'Select what values should be saved in beta factors of the initial PDB structure.\n\n'
+            'Available options are:\n'
+            '[1] \'A\' - all\n'
+            '[2] \'B\' - original beta factors of CA\n'
+            '[3] \'C\' - flexibility categories\n'
+            '[4] \'P\' - pLDDTs\n'
+            '[5] \'R\' - RMSFs\n'
+            '[6] \'S\' - secondary structure\n'
+            '[7] \'N\' - none (default)\n\n'
+            'i. e. \'--pdb-bfac-output BP\' - saves original beta-factors and pLDDTs'
     },
     'pdb-output': {
         'flag': '-o',
