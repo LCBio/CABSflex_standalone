@@ -692,16 +692,6 @@ class Atoms(object):
                 a.occ = CABS_SS[sec.get(a.resid_id(), 'C')]
         return self
 
-    def get_occ(self):
-        """
-        Returns dictionary with keys = Atom.resid_id() and values = beta factors.
-        :return: {str: float}
-        """
-        sec = {}
-        for a in self.atoms:
-            sec[a.resid_id()] = a.occ
-        return sec
-
     def update_occ(self, occ):
         """
         Reads dictionary with keys = Atom.resid_id() and values = occupancy and puts it into Atom.occ
@@ -712,6 +702,16 @@ class Atoms(object):
         for a in self.atoms:
             a.occ = occ.get(a.resid_id(), 1.0)
         return self
+
+    def get_occ(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = beta factors.
+        :return: {str: float}
+        """
+        sec = {}
+        for a in self.atoms:
+            sec[a.resid_id()] = a.occ
+        return sec
 
     def update_bfac(self, bfac, default=0.0):
         """

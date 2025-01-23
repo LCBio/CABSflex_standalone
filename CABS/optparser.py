@@ -142,8 +142,7 @@ dock_dict = {
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
-                            'sec-str-output', 'bfac-output', 'dssp-output', 'restraints-output', 'plddt-output',
-                            'category-output', 'contact-output', 'renumber-residues-to-original']),
+                            'csv-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -176,8 +175,7 @@ flex_dict = {
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
-                            'sec-str-output', 'bfac-output', 'dssp-output', 'restraints-output', 'plddt-output',
-                            'category-output', 'contact-output', 'renumber-residues-to-original']),
+                            'csv-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -308,10 +306,6 @@ options = {
             'Invalid:\n'
             '--backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-cyclization'
     },
-    'bfac-output': {
-        'action': 'store_true',
-        'help': 'Store B-factors as a file (default is \'%(default)s\')'
-    },
     'binding-interactions': {
         'flag': '-b',
         'metavar': 'FACTOR',
@@ -358,10 +352,6 @@ options = {
             'protein) when distance is shorter than minimum (WEIGHT_MIN) or longer than maximum (WEIGHT_MAX) '
             '(default: %(default)s)'
     },
-    'category-output': {
-        'action': 'store_true',
-        'help': 'Store flexibility categories as a file (default is \'%(default)s\')'
-    },
     'clustering-iterations': {
         'default': 100,
         'type': int,
@@ -397,10 +387,6 @@ options = {
             'Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.\n'
             '(default: %(default)s)'
     },
-    'contact-output': {
-        'action': 'store_true',
-        'help': 'Store contacts as a file (default is \'%(default)s\')'
-    },
     'contact-threshold': {
         'flag': '-T',
         'default': 6.5,
@@ -415,6 +401,20 @@ options = {
         'metavar': 'DIST',
         'help':
             'Set contact distance between heavy atoms for contact map plotting. (default: %(default)s)'
+    },
+    'csv-output': {
+        'default': 'N',
+        'metavar': 'SELECTION',
+        'help':
+            'Select what values should be saved in csv format.\n\n'
+            'Available options are:\n'
+            '[1] \'A\' - all\n'
+            '[2] \'B\' - original beta factors of CA\n'
+            '[3] \'C\' - flexibility categories\n'
+            '[4] \'P\' - pLDDTs\n'
+            '[5] \'S\' - secondary structure\n'
+            '[6] \'N\' - none (default)\n\n'
+            'i. e. \'--csv-output BP\' - saves original beta-factors and pLDDTs'
     },
     'disulfide-bonds': {
         'flag': '-F',
@@ -679,10 +679,6 @@ options = {
         'help':
             'Treat input as a string \'SEQUENCE\' or \'SEQUENCE:SECONDARY\' for peptide structure prediction. '
     },
-    'plddt-output': {
-        'action': 'store_true',
-        'help': 'Store pLDDT values as a file (default is \'%(default)s\')'
-    },
     'protein-category': {
         'metavar': 'FILE',
         'action': 'append',
@@ -843,10 +839,6 @@ options = {
         'metavar': ('WEIGHT_MIN', 'WEIGHT_MAX'),
         'help': 'Set global weight for all SC restraints when distance is shorter than minimum (WEIGHT_MIN) '
                 'or longer than maximum (WEIGHT_MAX) (default: %(default)s)'
-    },
-    'sec-str-output': {
-        'action': 'store_true',
-        'help': 'Store secondary structure as a file (default is \'%(default)s\')'
     },
     'separation': {
         'flag': '-d',

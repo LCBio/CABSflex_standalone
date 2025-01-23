@@ -18,7 +18,7 @@ from CABS.align import save_csv, AlignError, align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
 from CABS.filter import Filter
-from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N
+from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N, drop_csv_file
 from CABS.protein import ProteinComplex
 from CABS.restraints import Restraints
 from CABS.trajectory import Trajectory
@@ -45,19 +45,17 @@ class CABSTask(object):
         self.align = kwargs.get('align')
         self.align_options = dict(kwargs.get('align_options', []))
         self.align_peptide_options = dict(kwargs.get('align_peptide_options', []))
-        self.bfac_output = kwargs.get('bfac_output')
         self.binding_interactions = kwargs.get('binding_interactions')
         self.ca_rest_add = kwargs.get('ca_rest_add')
         self.ca_rest_file = kwargs.get('ca_rest_file')
         self.ca_rest_weight = kwargs.get('ca_rest_weight')
-        self.category_output = kwargs.get('category_output')
         self.clustering_iterations = kwargs.get('clustering_iterations')
         self.clustering_medoids = kwargs.get('clustering_medoids')
         self.contact_map_colors = kwargs.get('contact_map_colors')
         self.contact_maps = kwargs.get('contact_maps')
-        self.contact_output = kwargs.get('contact_output')
         self.contact_threshold = kwargs.get('contact_threshold')
         self.contact_threshold_aa = kwargs.get('contact_threshold_aa')
+        self.csv_output = kwargs.get('csv_output')
         self.cyclization = kwargs.get('backbone_cyclization')
         self.disulfide_bonds = kwargs.get('disulfide_bonds')
         self.dssp_command = kwargs.get('dssp_command')
@@ -84,7 +82,6 @@ class CABSTask(object):
         self.pdb_output = kwargs.get('pdb_output')
         self.peptide = kwargs.get('peptide')
         self.peptide_structure_prediction = kwargs.get('peptide_structure_prediction')
-        self.plddt_output = kwargs.get('plddt_output')
         self.protein_category = kwargs.get('protein_category')
         self.protein_flexibility = kwargs.get('protein_flexibility')
         self.protein_plddt = kwargs.get('protein_plddt')
@@ -104,7 +101,6 @@ class CABSTask(object):
         self.sc_rest_add = kwargs.get('sc_rest_add')
         self.sc_rest_file = kwargs.get('sc_rest_file')
         self.sc_rest_weight = kwargs.get('sc_rest_weight')
-        self.sec_str_output = kwargs.get('sec_str_output')
         self.separation = kwargs.get('separation')
         self.temperature = kwargs.get('temperature')
         self.verbose = kwargs.get('verbose')
@@ -133,10 +129,8 @@ class CABSTask(object):
         self.work_dir = os.path.abspath(self.work_dir)
 
         try:
-            logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
-                         save_sec_str=self.sec_str_output, save_dssp=self.dssp_output, save_bfac=self.bfac_output,
-                         save_restraints=self.restraints_output, save_plddt=self.plddt_output,
-                         save_category=self.category_output, save_contact=self.contact_output)
+            logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir, save_dssp=self.dssp_output,
+                         save_restraints=self.restraints_output)
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):
@@ -218,6 +212,24 @@ class CABSTask(object):
                 exc=e
             )
 
+        valid_csv_letters = set('ABCPSN')
+
+        try:
+            if not all(letter in valid_csv_letters for letter in self.csv_output):
+                raise ValueError("Contains letters outside of 'ABCPSN'.")
+
+            if 'A' in self.csv_output:
+                self.csv_output = 'BCPS'
+            elif 'N' in self.csv_output:
+                self.csv_output = ''
+
+        except ValueError as e:
+            logger.exit_program(
+                module_name=_name,
+                msg="Invalid csv_output. An error occurred: %s" % e,
+                exc=e
+            )
+
         if self.contact_map_colors:
             self.colors = self.contact_map_colors
         else:
@@ -292,6 +304,8 @@ class CABSTask(object):
         self.draw_plots(colors=self.colors)
         if self.pdb_bfac_output:
             self.save_bfac_models()
+        if self.csv_output:
+            self.save_csv_files()
         if self.load_cabs_files:
             for _file in _CABS_files:
                 try:
@@ -658,10 +672,11 @@ class CABSTask(object):
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
 
     def save_bfac_models(self):
-        # output folder
         pdb_output = os.path.join(self.work_dir, 'output_pdbs')
         if not os.path.isdir(pdb_output):
             os.makedirs(pdb_output)
+        logger.log_file(module_name=_name,
+                        msg="Saving starting structures with different beta factors to " + str(pdb_output))
 
         try:
             initial_pdb = os.path.join(pdb_output, 'start_all.pdb')
@@ -720,6 +735,45 @@ class CABSTask(object):
             initial_pdb_file.update_bfac(ss_update_dict)
             initial_pdb_file.save_to_pdb(
                 os.path.join(pdb_output, 'start_secsstr.pdb'))
+
+    def save_csv_files(self):
+        csv_output = os.path.join(self.work_dir, 'output_data')
+        if not os.path.isdir(csv_output):
+            os.makedirs(csv_output)
+
+        logger.log_file(module_name=_name,
+                        msg="Saving csv files to " + str(csv_output))
+
+        if 'B' in self.csv_output:
+            logger.log_file(module_name=_name,
+                            msg='Saving csv file with beta-factors...')
+            bfac_dict = self.initial_complex.get_bfac()
+            drop_csv_file(os.path.join(csv_output, 'bfactor'),
+                          [list(bfac_dict.keys()), list(bfac_dict.values())], fmts=["%s", "%s"])
+
+        if 'C' in self.csv_output:
+            logger.log(module_name=_name,
+                       msg='Saving csv file with flexibility categories...')
+            category_dict = self.initial_complex.get_category()
+            drop_csv_file(os.path.join(csv_output, 'category'),
+                          [list(category_dict.keys()), list(category_dict.values())], fmts=["%s", "%s"])
+
+        if 'P' in self.csv_output:
+            logger.log(module_name=_name,
+                       msg='Saving csv file with pLDDT values...')
+            plddt_dict = self.initial_complex.get_plddt()
+            for key in plddt_dict:
+                plddt_dict[key] = plddt_dict[key] * 100
+            drop_csv_file(os.path.join(csv_output, 'plddt'),
+                          [list(plddt_dict.keys()), list(plddt_dict.values())], fmts=["%s", "%s"])
+
+        if 'S' in self.csv_output:
+            logger.log(module_name=_name,
+                       msg='Saving csv file with secondary structure...')
+            ss_dict = self.initial_complex.get_occ()
+            drop_csv_file(os.path.join(csv_output, 'secsstr'),
+                          [list(ss_dict.keys()), list(ss_dict.values())], fmts=["%s", "%s"])
+
 
 
 class DockTask(CABSTask):

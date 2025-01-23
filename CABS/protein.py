@@ -109,28 +109,12 @@ class Protein(Atoms):
                 if save_initial_pdb:
                     pdb.save_initial_pdb(work_dir=work_dir)
 
-
-        if ss and logger.output_sec_str():
-            csv_output = os.path.join(work_dir, 'output_data', 'sec_str')
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            drop_csv_file(csv_output, [list(ss.keys()), list(ss.values())], fmts=["%s", "%s"])
-
         if receptor_ss:
             logger.info('Running manual assignment of receptor\'s II structure.')
             try:
                 ss = ReceptorSS(current_ss=ss, receptor_ss=receptor_ss).ss
             except InvalidReceptorSS:
                 logger.warning(msg='Invalid data for --receptor-ss option')
-
-        if logger.output_bfac():
-            csv_output = os.path.join(work_dir, 'output_data', 'bfactor')
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            bfactor = self.atoms.get_bfac()
-            drop_csv_file(csv_output, [list(bfactor.keys()), list(bfactor.values())], fmts=["%s", "%s"])
 
         # setup plddt
         if plddt:
@@ -151,15 +135,6 @@ class Protein(Atoms):
                     self.atoms.set_plddt(1.0)
         else:
             self.atoms.set_plddt(1.0)
-
-        if logger.output_plddt():
-            csv_output = os.path.join(work_dir, 'output_data', 'pLDDT')
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            plddt = self.atoms.get_plddt()
-            drop_csv_file(csv_output, [list(plddt.keys()), list(plddt.values())], fmts=["%s", "%s"])
-
 
         # setup flexibility
         if flexibility:
@@ -235,14 +210,6 @@ class Protein(Atoms):
                 self.atoms.determine_category()
         else:
             self.atoms.determine_category()
-
-        if logger.output_category():
-            csv_output = os.path.join(work_dir, 'output_data', 'category')
-            csv_dir = os.path.dirname(csv_output)
-            if not os.path.isdir(csv_dir):
-                os.makedirs(csv_dir)
-            category = self.atoms.get_category()
-            drop_csv_file(csv_output, [list(category.keys()), list(category.values())], fmts=["%s", "%s"])
 
         self.old_ids = self.atoms.fix_broken_chains()
 
