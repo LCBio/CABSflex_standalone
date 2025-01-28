@@ -426,7 +426,7 @@ class Protein(Atoms):
         restr = []
         _len = len(self.atoms)
 
-        if mode == 'category':
+        if mode in ['category', 'plddt']:
             for i in range(_len):
                 a1 = self.atoms[i]
                 for j in range(i + gap, _len):

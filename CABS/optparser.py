@@ -734,7 +734,7 @@ options = {
             'This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the '
             'protein in predefined conformation. (default: %(default)s)\n\n'
             'MODE can be either based on plDDT or secondary structure:\n'
-            '[1] \'category\' - Generates restraints based on combination of pLDDT and secondary structure.\n'
+            '[1] \'plddt\' or \'category\' - Generates restraints based on combination of pLDDT and secondary structure.\n'
             '[2] \'min\' - Applies the minimum pLDDT score from a residue pair as the restraint strength. No restraints are generated if the score is below 0.5\n'
             '[3] \'max\' - Uses the maximum pLDDT score of the pair, following the same procedure.\n'
             '[4] \'mean\' - Uses the average pLDDT score of the pair, following the same procedure.\n'
