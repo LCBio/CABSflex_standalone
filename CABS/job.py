@@ -241,19 +241,24 @@ class CABSTask(object):
 
             utils.GAUSS_MAX_ITER = self.gauss_iterations
 
+        allowed_modes = ['category', 'plddt', 'min', 'max', 'mean', 'plddt1', 'plddt2', 'ss1', 'ss2', 'all']
         # Check whether to use restraints based on pLDDT
         if not self.no_protein_restraints:
             mode, gap, min_d, max_d = self.protein_restraints
             if (
             mode in ['min', 'max', 'mean', 'plddt1', 'plddt2'] and not self.protein_plddt
             ) or (
-            mode == 'category' and not (self.protein_plddt or self.protein_category)
+            mode in ['category', 'plddt'] and not (self.protein_plddt or self.protein_category)
             ):
                 logger.warning(
                     _name, 'No information about pLDDT or flexibility categories provided. '
                            'Changing protein restraints  mode to \'all\'. '
                            'If you want to use restraints based on pLDDT or flexibility categories, '
                            'please provide the necessary data.')
+                self.protein_restraints = ('all', gap, min_d, max_d)
+            elif mode not in allowed_modes:
+                logger.warning(
+                    _name, 'Unknown protein restraints mode: %s. Changing to \'all\'.' % mode)
                 self.protein_restraints = ('all', gap, min_d, max_d)
 
         # pairwise potential modification
