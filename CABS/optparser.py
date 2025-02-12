@@ -142,7 +142,7 @@ dock_dict = {
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
-                            'csv-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
+                            'csv-output', 'json-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -175,7 +175,7 @@ flex_dict = {
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
-                            'csv-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
+                            'csv-output', 'json-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -539,6 +539,10 @@ options = {
             'This option enables advanced settings of building starting conformations of modelled complexes. The '
             'option sets distance in Angstroms between any two atoms (of different modeled chains) at which a clash '
             'occurs while building initial complex (default: %(default)s Angstrom)'
+    },
+    'json-output': {
+        'action': 'store_true',
+        'help': 'Store atom and chain numeration in json format. (default: %(default)s)'
     },
     'load-cabs-files': {
         'flag': '-L',
