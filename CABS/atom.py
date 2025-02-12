@@ -4,12 +4,13 @@ Atoms is a container for Atom objects, without actually specifying if they are i
 """
 
 import re
+import json
 import numpy as np
 from math import sqrt
 from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 from CABS.utils import CABS_SS, aa_to_long, smart_flatten, kabsch, check_peptide_sequence
 from CABS.vector3d import Vector3d
@@ -653,6 +654,35 @@ class Atoms(object):
         with open(filename, 'w') as f:
             f.write(header)
             f.write(self.make_pdb(bar_msg=bar_msg))
+
+
+    def save_to_json(self, filename):
+        """
+        Saves atoms to a file in the json format.
+        :param filename:
+        :return:
+        """
+
+        chain_indices = {chain_id: id_num for id_num, chain_id in enumerate(self.list_chains().keys())}
+
+        chain_residues = defaultdict(dict)
+
+        residue_counter = {}
+        for atom in self.atoms:
+            chain_id = atom.chid
+            chain_num = chain_indices[chain_id]
+            if chain_id not in residue_counter:
+                residue_counter[chain_id] = 0
+
+            if atom.resnum not in chain_residues[chain_num]:
+                chain_residues[chain_num][atom.resnum] = residue_counter[chain_id]
+                residue_counter[chain_id] += 1
+
+        data = {chain_idx: res_dict for chain_idx, res_dict in chain_residues.items()}
+
+        with open(filename, 'w') as out:
+            json.dump(data, out)
+
 
     def select(self, selection):
         """

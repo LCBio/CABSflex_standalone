@@ -574,7 +574,7 @@ class ProteinComplex(Atoms):
 
     def __init__(self, protein, flexibility, exclude, weights, plddt, category, peptides, replicas,
                  separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache, save_initial_pdb,
-                 predict_peptide_structure=False):
+                 json_output=False, predict_peptide_structure=False):
         logger.debug(module_name=_name, msg="Preparing the complex")
         Atoms.__init__(self)
 
@@ -640,6 +640,12 @@ class ProteinComplex(Atoms):
                     raise Exception('Maximum number of attempts to insert peptide %s reached!!!' % peptide) #used to be peptide.name
             self.atoms.extend(model)
         logger.debug(module_name=_name, msg="Complex successfully created")
+
+        if json_output:
+            json_file = os.path.join(work_dir, 'output_data', 'atoms.json')
+            self.save_to_json(json_file)
+
+        logger.debug(module_name=_name, msg="Atoms saved to JSON file")
 
     @staticmethod
     def insert_peptide(protein, peptide, separation):

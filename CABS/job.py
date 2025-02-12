@@ -70,6 +70,7 @@ class CABSTask(object):
         self.input_protein = kwargs.get('input_protein')
         self.insertion_attempts = kwargs.get('insertion_attempts')
         self.insertion_clash = kwargs.get('insertion_clash')
+        self.json_output = kwargs.get('json_output')
         self.load_cabs_files = kwargs.get('load_cabs_files')
         self.mc_annealing = kwargs.get('mc_annealing')
         self.mc_cycles = kwargs.get('mc_cycles')
@@ -803,6 +804,7 @@ class DockTask(CABSTask):
             receptor_ss=self.receptor_ss,
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
+            json_output=self.json_output
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -1022,6 +1024,7 @@ class FlexTask(CABSTask):
             receptor_ss=self.receptor_ss,
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
+            json_output=self.json_output,
             predict_peptide_structure=self.peptide_structure_prediction,
         )
 
