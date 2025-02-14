@@ -643,6 +643,9 @@ class ProteinComplex(Atoms):
 
         if json_output:
             json_file = os.path.join(work_dir, 'output_data', 'atoms.json')
+            odir = os.path.dirname(json_file)
+            if not os.path.isdir(odir):
+                os.makedirs(odir)
             self.save_to_json(json_file)
 
         logger.debug(module_name=_name, msg="Atoms saved to JSON file")
