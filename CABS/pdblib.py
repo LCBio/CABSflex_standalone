@@ -122,9 +122,18 @@ class Pdb(object):
                             new_body += line + '\n'
             self.body = new_body
 
+            if not len(self.atoms):
+                raise Exception('{} contains no atoms'.format(source))
+
             if chains:
                 if not create_from_aa:
                     logger.debug(_name, 'Selected chains {}'.format(chains))
+
+                actual_chains = ''.join(self.atoms.list_chains().keys())
+                if set(chains) != set(actual_chains):
+                    msg = f'The chain ID(s): {" ".join(set(chains) - set(actual_chains))} are not present in {name}'
+                    raise Exception(msg)
+
                 chains_selection = 'chain {}'.format(','.join(chains))
                 self.atoms = self.atoms.select(chains_selection)
 
@@ -137,6 +146,9 @@ class Pdb(object):
                 if not create_from_aa:
                     logger.debug(_name, 'Removing water molecules from {}'.format(name))
                 self.atoms = self.atoms.drop('resname HOH')
+
+            if not len(self.atoms):
+                raise Exception('{} contains no atoms'.format(source))
 
             if fix_non_standard_aa:
                 if not create_from_aa:
