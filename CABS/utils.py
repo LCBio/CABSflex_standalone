@@ -886,12 +886,12 @@ def check_peptide_sequence(sequence):
     :return: True is the sequence does not contain non-standard AAs. Raises error if does.
     """
     standard_one_letter_residues = AA_NAMES.keys()
-    for residue in sequence:
-        if residue not in standard_one_letter_residues:
-            raise Exception(
-                "The input peptide sequence contains a non-standard residue \"{0}\" that is currently not supported."
-                "The simulation cannot be performed.".format(residue)
-            )
+    wrong_residues = set(sequence) - set(standard_one_letter_residues)
+    if wrong_residues:
+        raise Exception(
+            f"The input peptide sequence contains a non-standard residue(s): {' '.join(wrong_residues)}. "
+            f"Only the 20 standard amino acid symbols are allowed."
+        )
     return True
 
 
