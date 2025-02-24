@@ -677,6 +677,15 @@ class CABSTask(object):
                 logger.log_file(module_name=_name, msg='Saving final models (in CA representation).')
                 self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
 
+            if self.json_output:
+                json_file = os.path.join(self.work_dir, 'output_data', 'medoid.json')
+                odir = os.path.dirname(json_file)
+                if not os.path.isdir(odir):
+                    os.makedirs(odir)
+                logger.log_file(module_name=_name, msg='Saving JSON output.')
+                medoids_ca_atoms_list = self.medoids.to_atoms_list()
+                medoids_ca_atoms_list[0].save_to_json(json_file)
+
     def save_bfac_models(self):
         pdb_output = os.path.join(self.work_dir, 'output_pdbs')
         if not os.path.isdir(pdb_output):
@@ -740,7 +749,7 @@ class CABSTask(object):
             ss_update_dict = self.initial_complex.get_occ()
             initial_pdb_file.update_bfac(ss_update_dict)
             initial_pdb_file.save_to_pdb(
-                os.path.join(pdb_output, 'start_secsstr.pdb'))
+                os.path.join(pdb_output, 'start_secstr.pdb'))
 
     def save_csv_files(self):
         csv_output = os.path.join(self.work_dir, 'output_data')
@@ -777,8 +786,9 @@ class CABSTask(object):
             logger.log(module_name=_name,
                        msg='Saving csv file with secondary structure...')
             ss_dict = self.initial_complex.get_occ()
-            drop_csv_file(os.path.join(csv_output, 'secsstr'),
-                          [list(ss_dict.keys()), list(ss_dict.values())], fmts=["%s", "%s"])
+            resname_dict = self.initial_complex.get_resname()
+            drop_csv_file(os.path.join(csv_output, 'secstr'),
+                          [list(ss_dict.keys()), list(resname_dict.values()), list(ss_dict.values())], fmts=["%s", "%s", "%s"])
 
 
 
