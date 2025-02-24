@@ -206,6 +206,19 @@ class Trajectory(object):
         self.coordinates.reshape(shape)
         return result
 
+    def to_atoms_list(self):
+        result = []
+        num = 0
+        shape = self.coordinates.shape
+        for model in self.coordinates.reshape(-1, len(self.template), 3):
+            atoms = deepcopy(self.template)
+            num += 1
+            atoms.set_model_number(num)
+            atoms.from_numpy(model)
+            result.append(atoms)
+        self.coordinates.reshape(shape)
+        return result
+
     def rmsd_matrix(self, msg=''):
         """
         Calculates rmsd matrix with no fitting for all pairs od models in trajectory.

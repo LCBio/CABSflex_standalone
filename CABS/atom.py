@@ -709,6 +709,16 @@ class Atoms(object):
             s = selection
         return self.select(~s)
 
+    def get_resname(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = resname.
+        :return: {str: str}
+        """
+        res = {}
+        for a in self.atoms:
+            res[a.resid_id()] = a.resname
+        return res
+
     def update_sec(self, sec):
         """
         Reads secondary structure dictionary sec[] with Atoms.resid_id() as keys
