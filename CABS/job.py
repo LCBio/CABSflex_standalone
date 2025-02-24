@@ -632,7 +632,8 @@ class CABSTask(object):
                                 )
                                 pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
                                 mod = Pdb(pth_tmp, create_from_aa=True)
-                                ssh = mod.mk_ss_header(dssp_from_aa=True)
+                                # ssh = mod.mk_ss_header(dssp_from_aa=True)
+                                ssh = ''
                                 mod.atoms.save_to_pdb(pth_tmp, header=ssh)
                             save_to_ca = False
                     elif self.aa_method == 'cg2all':
@@ -646,6 +647,7 @@ class CABSTask(object):
                             else:
                                 attempt_cyclization = True
                         pdb_medoids = self.medoids.to_pdb()
+                        original_chains = ''.join(self.medoids.template.list_chains())
                         for i, fname in enumerate(pdb_medoids):
                             convert_cg_to_all(fname, work_dir=self.work_dir,
                                               iter=i,
@@ -668,7 +670,11 @@ class CABSTask(object):
                             mod = Pdb(pth_tmp, create_from_aa=True)
                             # ssh = mod.mk_ss_header(dssp_from_aa=True)
                             ssh=''
-                            mod.atoms.save_to_pdb(pth_tmp, header=ssh)
+                            output_atoms = mod.atoms
+                            output_chains = ''.join(output_atoms.list_chains())
+                            if original_chains != output_chains:
+                                output_atoms.change_chid(output_chains, original_chains)
+                            output_atoms.save_to_pdb(pth_tmp, header=ssh)
                         save_to_ca = False
                 else:
                     logger.warning(module_name=_name, msg='Unknown AA method: %s. Skipping AA rebuild.' % self.aa_method)
