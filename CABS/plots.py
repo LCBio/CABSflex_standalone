@@ -5,6 +5,7 @@ from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import EngFormatter
 
 import numpy as np
+import json
 from itertools import chain
 
 try:
@@ -206,6 +207,14 @@ def graph_RMSF(trajectory, chains, fname, fmt='svg'):
     lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
     plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq',fmt)
     drop_csv_file(fname, (lbls, tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
+    rmsf_min = np.min(rmsf_vals[0])
+    rmsf_max = np.max(rmsf_vals[0])
+    rmsf_med = np.median(rmsf_vals[0])
+    rmsf_med2 = 2 * rmsf_med - rmsf_min
+    stats_dict = {'min': f'{rmsf_min:.3f}', 'med': f'{rmsf_med:.3f}', 'med2': f'{rmsf_med2:.3f}', 'max': f'{rmsf_max:.3f}'}
+    with open(fname + '_stats.json', 'w') as f:
+        json.dump(stats_dict, f)
+
 
 def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     """
