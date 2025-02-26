@@ -135,14 +135,15 @@ dock_dict = {
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts', 'pairmod']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
-        ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
-                                'replicas-dtemp', 'temperature', 'random-seed', 'binding-interactions']),
+        ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas', 'replicas-dtemp',
+                                'temperature', 'random-seed', 'binding-interactions', 'disable-centro']),
         ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'aa-method', 'modeller-iterations']),
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options', 'align-peptide-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
-                            'csv-output', 'json-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
+                            'csv-output', 'json-output', 'dssp-output', 'ss-output', 'restraints-output',
+                            'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -168,14 +169,15 @@ flex_dict = {
                              'peptide-structure-prediction']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight', 'sc-rest-weight', 'ca-rest-file',
                                 'sc-rest-file', 'disulfide-bonds', 'backbone-cyclization']),
-        ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas',
-                                'replicas-dtemp', 'temperature', 'random-seed', 'binding-interactions']),
+        ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas', 'replicas-dtemp',
+                                'temperature', 'random-seed', 'binding-interactions', 'disable-centro']),
         ('ALL-ATOM RECONSTRUCTION OPTIONS', ['aa-rebuild', 'aa-method', 'modeller-iterations']),
         ('ANALYSIS OPTIONS', ['reference-pdb', 'clustering-medoids', 'clustering-iterations', 'filtering-count',
                               'filtering-mode', 'contact-maps', 'contact-threshold', 'contact-threshold-aa',
                               'contact-map-colors', 'align', 'align-options']),
         ('OUTPUT OPTIONS', ['save-cabs-files', 'load-cabs-files', 'save-config', 'pdb-output', 'pdb-bfac-output',
-                            'csv-output', 'json-output', 'dssp-output', 'restraints-output', 'renumber-residues-to-original']),
+                            'csv-output', 'json-output', 'dssp-output', 'ss-output', 'restraints-output',
+                            'renumber-residues-to-original']),
         ('MISCELLANEOUS OPTIONS', ['work-dir',  'dssp-command', 'fortran-command', 'image-file-format', 'nsp3-model-path',
                                    'pdb-cache-dir', 'verbose', 'log', 'version', 'help'])
     ]
@@ -435,6 +437,10 @@ options = {
     'dssp-output': {
         'action': 'store_true',
         'help': 'Store DSSP output as a file (default is \'%(default)s\')'
+    },
+    'disable-centro': {
+        'action': 'store_true',
+        'help': 'Disable centrosymmetric potential in the simulation (default is \'%(default)s\')'
     },
     'exclude': {
         'flag': '-e',
@@ -760,6 +766,15 @@ options = {
                 'order to speed up computation. Restraints are randomly selected from all generated restraints, '
                 'so that the final number of restraints N_final = N_all * (1 - FACTOR).'
     },
+    'protein-restraints-retain': {
+    'metavar': 'PERCENTAGE',
+    'type': float,
+    'help': 'Reduce the number of protein restraints by indicating the PERCENTAGE of restraints to retain, '
+            'where PERCENTAGE is a number from (0, 100].\n'
+            'This option reduces the number of automatically generated restraints for the protein molecule '
+            'to speed up computation. Restraints are randomly removed so that the final number of restraints '
+            'N_final = N_all * (PERCENTAGE / 100). PERCENTAGE must be greater than 0 and at most 100.'
+    },
     'random-seed': {
         'flag': '-z',
         'type': int,
@@ -853,6 +868,10 @@ options = {
             'This option enables advanced settings of building starting conformations of modelled complexes (to be '
             'used only in specific protocols). The option sets separation distance in Angstroms between the peptide '
             'and the surface of the protein (default: %(default)s Angstroms)'
+    },
+    'ss-output': {
+        'action': 'store_true',
+        'help': 'Store secondary structure assignment as a file (default is \'%(default)s\')'
     },
     'temperature': {
         'flag': '-t',

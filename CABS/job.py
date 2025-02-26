@@ -57,6 +57,7 @@ class CABSTask(object):
         self.contact_threshold_aa = kwargs.get('contact_threshold_aa')
         self.csv_output = kwargs.get('csv_output')
         self.cyclization = kwargs.get('backbone_cyclization')
+        self.disable_centro = kwargs.get('disable_centro')
         self.disulfide_bonds = kwargs.get('disulfide_bonds')
         self.dssp_command = kwargs.get('dssp_command')
         self.dssp_output = kwargs.get('dssp_output')
@@ -88,6 +89,7 @@ class CABSTask(object):
         self.protein_plddt = kwargs.get('protein_plddt')
         self.protein_restraints = kwargs.get('protein_restraints')
         self.protein_restraints_reduce = kwargs.get('protein_restraints_reduce')
+        self.protein_restraints_retain = kwargs.get('protein_restraints_retain')
         self.no_protein_restraints = kwargs.get('no_protein_restraints')
         self.random_seed = kwargs.get('random_seed')
         self.receptor_ss = kwargs.get('receptor_ss')
@@ -103,6 +105,7 @@ class CABSTask(object):
         self.sc_rest_file = kwargs.get('sc_rest_file')
         self.sc_rest_weight = kwargs.get('sc_rest_weight')
         self.separation = kwargs.get('separation')
+        self.ss_output = kwargs.get('ss_output')
         self.temperature = kwargs.get('temperature')
         self.verbose = kwargs.get('verbose')
         self.work_dir = kwargs.get('work_dir')
@@ -130,8 +133,8 @@ class CABSTask(object):
         self.work_dir = os.path.abspath(self.work_dir)
 
         try:
-            logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir, save_dssp=self.dssp_output,
-                         save_restraints=self.restraints_output)
+            logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
+                         save_dssp=self.dssp_output, save_ss=self.ss_output, save_restraints=self.restraints_output)
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):
@@ -146,6 +149,11 @@ class CABSTask(object):
 
         if self.fortran_command:
             cabs.CabsRun.FORTRAN_COMMAND = self.fortran_command
+
+        if self.disable_centro:
+            cabs.CabsRun.FORCE_FIELD = tuple(
+                0.0 if i == 3 else cabs.CabsRun.FORCE_FIELD[i] for i, _ in enumerate(cabs.CabsRun.FORCE_FIELD)
+            )
 
         if self.nsp3_model_path:
             protein.Protein.NSP3_MODEL_PATH = self.nsp3_model_path
@@ -453,6 +461,9 @@ class CABSTask(object):
         # reduce number of restraints
         if self.protein_restraints_reduce:
             protein_restraints.reduce_by(self.protein_restraints_reduce)
+
+        if self.protein_restraints_retain:
+            protein_restraints.retain_percentage(self.protein_restraints_retain)
 
         # additional restraints
         add_restraints = Restraints('')
