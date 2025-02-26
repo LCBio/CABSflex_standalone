@@ -16,7 +16,6 @@ from CABS.pdblib import Pdb
 from CABS.atom import Atoms
 from CABS.vector3d import Vector3d
 from CABS import randinit
-from CABS.plots import drop_csv_file
 
 _name = 'Protein'
 
@@ -198,6 +197,17 @@ class Protein(Atoms):
                         self.exclude[k].extend(a.resid_id() for a in self.atoms.select('chain %s' % chains))
 
         self.atoms.update_sec(ss)
+
+        if work_dir and logger.output_ss():
+            output_ss = os.path.join(work_dir, 'output_data', 'ss.txt')
+            odir = os.path.dirname(output_ss)
+            if not os.path.isdir(odir):
+                os.makedirs(odir)
+            logger.to_file(
+                filename=output_ss,
+                content=str(''.join(ss.values())),
+                msg='Saving secondary structure output to %s' % output_ss
+            )
 
         # setup categories
         if category:

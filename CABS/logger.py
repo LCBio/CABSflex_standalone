@@ -47,10 +47,11 @@ _line_break = 76
 _remote = False
 _prefix = color_prefix
 _save_dssp = False
+_save_ss = False
 _save_restraints = False
 
-def setup(log_level=2, remote=False, work_dir='', save_dssp=False, save_restraints=False):
-    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_dssp, _save_restraints
+def setup(log_level=2, remote=False, work_dir='', save_dssp=False, save_ss=False, save_restraints=False):
+    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_dssp, _save_ss, _save_restraints
     global _line_format, _middle_line_format, _first_line_format, _last_line_format
     _remote = remote
     if _remote or not sys.stderr.isatty():
@@ -81,6 +82,7 @@ def setup(log_level=2, remote=False, work_dir='', save_dssp=False, save_restrain
     _log_level = log_level
     info(_name, 'Verbosity set to: ' + str(log_level) + ' - ' + log_levels[log_level])
     _save_dssp = save_dssp
+    _save_ss = save_ss
     _save_restraints = save_restraints
 
 
@@ -101,6 +103,13 @@ def output_dssp():
     :return: True if flag --dssp-output was set
     """
     return _save_dssp
+
+
+def output_ss():
+    """
+    :return: True if flag --ss-output was set
+    """
+    return _save_ss
 
 
 def output_restraints():

@@ -83,6 +83,11 @@ class Restraints:
             _count = int(len(self.data) * (1. - factor))
             self.data = random.sample(self.data, _count)
 
+    def retain_percentage(self, percentage):
+        if 0 < percentage < 100:
+            _count = int(len(self.data) * (percentage / 100))
+            self.data = random.sample(self.data, _count)
+
 
 if __name__ == '__main__':
     pass
