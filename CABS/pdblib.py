@@ -130,8 +130,10 @@ class Pdb(object):
                     logger.debug(_name, 'Selected chains {}'.format(chains))
 
                 actual_chains = ''.join(self.atoms.list_chains().keys())
-                if set(chains) != set(actual_chains):
-                    msg = f'The chain ID(s): {" ".join(set(chains) - set(actual_chains))} are not present in {name}'
+                extra_chains = set(chains) - set(actual_chains)
+
+                if extra_chains:
+                    msg = f'The chain ID(s): {" ".extra_chains} are not present in {name}'
                     raise Exception(msg)
 
                 chains_selection = 'chain {}'.format(','.join(chains))
