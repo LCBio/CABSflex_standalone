@@ -436,7 +436,7 @@ class Protein(Atoms):
         restr = []
         _len = len(self.atoms)
 
-        if mode in ['category', 'plddt']:
+        if mode in ['manual', 'plddt']:
             for i in range(_len):
                 a1 = self.atoms[i]
                 for j in range(i + gap, _len):
@@ -453,42 +453,16 @@ class Protein(Atoms):
                         if w:
                             restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
 
-        elif mode in ['min', 'max', 'mean', 'plddt1', 'plddt2']:
-            for i in range(_len):
-                a1 = self.atoms[i]
-                for j in range(i + gap, _len):
-                    a2 = self.atoms[j]
-                    d = (a1.coord - a2.coord).length()
-                    if min_d < d < max_d:
-                        if a1.plddt > a2.plddt:
-                            w_bigger = a1.plddt
-                            w_smaller = a2.plddt
-                        else:
-                            w_bigger = a2.plddt
-                            w_smaller = a1.plddt
-                        if mode == 'max':
-                            w = w_bigger if w_bigger > 0.5 else 0
-                        elif mode == 'mean':
-                            w = (w_bigger + w_smaller) / 2 if (w_bigger + w_smaller) / 2 > 0.5 else 0
-                        elif mode == 'plddt1':
-                            w = 1.0 if (w_smaller > 0.5 or w_smaller > 0.5) else 0
-                        elif mode == 'plddt2':
-                            w = 1.0 if w_bigger > 0.5 and w_bigger > 0.5 else 0
-                        else:
-                            w = w_smaller if w_smaller > 0.5 else 0
-                        if w:
-                            restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
-
         else:
             for i in range(_len):
                 a1 = self.atoms[i]
                 ssi = int(a1.occ) % 2
-                if mode == 'ss2' and ssi:
+                if mode == 'flexible' and ssi:
                     continue
                 for j in range(i + gap, _len):
                     a2 = self.atoms[j]
                     ssj = int(a2.occ) % 2
-                    if (mode == 'ss2' and ssj) or (mode == 'ss1' and ssi * ssj):
+                    if mode == 'flexible' and ssj:
                         continue
                     d = (a1.coord - a2.coord).length()
                     if min_d < d < max_d:

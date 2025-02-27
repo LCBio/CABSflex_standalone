@@ -250,25 +250,38 @@ class CABSTask(object):
 
             utils.GAUSS_MAX_ITER = self.gauss_iterations
 
-        allowed_modes = ['category', 'plddt', 'min', 'max', 'mean', 'plddt1', 'plddt2', 'ss1', 'ss2', 'all']
+        allowed_modes = ['rigid', 'plddt', 'manual', 'flexible']
         # Check whether to use restraints based on pLDDT
         if not self.no_protein_restraints:
             mode, gap, min_d, max_d = self.protein_restraints
-            if (
-            mode in ['min', 'max', 'mean', 'plddt1', 'plddt2'] and not self.protein_plddt
-            ) or (
-            mode in ['category', 'plddt'] and not (self.protein_plddt or self.protein_category)
-            ):
+            if mode in ['manual', 'plddt'] and not (self.protein_plddt or self.protein_category):
                 logger.warning(
                     _name, 'No information about pLDDT or flexibility categories provided. '
-                           'Changing protein restraints  mode to \'all\'. '
+                           'Changing protein restraints  mode to \'rigid\'. '
                            'If you want to use restraints based on pLDDT or flexibility categories, '
                            'please provide the necessary data.')
-                self.protein_restraints = ('all', gap, min_d, max_d)
+                self.protein_restraints = ('rigid', gap, min_d, max_d)
+            elif mode in ['all', 'ss1', 'ss2']:
+                if mode == 'ss1':
+                    mode = 'flexible'
+                    logger.warning(
+                        _name, 'Protein restraints mode \'ss1\' is no longer in use. '
+                               'Changing mode to \'flexible\' (used to be called \'ss2\').')
+                elif mode == 'ss2':
+                    mode = 'flexible'
+                    logger.warning(
+                        _name, 'Protein restraints mode \'ss2\' is now caled \'flexible\'. Changing mode to \'flexible\'.')
+                else:
+                    mode = 'rigid'
+                    logger.warning(
+                        _name, 'Protein restraints mode \'all\' is now caled \'rigid\'. Changing mode to \'rigid\'.')
+                self.protein_restraints = (mode, gap, min_d, max_d)
+            elif mode.lower == 'none':
+                self.no_protein_restraints = True
             elif mode not in allowed_modes:
                 logger.warning(
                     _name, 'Unknown protein restraints mode: %s. Changing to \'all\'.' % mode)
-                self.protein_restraints = ('all', gap, min_d, max_d)
+                self.protein_restraints = ('rigid', gap, min_d, max_d)
 
         # pairwise potential modification
         if self.pairmod:
