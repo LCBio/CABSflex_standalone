@@ -6,6 +6,7 @@ import os
 import re
 import tarfile
 import glob
+from copy import deepcopy
 import numpy as np
 from tempfile import mkstemp
 from time import strftime
@@ -511,13 +512,14 @@ class CABSTask(object):
             self.initial_complex.new_ids)
 
         if output and logger.output_restraints():
+            restraints_for_output = deepcopy(protein_restraints).update_id(self.initial_complex.old_ids)
             output_restraints = os.path.join(output, 'output_data', 'restraints.txt')
             odir = os.path.dirname(output_restraints)
             if not os.path.isdir(odir):
                 os.makedirs(odir)
             logger.to_file(
                 filename=output_restraints,
-                content=str(protein_restraints),
+                content=str(restraints_for_output),
                 msg='Saving restraints output to %s' % output_restraints
             )
 

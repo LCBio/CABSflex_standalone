@@ -626,11 +626,13 @@ class ProteinComplex(Atoms):
         logger.debug(module_name=_name, msg="Complex successfully created")
 
         if json_output:
+            complex_to_save = deepcopy(self)
+            complex_to_save.update_ids(self.old_ids)
             json_file = os.path.join(work_dir, 'output_data', 'atoms.json')
             odir = os.path.dirname(json_file)
             if not os.path.isdir(odir):
                 os.makedirs(odir)
-            self.save_to_json(json_file)
+            complex_to_save.save_to_json(json_file)
 
         logger.debug(module_name=_name, msg="Atoms saved to JSON file")
 

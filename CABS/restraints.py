@@ -88,6 +88,9 @@ class Restraints:
             _count = int(len(self.data) * (percentage / 100))
             self.data = random.sample(self.data, _count)
 
+    def __iter__(self):
+        return self.data.__iter__()
+
 
 if __name__ == '__main__':
     pass
