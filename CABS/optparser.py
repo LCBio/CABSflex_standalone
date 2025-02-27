@@ -123,7 +123,7 @@ dock_dict = {
     'defaults': {
         'temperature': (2.0, 1.0),
         'replicas': 10,
-        'protein-restraints': ('all', 5, 5.0, 15.0),
+        'protein-restraints': ('rigid', 5, 5.0, 15.0),
         'ca-rest-weight': (1.0, 1.0),
         'weighted-fit': 'off'
     },
@@ -158,7 +158,7 @@ flex_dict = {
     'defaults': {
         'temperature': (1.4, 1.4),
         'replicas': 1,
-        'protein-restraints': ('category', 3, 3.8, 11.5),
+        'protein-restraints': ('plddt', 3, 3.8, 11.5),
         'ca-rest-weight': (3.5, 0.5),
         'weighted-fit': 'gauss'
     },
@@ -737,24 +737,17 @@ options = {
     },
     'protein-restraints': {
         'flag': '-g',
-        'default': ('all', 5, 5.0, 15.0),
+        'default': ('rigid', 5, 5.0, 15.0),
         'nargs': 4,
         'metavar': ('MODE', 'GAP', 'MIN', 'MAX'),
         'help':
             'This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the '
             'protein in predefined conformation. (default: %(default)s)\n\n'
             'MODE can be either based on plDDT or secondary structure:\n'
-            '[1] \'plddt\' or \'category\' - Generates restraints based on combination of pLDDT and secondary structure.\n'
-            '[2] \'min\' - Applies the minimum pLDDT score from a residue pair as the restraint strength. No restraints are generated if the score is below 0.5\n'
-            '[3] \'max\' - Uses the maximum pLDDT score of the pair, following the same procedure.\n'
-            '[4] \'mean\' - Uses the average pLDDT score of the pair, following the same procedure.\n'
-            '[5] \'plddt1\' - Generates restraints if at least one of the residues in a pair has a pLDDT score above 50\n.'
-            '[6] \'plddt2\' - Generates restraints only if both residues have pLDDT scores greater than 50.\n'
-            '[7] \'ss1\' - Generates restraints only when at least one restrained residue is assigned regular secondary '
-            'structure (helix or sheet).\n'
-            '[8] \'ss2\' - Generates restraints only when both restrained residues are assigned regular secondary '
+            '[1] \'rigid\' - Generates restraints for all protein residues.\n\n'
+            '[2] \'plddt\' - Generates restraints based on combination of pLDDT and secondary structure (recommended).\n'
+            '[3] \'flexible\' - Generates restraints only when both restrained residues are assigned regular secondary '
             'structure (helix, sheet).\n'
-            '[9] \'all\' - Generates restraints for all protein residues.\n\n'
             'GAP specifies minimal gap along the main chain for two residues to be restrained.\n'
             'MIN and MAX are min and max values in Angstroms for two residues to be restrained.'
     },
