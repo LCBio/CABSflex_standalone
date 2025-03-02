@@ -165,7 +165,7 @@ flex_dict = {
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
         ('PROTEIN OPTIONS', ['protein-flexibility', 'protein-restraints', 'protein-restraints-reduce', 'protein-plddt',
-                             'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss',
+                             'protein-category', 'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss',
                              'peptide-structure-prediction']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight', 'sc-rest-weight', 'ca-rest-file',
                                 'sc-rest-file', 'disulfide-bonds', 'backbone-cyclization']),
