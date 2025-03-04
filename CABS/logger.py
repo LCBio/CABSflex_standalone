@@ -188,12 +188,12 @@ def to_file(filename='', content='', msg='', allow_err=True, traceback=True):
     :param traceback: if True an Exception will be raised on exit call
     :return:
     """
-    if filename and content:
+    if filename:
         try:
             if os.path.isfile(filename):
                 log_file(module_name=_name, msg='Overwriting %s' % filename)
             with open(filename, 'w') as f:
-                f.write(content)
+                f.write(content if content else '')
         except IOError:
             if allow_err:
                 warning(module_name=_name, msg='IOError while writing to: %s' % filename)

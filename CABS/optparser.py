@@ -690,8 +690,7 @@ options = {
             'Treat input as a string \'SEQUENCE\' or \'SEQUENCE:SECONDARY\' for peptide structure prediction. '
     },
     'protein-category': {
-        'metavar': 'FILE',
-        'action': 'append',
+        'metavar': 'FLEXIBILITY',
         'help':
             'Modify category of flexibility for selected protein\'s residues:\n\n'
             'category = 0.0 - highly flexible backbone\n'
