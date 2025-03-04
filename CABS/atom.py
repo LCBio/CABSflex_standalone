@@ -839,18 +839,23 @@ class Atoms(object):
             plddt[a.resid_id()] = a.plddt
         return plddt
     
-    def update_category(self, category):
+    def update_category(self, category, default=None):
         """
         Reads dictionary with keys = Atom.resid_id() and values = beta factors and puts it into Atom.category
         if key is found, default otherwise.
         :param category: {str: float}
+        :param default: float
         :return: Atoms
         """
-        for a in self.atoms:
-            if a.resid_id() in category.keys():
-                a.category = category[a.resid_id()]
-            else:
-                a.set_category()
+        if default:
+            for a in self.atoms:
+                a.category = category.get(a.resid_id(), default)
+        else:
+            for a in self.atoms:
+                if a.resid_id() in category.keys():
+                    a.category = category[a.resid_id()]
+                else:
+                    a.set_category()
         return self
 
     def determine_category(self):

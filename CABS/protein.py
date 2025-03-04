@@ -404,9 +404,9 @@ class Protein(Atoms):
         patt_range = re.compile('(%s) *-* *(%s) +(%s)' % (key, key, val))
         patt_single = re.compile('(%s) +(%s)' % (key, val))
 
-        with open(filename) as f:
+        with open(filename, 'r') as f:
             d = {}
-            def_val = 0.0
+            def_val = None
             for line in f:
                 if re.search('default', line):
                     def_val = float(line.split()[-1])
@@ -426,7 +426,7 @@ class Protein(Atoms):
                         if match:
                             d[match.group(1)] = float(match.group(2))
                         else:
-                            raise Exception('Invalid syntax in flexibility file!!!')
+                            raise Exception('Invalid syntax in category file!!!')
             return d, def_val
 
     def generate_restraints(self, mode, gap, min_d, max_d):
