@@ -129,9 +129,9 @@ dock_dict = {
     },
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'peptide', 'config']),
-        ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-flexibility', 'protein-restraints', 'protein-plddt',
-                             'protein-category', 'protein-restraints-reduce', 'no-protein-restraints', 'weighted-fit',
-                             'gauss-iterations', 'receptor-ss']),
+        ('PROTEIN OPTIONS', ['exclude', 'excluding-distance', 'protein-restraints', 'no-protein-restraints',
+                             'protein-restraints-retain', 'protein-plddt', 'protein-category', 'protein-flexibility',
+                             'weighted-fit', 'gauss-iterations', 'receptor-ss']),
         ('PEPTIDE OPTIONS', ['add-peptide', 'separation', 'insertion-clash', 'insertion-attempts', 'pairmod']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight',
                                 'sc-rest-weight', 'ca-rest-file', 'sc-rest-file']),
@@ -158,15 +158,15 @@ flex_dict = {
     'defaults': {
         'temperature': (1.4, 1.4),
         'replicas': 1,
-        'protein-restraints': ('plddt', 3, 3.8, 11.5),
+        'protein-restraints': ('rigid', 3, 3.8, 11.5),
         'ca-rest-weight': (3.5, 0.5),
         'weighted-fit': 'gauss'
     },
     'groups': [
         ('BASIC OPTIONS', ['input-protein', 'config']),
-        ('PROTEIN OPTIONS', ['protein-flexibility', 'protein-restraints', 'protein-restraints-retain', 'protein-plddt',
-                             'protein-category', 'no-protein-restraints', 'weighted-fit', 'gauss-iterations', 'receptor-ss',
-                             'peptide-structure-prediction']),
+        ('PROTEIN OPTIONS', ['protein-restraints', 'no-protein-restraints', 'protein-restraints-retain',
+                             'protein-plddt', 'protein-category', 'protein-flexibility',
+                             'weighted-fit', 'gauss-iterations', 'receptor-ss', 'peptide-structure-prediction']),
         ('RESTRAINTS OPTIONS', ['ca-rest-add', 'sc-rest-add', 'ca-rest-weight', 'sc-rest-weight', 'ca-rest-file',
                                 'sc-rest-file', 'disulfide-bonds', 'backbone-cyclization']),
         ('SIMULATION OPTIONS', ['mc-annealing', 'mc-cycles', 'mc-steps', 'replicas', 'replicas-dtemp',
@@ -749,14 +749,6 @@ options = {
             'structure (helix, sheet).\n'
             'GAP specifies minimal gap along the main chain for two residues to be restrained.\n'
             'MIN and MAX are min and max values in Angstroms for two residues to be restrained.'
-    },
-    'protein-restraints-reduce': {
-        'metavar': 'FACTOR',
-        'type': float,
-        'help': 'Reduce number of protein restraints by a FACTOR, where factor is a number from [0, 1].\n'
-                'This option reduces the number of automatically generated restraints for the protein molecule in '
-                'order to speed up computation. Restraints are randomly selected from all generated restraints, '
-                'so that the final number of restraints N_final = N_all * (1 - FACTOR).'
     },
     'protein-restraints-retain': {
     'metavar': 'PERCENTAGE',
