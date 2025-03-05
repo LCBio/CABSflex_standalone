@@ -89,7 +89,6 @@ class CABSTask(object):
         self.protein_flexibility = kwargs.get('protein_flexibility')
         self.protein_plddt = kwargs.get('protein_plddt')
         self.protein_restraints = kwargs.get('protein_restraints')
-        self.protein_restraints_reduce = kwargs.get('protein_restraints_reduce')
         self.protein_restraints_retain = kwargs.get('protein_restraints_retain')
         self.no_protein_restraints = kwargs.get('no_protein_restraints')
         self.random_seed = kwargs.get('random_seed')
@@ -473,9 +472,6 @@ class CABSTask(object):
             )
 
         # reduce number of restraints
-        if self.protein_restraints_reduce:
-            protein_restraints.reduce_by(self.protein_restraints_reduce)
-
         if self.protein_restraints_retain:
             protein_restraints.retain_percentage(self.protein_restraints_retain)
 

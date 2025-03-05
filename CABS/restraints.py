@@ -78,11 +78,6 @@ class Restraints:
             restr.update_id(ids)
         return self
 
-    def reduce_by(self, factor):
-        if 0. < factor < 1.:
-            _count = int(len(self.data) * (1. - factor))
-            self.data = random.sample(self.data, _count)
-
     def retain_percentage(self, percentage):
         if 0 < percentage < 100:
             _count = int(len(self.data) * (percentage / 100))
