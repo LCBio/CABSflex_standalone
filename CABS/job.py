@@ -261,26 +261,11 @@ class CABSTask(object):
                            'If you want to use restraints based on pLDDT or flexibility categories, '
                            'please provide the necessary data.')
                 self.protein_restraints = ('rigid', gap, min_d, max_d)
-            elif mode in ['all', 'ss1', 'ss2']:
-                if mode == 'ss1':
-                    mode = 'flexible'
-                    logger.warning(
-                        _name, 'Protein restraints mode \'ss1\' is no longer in use. '
-                               'Changing mode to \'flexible\' (used to be called \'ss2\').')
-                elif mode == 'ss2':
-                    mode = 'flexible'
-                    logger.warning(
-                        _name, 'Protein restraints mode \'ss2\' is now caled \'flexible\'. Changing mode to \'flexible\'.')
-                else:
-                    mode = 'rigid'
-                    logger.warning(
-                        _name, 'Protein restraints mode \'all\' is now caled \'rigid\'. Changing mode to \'rigid\'.')
-                self.protein_restraints = (mode, gap, min_d, max_d)
             elif mode.lower == 'none':
                 self.no_protein_restraints = True
             elif mode not in allowed_modes:
                 logger.warning(
-                    _name, 'Unknown protein restraints mode: %s. Changing to \'all\'.' % mode)
+                    _name, 'Unknown protein restraints mode: \'%s\'. Changing to \'rigid\'.' % mode)
                 self.protein_restraints = ('rigid', gap, min_d, max_d)
 
         # pairwise potential modification
@@ -473,7 +458,9 @@ class CABSTask(object):
 
         # reduce number of restraints
         if self.protein_restraints_retain:
-            protein_restraints.retain_percentage(self.protein_restraints_retain)
+            if self.protein_restraints_retain < 100:
+                protein_restraints.retain_percentage(self.protein_restraints_retain)
+                logger.debug(module_name=_name, msg=f'Retaining {self.protein_restraints_retain}% of restraints.')
 
         # additional restraints
         add_restraints = Restraints('')
