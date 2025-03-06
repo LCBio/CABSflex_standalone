@@ -12,7 +12,7 @@ from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict, defaultdict
 
-from CABS.utils import CABS_SS, aa_to_long, smart_flatten, kabsch, check_peptide_sequence
+from CABS.utils import CABS_SS, CABS_SS_reverse, aa_to_long, aa_to_short, smart_flatten, kabsch, check_peptide_sequence
 from CABS.vector3d import Vector3d
 from CABS.logger import ProgressBar
 from CABS import utils
@@ -719,6 +719,26 @@ class Atoms(object):
             res[a.resid_id()] = a.resname
         return res
 
+    def get_resname_short(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = resname.
+        :return: {str: str}
+        """
+        res = {}
+        for a in self.atoms:
+            res[a.resid_id()] = aa_to_short(a.resname)
+        return res
+
+    def get_coordinates(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = coordinates.
+        :return: {str: Vector3d}
+        """
+        res = {}
+        for a in self.atoms:
+            res[a.resid_id()] = a.coord
+        return res
+
     def update_sec(self, sec):
         """
         Reads secondary structure dictionary sec[] with Atoms.resid_id() as keys
@@ -731,6 +751,16 @@ class Atoms(object):
             for a in self.atoms:
                 a.occ = CABS_SS[sec.get(a.resid_id(), 'C')]
         return self
+
+    def get_sec(self):
+        """
+        Returns dictionary with keys = Atom.resid_id() and values = secondary structure.
+        :return: {str: str}
+        """
+        sec = {}
+        for a in self.atoms:
+            sec[a.resid_id()] = CABS_SS_reverse[a.occ]
+        return sec
 
     def update_occ(self, occ):
         """

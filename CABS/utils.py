@@ -17,6 +17,8 @@ import pandas as pd
 # Dictionary for conversion of secondary structure from DSSP to CABS
 CABS_SS = {'C': 1, 'H': 2, 'T': 3, 'E': 4, 'c': 1, 'h': 2, 't': 3, 'e': 4}
 
+CABS_SS_reverse = {1: 'C', 2: 'H', 3: 'T', 4: 'E'}
+
 # sidechains relative coords
 SIDECNT = {
     'CYS': (-0.139, -1.265, 1.619, 0.019, -0.813, 1.897),
