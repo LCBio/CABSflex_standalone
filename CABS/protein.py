@@ -120,6 +120,18 @@ class Protein(Atoms):
             if plddt.lower() == 'pdb' or plddt.lower() == 'bf':
                 for a in self.atoms:
                     a.plddt = a.bfac / 100
+            elif plddt.lower() == 'file':
+                try:
+                    d, de = self.read_plddt(plddt)
+                    self.atoms.update_plddt(d, de)
+                except Exception as e:
+                    try:
+                        protein_work_dir = os.path.dirname(source)
+                        d, de = self.read_plddt(os.path.join(protein_work_dir, 'plddt.config'))
+                        self.atoms.update_plddt(d, de)
+                    except Exception as e:
+                        logger.warning(_name, 'Using default plddt(1.0) for all residues.')
+                        self.atoms.set_plddt(1.0)
             else:
                 try:
                     d, de = self.read_plddt(plddt)
