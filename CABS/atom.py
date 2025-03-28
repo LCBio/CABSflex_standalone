@@ -238,28 +238,36 @@ class Atom(object):
             self.chid = match.group(3)
         return self
     
-    def set_category(self):
+    def set_category(self, mode='rigid'):
         category = 0
-        if self.plddt < 0.5:
-            category -= 1
-        elif self.plddt < 0.7:
-            pass
-        elif self.plddt < 0.9:
-            category += 1
-        else:
-            category += 2
 
-        if self.occ == 1:
+        if mode == 'flexible':
+            if self.occ == 2 or self.occ == 4:
+                category = 3
+        elif mode == 'no-protein-restraints' or mode == 'unleashed' or mode == 'none':
             pass
-        elif self.occ == 3:
-            category += 1
         else:
-            category += 2
+            if self.plddt < 0.5:
+                category -= 1
+            elif self.plddt < 0.7:
+                pass
+            elif self.plddt < 0.9:
+                category += 1
+            else:
+                category += 2
 
-        if category < 0:
-            category = 0
-        elif category > 3:
-            category = 3
+            if self.occ == 1:
+                pass
+            elif self.occ == 3:
+                category += 1
+            else:
+                category += 2
+
+            if category < 0:
+                category = 0
+            elif category > 3:
+                category = 3
+
         self.category = category
         return self
 
@@ -888,13 +896,13 @@ class Atoms(object):
                     a.set_category()
         return self
 
-    def determine_category(self):
+    def determine_category(self, mode='rigid'):
         """
         Sets category of all atoms according to plddt and secondary structure.
         :return: Atoms
         """
         for atom in self.atoms:
-            atom.set_category()
+            atom.set_category(mode=mode)
         return self
 
     def get_category(self):

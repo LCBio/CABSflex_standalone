@@ -26,8 +26,9 @@ class Protein(Atoms):
     """
     NSP3_MODEL_PATH = ''
 
-    def __init__(self, source, flexibility=None, exclude=None, weights=None, plddt=None, work_dir='.', receptor_ss=None,
-                 pdb_cache=None, category=None, save_initial_pdb=False, predict_peptide_structure=False):
+    def __init__(self, source, flexibility=None, exclude=None, weights=None, plddt=None, mode='rigid', work_dir='.',
+                 receptor_ss=None, pdb_cache=None, category=None, save_initial_pdb=False,
+                 predict_peptide_structure=False):
 
         Atoms.__init__(self)
 
@@ -229,9 +230,9 @@ class Protein(Atoms):
             except IOError:
                 logger.warning(_name, 'Could not read category file: %s' % category)
                 logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
-                self.atoms.determine_category()
+                self.atoms.determine_category(mode=mode)
         else:
-            self.atoms.determine_category()
+            self.atoms.determine_category(mode=mode)
 
         self.old_ids = self.atoms.fix_broken_chains()
 
@@ -568,7 +569,7 @@ class ProteinComplex(Atoms):
     Class that assembles the initial complex.
     """
 
-    def __init__(self, protein, flexibility, exclude, weights, plddt, category, peptides, replicas,
+    def __init__(self, protein, flexibility, exclude, weights, plddt, category, mode, peptides, replicas,
                  separation, insertion_attempts, insertion_clash, work_dir, receptor_ss, pdb_cache, save_initial_pdb,
                  json_output=False, predict_peptide_structure=False):
         logger.debug(module_name=_name, msg="Preparing the complex")
@@ -581,6 +582,7 @@ class ProteinComplex(Atoms):
             weights=weights,
             plddt=plddt,
             category=category,
+            mode=mode,
             work_dir=work_dir,
             receptor_ss=receptor_ss,
             pdb_cache=pdb_cache,
