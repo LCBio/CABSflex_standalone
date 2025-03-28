@@ -261,12 +261,20 @@ class CABSTask(object):
                            'If you want to use restraints based on pLDDT or flexibility categories, '
                            'please provide the necessary data.')
                 self.protein_restraints = ('rigid', gap, min_d, max_d)
-            elif mode.lower == 'none':
+            elif mode.lower == 'none' or mode.lower == 'unleashed' or mode.lower == 'no-protein-restraints':
                 self.no_protein_restraints = True
             elif mode not in allowed_modes:
                 logger.warning(
                     _name, 'Unknown protein restraints mode: \'%s\'. Changing to \'rigid\'.' % mode)
                 self.protein_restraints = ('rigid', gap, min_d, max_d)
+
+        if self.no_protein_restraints:
+            self.category_mode = 'unleashed'
+        else:
+            if self.protein_restraints[0].lower() == 'flexible':
+                self.category_mode = 'flexible'
+            else:
+                self.category_mode = 'rigid'
 
         # pairwise potential modification
         if self.pairmod:
@@ -820,6 +828,7 @@ class DockTask(CABSTask):
             weights=self.weighted_fit,
             plddt=self.protein_plddt,
             category=self.protein_category,
+            mode=self.category_mode,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,
@@ -1040,6 +1049,7 @@ class FlexTask(CABSTask):
             weights=self.weighted_fit,
             plddt=self.protein_plddt,
             category=self.protein_category,
+            mode=self.category_mode,
             peptides=self.peptides,
             replicas=self.replicas,
             separation=self.separation,
