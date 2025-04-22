@@ -29,8 +29,8 @@ except ImportError:
     _JUNK = cabs_module._JUNK
 
 
-def run(cmd_line: str):
-    job_type = pre_parser.parse_known_args()[0].cabs_cmd
+def run(cmd_line: str, job_type=None):
+    if not job_type: job_type = pre_parser.parse_known_args()[0].cabs_cmd
     pre_args, remains = pre_parser.parse_known_args(cmd_line)
 
     if job_type not in ['dock', 'flex']:
@@ -96,13 +96,13 @@ def run(cmd_line: str):
 
 
 def run_dock(cmd_line=sys.argv[1:]):
-    run('dock', cmd_line)
+    run(cmd_line, job_type='dock')
 
 
 def run_flex(cmd_line=sys.argv[1:]):
-    run('flex', cmd_line)
+    run(cmd_line, job_type='flex')
 
 if __name__ == '__main__':
     # not sure if its necessary to prepars args before run(), it is done again in run()
     # args, remains = pre_parser.parse_known_args()
-    run(cmd_line=sys.argv[1:])
+    run(sys.argv[1:])
