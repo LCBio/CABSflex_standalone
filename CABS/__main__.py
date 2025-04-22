@@ -4,6 +4,14 @@ import importlib.util
 import traceback as _tr
 from shutil import rmtree
 
+pre_parser = argparse.ArgumentParser(
+    description="Custom command-line utility",
+    add_help=False  # Disable automatic -h/--help
+)
+pre_parser.add_argument("cabs_cmd", choices=["dock", "flex"], help="Specify the command (dock or flex)")
+pre_parser.add_argument("-c", "--config", help="Specify the configuration file")
+pre_parser.add_argument("--version", action="store_true", help="Show the version")
+pre_parser.add_argument("-h", "--help", action="store_true", help="Show the help")
 
 try:
     import CABS.job
@@ -21,20 +29,32 @@ except ImportError:
     _JUNK = cabs_module._JUNK
 
 
-def run(cabs_cmd: str, cmd_line: str):
-    if cabs_cmd not in ['dock', 'flex']:
-        raise ValueError(f"Invalid command: {cabs_cmd}")
-
-    module_name = 'CABS' + cabs_cmd
-    parser = getattr(optparser, cabs_cmd + '_parser')
-
-    pre_parser = argparse.ArgumentParser(add_help=False)
-    pre_parser.add_argument('-c', '--config')
-    pre_parser.add_argument('--version', action='store_true')
-    pre_parser.add_argument('-h', '--help', action='store_true')
-
+def run(cmd_line: str):
+    job_type = pre_parser.parse_known_args()[0].cabs_cmd
     pre_args, remains = pre_parser.parse_known_args(cmd_line)
-    # return pre_args, remains
+
+    if job_type not in ['dock', 'flex']:
+        raise ValueError(f"Invalid command: {job_type}")
+    
+    parsers = {
+        'dock': optparser.dock_parser,
+        'flex': optparser.flex_parser
+    }
+    tasks = {
+        'dock': CABS.job.DockTask,
+        'flex': CABS.job.FlexTask
+    }
+    usage = {
+        'dock': optparser.dock_usage,
+        'flex': optparser.flex_usage
+    }
+
+    parser = parsers[job_type]
+    task = tasks[job_type]
+    usage = usage[job_type]
+    module_name = 'CABS' + job_type
+
+
     if pre_args.version:
         print(__version__)
         sys.exit(0)
@@ -51,12 +71,11 @@ def run(cabs_cmd: str, cmd_line: str):
                 f'Config file: \'{pre_args.config}\' does not exist.'
             )
     elif not len(remains):
-        print(getattr(optparser, cabs_cmd + '_usage'))
+        print(usage)
         sys.exit(0)
 
     config = vars(parser.parse_args(remains))
 
-    task = getattr(CABS.job, cabs_cmd.title() + 'Task')  
     job = task(**config)
     try:
         job.run()
@@ -83,17 +102,7 @@ def run_dock(cmd_line=sys.argv[1:]):
 def run_flex(cmd_line=sys.argv[1:]):
     run('flex', cmd_line)
 
-
-def pre_parser():
-    pre_parser = argparse.ArgumentParser(description="Custom command-line utility")
-    pre_parser.add_argument("cabs_cmd", choices=["dock", "flex"], help="Specify the command (dock or flex)")
-    pre_parser.add_argument("-c", "--config", help="Specify the configuration file")
-    pre_parser.add_argument("--version", action="store_true", help="Show the version")
-    pre_parser.add_argument("-h", "--help", action="store_true", help="Show the help")
-    args = pre_parser.parse_args()
-    return args
-
-
 if __name__ == '__main__':
-    args = pre_parser()
-    run(args.cabs_cmd, cmd_line=sys.argv[1:])
+    # not sure if its necessary to prepars args before run(), it is done again in run()
+    # args, remains = pre_parser.parse_known_args()
+    run(cmd_line=sys.argv[1:])
