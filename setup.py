@@ -16,5 +16,5 @@ setup(
             'CABSflex = CABS.__main__:run_flex'
         ]
     },
-    package_data={'CABS': ['data/*.dat']}
+    package_data={'CABS': ['data/*.dat', 'config.json']}
 )

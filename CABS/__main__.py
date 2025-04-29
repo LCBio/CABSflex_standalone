@@ -8,7 +8,7 @@ pre_parser = argparse.ArgumentParser(
     description="Custom command-line utility",
     add_help=False  # Disable automatic -h/--help
 )
-pre_parser.add_argument("cabs_cmd", choices=["dock", "flex"], help="Specify the command (dock or flex)")
+pre_parser.add_argument("job_type", choices=["dock", "flex"], help="Specify the command (dock or flex)")
 pre_parser.add_argument("-c", "--config", help="Specify the configuration file")
 pre_parser.add_argument("--version", action="store_true", help="Show the version")
 pre_parser.add_argument("-h", "--help", action="store_true", help="Show the help")
@@ -30,66 +30,60 @@ except ImportError:
 
 
 def run(cmd_line: str, job_type=None):
-    if not job_type: job_type = pre_parser.parse_known_args()[0].cabs_cmd
+    if job_type: cmd_line.insert(0, job_type)
     pre_args, remains = pre_parser.parse_known_args(cmd_line)
+    job_type = pre_parser.parse_known_args(cmd_line)[0].job_type
 
-    if job_type not in ['dock', 'flex']:
-        raise ValueError(f"Invalid command: {job_type}")
-    
-    parsers = {
-        'dock': optparser.dock_parser,
-        'flex': optparser.flex_parser
-    }
-    tasks = {
-        'dock': CABS.job.DockTask,
-        'flex': CABS.job.FlexTask
-    }
-    usage = {
-        'dock': optparser.dock_usage,
-        'flex': optparser.flex_usage
-    }
+    if job_type == 'dock':
+        parser = optparser.dock_parser
+        task = CABS.job.DockTask
+        usage = optparser.dock_usage
+    elif job_type == 'flex':    
+        parser = optparser.flex_parser
+        task = CABS.job.FlexTask
+        usage = optparser.flex_usage
+    else:
+        raise ValueError("Invalid job type specified. Use 'dock' or 'flex'.")
 
-    parser = parsers[job_type]
-    task = tasks[job_type]
-    usage = usage[job_type]
     module_name = 'CABS' + job_type
-
-
+    
     if pre_args.version:
         print(__version__)
         sys.exit(0)
-    elif pre_args.help:
-        _help = parser.format_help()
-        print(_help)
+
+    if pre_args.help:
+        print(parser.format_help())
         sys.exit(0)
-    elif pre_args.config:
+
+    if pre_args.config:
         try:
             remains = optparser.ConfigFileParser(pre_args.config).args + remains
         except IOError:
             logger.exit_program(
                 module_name,
-                f'Config file: \'{pre_args.config}\' does not exist.'
+                f"Config file: '{pre_args.config}' does not exist."
             )
-    elif not len(remains):
+
+    if not remains:
         print(usage)
         sys.exit(0)
 
     config = vars(parser.parse_args(remains))
-
     job = task(**config)
+
     try:
         job.run()
     except KeyboardInterrupt:
-        logger.critical(module_name, 'Interrupted by user.')
+        logger.critical(module_name, "Interrupted by user.")
     except Exception as e:
-        msg = str(e)
-        for a in e.args:
-            try:
-                msg += ' ' + str(a)
-            except ValueError:
-                pass
-        logger.exit_program(module_name, msg, traceback=_tr.format_exc(), exc=e)
-    finally:    
+        msg = " ".join(str(arg) for arg in e.args)
+        logger.exit_program(
+            module_name,
+            msg,
+            traceback=_tr.format_exc(),
+            exc=e
+        )
+    finally:
         logger.close_log()
         for _file in _JUNK:
             rmtree(_file, ignore_errors=True)
@@ -103,6 +97,4 @@ def run_flex(cmd_line=sys.argv[1:]):
     run(cmd_line, job_type='flex')
 
 if __name__ == '__main__':
-    # not sure if its necessary to prepars args before run(), it is done again in run()
-    # args, remains = pre_parser.parse_known_args()
     run(sys.argv[1:])
