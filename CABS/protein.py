@@ -32,7 +32,7 @@ class Protein(Atoms):
 
         Atoms.__init__(self)
 
-        logger.info(module_name=_name, msg="Loading %s as input protein" % source)
+        logger.info(module_name=_name, msg=f"Loading {source} as input protein")
 
         # Only happens if user explicitly wants to predict peptide structure
         if predict_peptide_structure:
@@ -131,19 +131,19 @@ class Protein(Atoms):
                         d, de = self.read_plddt(os.path.join(protein_work_dir, 'plddt.config'))
                         self.atoms.update_plddt(d, de)
                     except Exception as e:
-                        logger.warning(_name, 'Using default plddt(1.0) for all residues.')
+                        logger.warning(_name, f'Using default plddt(1.0) for all residues.')
                         self.atoms.set_plddt(1.0)
             else:
                 try:
                     d, de = self.read_plddt(plddt)
                     self.atoms.update_plddt(d, de)
                 except IOError:
-                    logger.warning(_name, 'Could not read pLDDT file: %s' % plddt)
-                    logger.warning(_name, 'Using default plddt(1.0) for all residues.')
+                    logger.warning(_name, f'Could not read pLDDT file: {plddt}')
+                    logger.warning(_name, f'Using default plddt(1.0) for all residues.')
                     self.atoms.set_plddt(1.0)
                 except Exception as e:
-                    logger.warning(_name, '%s' % e)
-                    logger.warning(_name, 'Using default plddt(1.0) for all residues.')
+                    logger.warning(_name, f'{e}')
+                    logger.warning(_name, f'Using default plddt(1.0) for all residues.')
                     self.atoms.set_plddt(1.0)
         else:
             self.atoms.set_plddt(1.0)
@@ -176,8 +176,8 @@ class Protein(Atoms):
                         d, de = self.read_flexibility(flexibility)
                         self.atoms.update_flexibility(d, de)
                     except IOError:
-                        logger.warning(_name, 'Could not read flexibility file: %s' % flexibility)
-                        logger.warning(_name, 'Using default flexibility(1.0) for all residues.')
+                        logger.warning(_name, f'Could not read flexibility file: {flexibility}')
+                        logger.warning(_name, f'Using default flexibility(1.0) for all residues.')
                         self.atoms.set_flexibility(1.0)
         else:
             self.atoms.set_flexibility(1.0)
@@ -219,7 +219,7 @@ class Protein(Atoms):
             logger.to_file(
                 filename=output_ss,
                 content=str(''.join(ss.values())),
-                msg='Saving secondary structure output to %s' % output_ss
+                msg=f'Saving secondary structure output to {output_ss}'
             )
 
         # setup categories
@@ -228,8 +228,8 @@ class Protein(Atoms):
                 d, de = self.read_category(category)
                 self.atoms.update_category(d, de)
             except IOError:
-                logger.warning(_name, 'Could not read category file: %s' % category)
-                logger.warning(_name, 'Using default categories based on pLDDT and SS for all residues.')
+                logger.warning(_name, f'Could not read category file: {category}')
+                logger.warning(_name, f'Using default categories based on pLDDT and SS for all residues.')
                 self.atoms.determine_category(mode=mode)
         else:
             self.atoms.determine_category(mode=mode)
@@ -272,8 +272,8 @@ class Protein(Atoms):
                     self.weights.append(w)
 
             except (IOError, ValueError):
-                logger.warning(_name, 'Could not read weights file: %s' % weights)
-                logger.warning(_name, 'Using default weights(1.0) for all atoms.')
+                logger.warning(_name, f'Could not read weights file: {weights}')
+                logger.warning(_name, f'Using default weights(1.0) for all atoms.')
                 self.weights = [1.0] * len(self.atoms)
 
         self.center = self.cent_of_mass()
@@ -317,7 +317,7 @@ class Protein(Atoms):
                         n1 = int(n1)
                         n2 = int(n2)
                         if c1 != c2 or n1 > n2:
-                            raise Exception('Invalid range: \'%s\' in file: %s!!!' % (line, filename))
+                            raise Exception(f'Invalid range: \'{line}\' in file: {filename}!!!')
                         for i in range(n1, n2 + 1):
                             d[str(i) + ':' + c1] = float(match.group(3))
                     else:
@@ -431,7 +431,7 @@ class Protein(Atoms):
                         n1 = int(n1)
                         n2 = int(n2)
                         if c1 != c2 or n1 > n2:
-                            raise Exception('Invalid range: \'%s\' in file: %s!!!' % (line, filename))
+                            raise Exception(f'Invalid range: \'{line}\' in file: {filename}!!!')
                         for i in range(n1, n2 + 1):
                             d[str(i) + ':' + c1] = float(match.group(3))
                     else:
@@ -464,7 +464,7 @@ class Protein(Atoms):
                         else:
                             w = 1.0
                         if w:
-                            restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
+                            restr.append(f'{a1.resid_id()} {a2.resid_id()} {d} {w}')
 
         else:
             for i in range(_len):
@@ -484,7 +484,7 @@ class Protein(Atoms):
                         else:
                             w = a2.flexibility
                         if w:
-                            restr.append('%s %s %f %f' % (a1.resid_id(), a2.resid_id(), d, w))
+                            restr.append(f'{a1.resid_id()} {a2.resid_id()} {d} {w}')
         return restr
 
     def generate_backbone_restraints(self, cyclic_chains):
@@ -501,9 +501,9 @@ class Protein(Atoms):
                     last_res = atom.resid_id()
                     break
             if first_res and last_res:
-                restr.append('%s %s 3.8 1.0' % (first_res, last_res))
+                restr.append(f'{first_res} {last_res} 3.8 1.0')
             else:
-                logger.warning(module_name=_name, msg='Cyclic backbone could not be created in chain %s' % chain)
+                logger.warning(module_name=_name, msg=f'Cyclic backbone could not be created in chain {chain}')
 
         return restr
 
@@ -518,9 +518,9 @@ class Protein(Atoms):
                 elif atom.resid_id() == bond[1] and atom.resname == 'CYS':
                     res2 = atom.resid_id()
             if res1 and res2:
-                restr.append('%s %s 2.0 1.0' % (res1, res2))
+                restr.append(f'{res1} {res2} 2.0 1.0')
             else:
-                logger.warning(module_name=_name, msg='Disulfide bond between residues %s %s could not be created' % (bond[0], bond[1]))
+                logger.warning(module_name=_name, msg=f'Disulfide bond between residues {bond[0]} {bond[1]} could not be created')
         return restr
 
     def calculate_distances(self):
@@ -536,7 +536,7 @@ class Protein(Atoms):
             for j in range(_len):
                 a2 = self.atoms[j]
                 d = (a1.coord - a2.coord).length()
-                out[a1.resid_id()][a2.resid_id()] = "%6.4f" % d
+                out[a1.resid_id()][a2.resid_id()] = f"{d:6.4f}"
         return out
 
 
@@ -548,9 +548,7 @@ class Peptide(Atoms):
     def __init__(self, source, conformation, location, work_dir='.', pdb_cache=None):
         logger.info(
             module_name=_name,
-            msg='Loading ligand: {}, conformation - {}, location - {}'.format(
-                source, conformation, location
-            )
+            msg=f'Loading ligand: {source}, conformation - {conformation}, location - {location}'
         )
         try:
             pdb = Pdb(source=source, selection='name CA', pdb_cache=pdb_cache, no_exit=True)
@@ -607,7 +605,7 @@ class ProteinComplex(Atoms):
                 update_dict = {}
                 i = 1
                 for atom in peptide:
-                    update_dict[atom.resid_id()] = '%i:PEP%i' % (i, num + 1)
+                    update_dict[atom.resid_id()] = f'{i}:PEP{num + 1}'
                     i += 1
                 self.old_ids.update(update_dict)
                 self.chain_list.update(peptide.list_chains())
@@ -635,7 +633,7 @@ class ProteinComplex(Atoms):
                         model.atoms.extend(peptide)
                         break
                 else:
-                    raise Exception('Maximum number of attempts to insert peptide %s reached!!!' % peptide) #used to be peptide.name
+                    raise Exception(f'Maximum number of attempts to insert peptide {peptide} reached!!!')
             self.atoms.extend(model)
         logger.debug(module_name=_name, msg="Complex successfully created")
 
@@ -693,7 +691,7 @@ class ReceptorSS:
             for c in chains:
                 s = list(chains[c])
                 for l in range(1, len(s)+1):
-                    st = str(l)+':'+str(c)
+                    st = f'{l}:{c}'
                     tmp.append((st, s[l-1]))
             current_ss = OrderedDict([(a[0], a[1]) for a in tmp])
 
