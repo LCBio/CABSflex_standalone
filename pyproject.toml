@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "CABS"
+dynamic = ["version"]
+description = "CABS in python3"
+authors = [
+    { name = "Laboratory of Computational Biology", email = "k.wroblewski7@uw.edu.pl" }
+]
+license = { text = "MIT" }
+readme = ""
+requires-python = ">=3.6"
+urls = { Homepage = "https://github.com/LCBio/cabsflex" }
+
+[project.scripts]
+CABSdock = "CABS.__main__:run_dock"
+CABSflex = "CABS.__main__:run_flex"
+
+[tool.setuptools]
+packages = ["CABS"]
+
+[tool.setuptools.package-data]
+"CABS" = ["data/*.dat", "config.json"]
+
+[tool.setuptools.dynamic]
+version = { attr = "CABS.__version__" }
+
