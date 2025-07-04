@@ -16,10 +16,10 @@ from typing_extensions import Literal
 import numpy.typing as npt
 
 from CABS.constants import CABS_SS, CABS_SS_REVERSE, AA_NAMES, AA_SUB_NAMES, AminoAcidCode, SecondaryStructureCode
-from CABS.utils import aa_to_long, aa_to_short, smart_flatten, kabsch, check_peptide_sequence
-from CABS.vector3d import Vector3d
-from CABS.logger import ProgressBar
-from CABS import utils
+from CABS.utils.utils import aa_to_long, aa_to_short, smart_flatten, kabsch, check_peptide_sequence
+from CABS.structures.vector3d import Vector3d
+from CABS.io.logger import ProgressBar
+from CABS.utils import utils
 from random import randint
 
 

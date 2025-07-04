@@ -6,10 +6,9 @@ from typing import List, Dict, Union, Optional, Any, TextIO, Tuple
 from typing_extensions import Literal
 import numpy.typing as npt
 
-from CABS import logger
-from CABS import align
-from CABS import utils
-from CABS.atom import Atom, Atoms
+from CABS.io import logger
+from CABS.utils import align, utils
+from CABS.structures.atom import Atom, Atoms
 
 __all__ = ['Trajectory', 'Header']
 _name = 'Trajectory'

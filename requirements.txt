@@ -1,0 +1,16 @@
+# Core dependencies
+numpy
+matplotlib
+requests
+biopandas
+tqdm
+biopython
+typing_extensions
+
+# Optional dependencies (used in specific modules)
+torch
+h5py
+netCDF4
+
+# Development dependencies
+pytest

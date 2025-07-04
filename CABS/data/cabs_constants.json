@@ -1,0 +1,150 @@
+{
+  "cabs_lattice_defaults": {
+    "grid_spacing": 0.61,
+    "r12": [3.28, 4.27],
+    "r13": [4.1, 7.35]
+  },
+  "sc_modeling_thresholds": {
+    "min_distance": 5.3,
+    "max_distance": 6.4,
+    "slope_factor": 1.1
+  },
+  "pdb_output_options": {
+    "R": "replicas",
+    "F": "filtered", 
+    "C": "clusters",
+    "M": "models",
+    "S": "starting",
+    "A": "all",
+    "N": "none"
+  },
+  "bfac_output_options": {
+    "B": "bfac",
+    "C": "category",
+    "P": "plddt",
+    "R": "rmsf",
+    "S": "secstr",
+    "A": "all",
+    "N": "none"
+  },
+  "csv_output_options": {
+    "B": "bfac",
+    "C": "category",
+    "P": "plddt",
+    "S": "secstr",
+    "A": "all",
+    "N": "none"
+  },
+  "valid_letters": {
+    "pdb_output": "RFCMSAN",
+    "bfac_output": "ABCPRSN",
+    "csv_output": "ABCPSN"
+  },
+  "protein_restraints_modes": ["rigid", "plddt", "manual", "flexible"],
+  "protein_category_modes": ["rigid", "flexible", "unleashed"],
+  "unleashed_aliases": ["none", "unleashed", "no-protein-restraints"],
+  "allowed_aa_methods": ["modeller", "cg2all"],
+  "cabs_files": ["TRAF", "SEQ", "INP", "FCHAINS", "EPAIRMOD"],
+  "dssp_ss_mapping": {
+    "HGIP": "H",
+    "BE": "E",
+    "T": "T"
+  },
+  "default_colors": [
+    "#ffffff",
+    "#f2d600",
+    "#4b8f24",
+    "#666666",
+    "#e80915",
+    "#000000"
+  ],
+  "contact_map_constants": {
+    "max_bars": 50,
+    "width_const": 50,
+    "default_max_y": 0.05
+  },
+  "peptide_replacements": {
+    "PEP ": "PEP1 "
+  },
+  "output_directories": {
+    "pdbs": "output_pdbs",
+    "data": "output_data",
+    "plots": "plots",
+    "contact_maps": "contact_maps"
+  },
+  "default_filenames": {
+    "log": "CABS.log",
+    "config": "config.ini",
+    "restraints": "restraints.txt",
+    "plddt_config": "plddt.config"
+  },
+  "calculation_constants": {
+    "large_value": 1000.0,
+    "tiny_value": 0.001,
+    "gauss_max_iter": 100,
+    "max_dimension_check": 5,
+    "progress_width": 65,
+    "line_break": 76,
+    "default_log_level": 2,
+    "zero_threshold": 0,
+    "one_threshold": 1
+  },
+  "math_constants": {
+    "multiplier_variant": 2,
+    "percent_scale": 100,
+    "diagonal_fill": 0
+  },
+  "string_patterns": {
+    "pep_pattern": "PEP$",
+    "pep_replacement": "PEP1",
+    "random_placement": "random"
+  },
+  "system_constants": {
+    "windows": "Windows",
+    "dev_null": "/dev/null",
+    "stdin": "/dev/stdin",
+    "python2_pdb_path": "/usr/lib/python2.7/pdb.py"
+  },
+  "model_constants": {
+    "pdb_extension": ".pdb",
+    "cbs_extension": ".cbs",
+    "gz_extension": ".gz",
+    "json_extension": ".json",
+    "txt_extension": ".txt",
+    "csv_extension": ".csv"
+  },
+  "file_extensions": {
+    "pdb": [".pdb", ".pdb.gz"],
+    "image_formats": ["svg", "png", "pdf", "eps"],
+    "default_image_format": "svg"
+  },
+  "default_peptide_ss": "CHTE",
+  "error_messages": {
+    "invalid_pdb_output": "Contains letters outside of 'RFCMSAN'.",
+    "invalid_bfac_output": "Contains letters outside of 'ABCPRSN'.",
+    "invalid_csv_output": "Contains letters outside of 'ABCPSN'.",
+    "no_peptide": "No peptide given",
+    "modeller_not_found": "Modeller not found. Skipping AA rebuild.",
+    "unknown_aa_method": "Unknown AA method: %s. Skipping AA rebuild."
+  },
+  "default_values": {
+    "iterations": 1,
+    "modeller_iterations": 3,
+    "flexibility": 1.0,
+    "plddt": 1.0,
+    "bfac": 0.0,
+    "temperature": 300.0,
+    "random_seed": null,
+    "replicas": 10,
+    "mc_cycles": 50,
+    "mc_annealing": 20,
+    "work_dir": ".",
+    "verbosity": 2
+  },
+  "nsp3_constants": {
+    "model_path_config_key": "nsp3_model_path",
+    "cpu_device": "cpu",
+    "peptide_id": ">peptide"
+  },
+  "config_header": "############### CABSdock CONFIGURATION FILE ################\n\n; Options available from the command line can be set here.\n; Run CABSdock with -c <config file name> option\n;\n; Options set from the command line overwrite these set from\n; the config file, unless option supports accumulation of\n; the arguments. In such case arguments are first accumula-\n; ted in order they appear in the config file or on the com-\n; mand line. Finally arguments from the command line are ap-\n; pended to those from the config file.\n\n########################## SYNTAX ##########################\n\n# this is a comment\n; this is also a comment\n\n################### ONE-ARGUMENT OPTIONS ###################\n\n; option = value             OK\n; option : value             OK\n; option value               NO\n\n################ MULTIPLE ARGUMENT OPTIONS #################\n\n; option = value1 value2     OK\n; option : value1 value2     OK\n; option = value1, value2    NO\n\n########################## FLAGS ###########################\n\n; flag                       OK\n; flag = 1                   NO\n; flag = True                NO\n; set flag                   NO\n\n############################################################\n"
+}

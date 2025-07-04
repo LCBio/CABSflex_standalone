@@ -17,6 +17,7 @@ pre_parser = argparse.ArgumentParser(
 )
 pre_parser.add_argument(
     "job_type", 
+    nargs='?',  # Make job_type optional
     choices=["dock", "flex"], 
     help="Specify the simulation type (dock for protein-protein docking, flex for flexibility analysis)"
 )
@@ -35,25 +36,16 @@ pre_parser.add_argument(
     help="Show detailed help information and exit"
 )
 
-# Import CABS modules with fallback for development mode
+# Import CABS modules
 try:
-    import CABS.job
-    import CABS.optparser as optparser
-    import CABS.logger as logger
+    import CABS.core.job as job
+    import CABS.io.optparser as optparser
+    import CABS.io.logger as logger
     from CABS import __version__, _JUNK
-except ImportError:
-    # Fallback for when CABS is not installed as a package
-    cabs_spec = importlib.util.spec_from_file_location("CABS", "./CABS/__init__.py")
-    if cabs_spec is None or cabs_spec.loader is None:
-        print("Error: Could not load CABS module", file=sys.stderr)
-        sys.exit(1)
-    cabs_module = importlib.util.module_from_spec(cabs_spec)
-    cabs_spec.loader.exec_module(cabs_module)
-
-    optparser = cabs_module.optparser
-    logger = cabs_module.logger
-    __version__ = cabs_module.__version__
-    _JUNK = cabs_module._JUNK
+except ImportError as e:
+    print(f"Error: Could not import CABS modules: {e}", file=sys.stderr)
+    print("Make sure you're running from the correct directory and CABS is properly installed.", file=sys.stderr)
+    sys.exit(1)
 
 
 def run(cmd_line: List[str], job_type: Optional[str] = None) -> None:
@@ -69,32 +61,60 @@ def run(cmd_line: List[str], job_type: Optional[str] = None) -> None:
     
     try:
         pre_args, remains = pre_parser.parse_known_args(cmd_line)
-        job_type = pre_args.job_type
+        determined_job_type = pre_args.job_type or job_type
     except SystemExit:
         # argparse calls sys.exit on error, we catch it to handle gracefully
         return
 
+    # If no job type is determined, show general help or combined help
+    if not determined_job_type:
+        if pre_args.help:
+            # Show combined help for both dock and flex
+            print("CABS: Protein structure prediction and docking simulation tool")
+            print(f"Version: {__version__}")
+            print("\nCABS provides two main simulation modes:")
+            print("\n" + "="*60)
+            print("CABSflex - Flexibility Analysis")
+            print("="*60)
+            print(optparser.flex_parser.format_help())
+            print("\n" + "="*60)
+            print("CABSdock - Protein-Protein Docking")
+            print("="*60)
+            print(optparser.dock_parser.format_help())
+        else:
+            # Show brief usage
+            print("CABS: Protein structure prediction and docking simulation tool")
+            print(f"Version: {__version__}")
+            print("\nUsage:")
+            print("  CABSflex [options] <input.pdb>    # For flexibility analysis")
+            print("  CABSdock [options] <input.pdb>    # For protein-protein docking")
+            print("\nFor detailed help:")
+            print("  python -m CABS --help           # Show all options")
+            print("  CABSflex --help                 # Show CABSflex options only")
+            print("  CABSdock --help                 # Show CABSdock options only")
+        sys.exit(0)
+
     # Configure parsers and tasks based on job type
-    if job_type == 'dock':
+    if determined_job_type == 'dock':
         parser = optparser.dock_parser
-        task = CABS.job.DockTask
+        task = job.DockTask
         usage = optparser.dock_usage
-    elif job_type == 'flex':    
+    elif determined_job_type == 'flex':    
         parser = optparser.flex_parser
-        task = CABS.job.FlexTask
+        task = job.FlexTask
         usage = optparser.flex_usage
     else:
-        print(f"Error: Invalid job type '{job_type}'. Use 'dock' or 'flex'.", file=sys.stderr)
+        print(f"Error: Invalid job type '{determined_job_type}'. Use 'dock' or 'flex'.", file=sys.stderr)
         sys.exit(1)
 
-    module_name = f'CABS{job_type}'
+    module_name = f'CABS{determined_job_type}'
     
     # Handle version request
     if pre_args.version:
         print(f"CABS version {__version__}")
         sys.exit(0)
 
-    # Handle help request
+    # Handle help request for specific job type
     if pre_args.help:
         print(parser.format_help())
         sys.exit(0)
@@ -123,7 +143,7 @@ def run(cmd_line: List[str], job_type: Optional[str] = None) -> None:
     # Parse arguments and create job
     try:
         config = vars(parser.parse_args(remains))
-        job = task(**config)
+        cabs_job = task(**config)
     except Exception as e:
         logger.exit_program(
             module_name,
@@ -134,7 +154,7 @@ def run(cmd_line: List[str], job_type: Optional[str] = None) -> None:
 
     # Execute the job
     try:
-        job.run()
+        cabs_job.run()
     except KeyboardInterrupt:
         logger.critical(module_name, "Interrupted by user.")
         sys.exit(130)  # Standard exit code for Ctrl+C

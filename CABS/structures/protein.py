@@ -12,12 +12,12 @@ from math import exp
 from typing import Dict, List, Union, Optional, Any, Tuple
 from typing_extensions import Literal
 
-from CABS import utils
-from CABS import logger
-from CABS.pdblib import Pdb
-from CABS.atom import Atoms
-from CABS.vector3d import Vector3d
-from CABS import randinit
+from CABS.utils import utils
+from CABS.io import logger
+from CABS.structures.pdblib import Pdb
+from CABS.structures.atom import Atoms
+from CABS.structures.vector3d import Vector3d
+from CABS.prediction import randinit
 
 _name = 'Protein'
 

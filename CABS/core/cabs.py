@@ -17,10 +17,11 @@ from collections import OrderedDict
 from tempfile import mkdtemp
 from time import strftime
 
-from CABS import logger, _JUNK
-from CABS.vector3d import Vector3d
-from CABS.trajectory import Trajectory
-from CABS.atom import Atoms
+from CABS.io import logger
+from CABS import _JUNK
+from CABS.structures.vector3d import Vector3d
+from CABS.core.trajectory import Trajectory
+from CABS.structures.atom import Atoms
 
 _name = 'CABS'
 

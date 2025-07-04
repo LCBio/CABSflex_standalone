@@ -30,7 +30,7 @@ except ImportError:
     # Fallback for Python < 3.9
     from pkg_resources import resource_filename
 
-from CABS import logger
+from CABS.io import logger
 from CABS.constants import (
     CABS_SS, CABS_SS_REVERSE, SIDECNT, AA_NAMES, AA_SUB_NAMES,
     AA_SUB_NAMES_EXTENDED, SecondaryStructure, AminoAcid,

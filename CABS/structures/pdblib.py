@@ -15,10 +15,10 @@ from requests.exceptions import HTTPError, ConnectionError
 from subprocess import Popen, PIPE
 from collections import OrderedDict
 
-from CABS import logger
-from CABS.atom import Atom, Atoms
+from CABS.io import logger
+from CABS.structures.atom import Atom, Atoms
 from CABS.constants import AA_NAMES, AA_SUB_NAMES
-from CABS.plots import drop_csv_file
+from CABS.analysis.plots import drop_csv_file
 
 _name = 'PDB' # module name for logger
 # PDB_CACHE = os.path.join(os.path.expanduser('~'), '.cabsPDBcache')

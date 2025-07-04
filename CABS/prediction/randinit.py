@@ -3,7 +3,7 @@ Random initial structure generator with type annotations.
 """
 
 from typing import Union, BinaryIO
-from CABS.atom import Atoms
+from CABS.structures.atom import Atoms
 
 
 class RandomInitialStructure(Atoms):

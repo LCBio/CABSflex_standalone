@@ -11,6 +11,8 @@ from sys import stderr
 from time import time, strftime, gmtime, sleep
 from typing import Optional, Union, TextIO
 
+from CABS.config_loader import get_log_colors, get_log_levels, get_color_prefix
+
 __all__ = ['setup', 'log', 'critical', 'warning', 'info', 'log_file', 'debug', 
           'ProgressBar', 'CabsObserver', 'exit_program', 'to_file']
 
@@ -36,32 +38,10 @@ class Colors(Enum):
     END = '\033[0m'
 
 
-# Legacy dictionary for backward compatibility
-colors = {
-    'blue': Colors.BLUE.value,
-    'yellow': Colors.YELLOW.value,
-    'green': Colors.GREEN.value,
-    'red': Colors.RED.value,
-    'light_blue': Colors.LIGHT_BLUE.value,
-    'purple': Colors.PURPLE.value,
-    'end': Colors.END.value,
-}
-
-log_levels = {
-    LogLevel.CRITICAL.value: '[CRITICAL]',
-    LogLevel.WARNING.value: '[WARNING]',
-    LogLevel.INFO.value: '[INFO]',
-    LogLevel.OUT_FILES.value: '[OUT FILES]',
-    LogLevel.DEBUG.value: '[DEBUG]'
-}
-
-color_prefix = {
-    LogLevel.CRITICAL.value: f"{Colors.RED.value}[CRITICAL]{Colors.END.value}",
-    LogLevel.WARNING.value: f"{Colors.YELLOW.value}[WARNING]{Colors.END.value}",
-    LogLevel.INFO.value: f"{Colors.BLUE.value}[INFO]{Colors.END.value}",
-    LogLevel.OUT_FILES.value: f"{Colors.PURPLE.value}[OUT FILES]{Colors.END.value}",
-    LogLevel.DEBUG.value: f"{Colors.GREEN.value}[DEBUG]{Colors.END.value}",
-}
+# Load configuration data
+colors = get_log_colors()
+log_levels = get_log_levels()
+color_prefix = get_color_prefix()
 
 _init_time = time()
 _log_level = 2

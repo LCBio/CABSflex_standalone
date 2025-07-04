@@ -12,6 +12,15 @@ authors = [
 license = { text = "MIT" }
 readme = ""
 requires-python = ">=3.6"
+dependencies = [
+    "numpy",
+    "matplotlib", 
+    "requests",
+    "biopandas",
+    "tqdm",
+    "biopython",
+    "typing_extensions"
+]
 urls = { Homepage = "https://github.com/LCBio/cabsflex" }
 
 [project.scripts]
@@ -19,10 +28,10 @@ CABSdock = "CABS.__main__:run_dock"
 CABSflex = "CABS.__main__:run_flex"
 
 [tool.setuptools]
-packages = ["CABS"]
+packages = { find = {} }
 
 [tool.setuptools.package-data]
-"CABS" = ["data/*.dat", "config.json"]
+"CABS" = ["data/*.dat", "data/*.json", "io/config.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "CABS.__version__" }

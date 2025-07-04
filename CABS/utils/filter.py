@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 from typing import Dict, List, Tuple, Union, Optional, Any
 from typing_extensions import Literal
-from CABS.trajectory import Trajectory
+from CABS.core.trajectory import Trajectory
 
 
 class Filter:

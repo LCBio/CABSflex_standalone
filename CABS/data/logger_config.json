@@ -1,0 +1,31 @@
+{
+  "log_colors": {
+    "blue": "\u001b[94m",
+    "yellow": "\u001b[93m",
+    "green": "\u001b[92m",
+    "red": "\u001b[91m",
+    "light_blue": "\u001b[96m",
+    "purple": "\u001b[95m",
+    "end": "\u001b[0m"
+  },
+  "log_levels": {
+    "0": "[CRITICAL]",
+    "1": "[WARNING]",
+    "2": "[INFO]",
+    "3": "[OUT FILES]",
+    "4": "[DEBUG]"
+  },
+  "color_prefix": {
+    "0": "\u001b[91m[CRITICAL]\u001b[0m",
+    "1": "\u001b[93m[WARNING]\u001b[0m",
+    "2": "\u001b[94m[INFO]\u001b[0m",
+    "3": "\u001b[95m[OUT FILES]\u001b[0m",
+    "4": "\u001b[92m[DEBUG]\u001b[0m"
+  },
+  "type_dispatch": {
+    "int": "int",
+    "float": "float",
+    "str": "str",
+    "split_equals": "split_equals"
+  }
+}

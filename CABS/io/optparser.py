@@ -6,7 +6,7 @@ import os
 from copy import deepcopy as dc
 from typing import Dict, List, Tuple, Union, Optional, Any
 from typing_extensions import Literal
-from CABS import logger
+from CABS.io import logger
 
 
 _HELPW = 100
@@ -110,13 +110,20 @@ def mk_parser(parser_dict, group_dict, option_dict):
     return parser
 
 def restore_types(dict):
-    TYPE_DISPATCH = {
-    'int': int,
-    'float': float,
-    'str': str,
-    'split_equals': lambda x: x.split('=')
+    from CABS.config_loader import get_type_dispatch
+    TYPE_DISPATCH = get_type_dispatch()
+    
+    # Convert string type names to actual functions
+    type_functions = {
+        'int': int,
+        'float': float,
+        'str': str,
+        'split_equals': lambda x: x.split('=')
     }
+    
     for opt in dict.values():
+        if 'type' in opt and opt['type'] in type_functions:
+            opt['type'] = type_functions[opt['type']]
         if 'type' in opt and isinstance(opt['type'], str):
             type_key = opt['type']
             if type_key in TYPE_DISPATCH:

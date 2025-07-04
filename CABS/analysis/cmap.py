@@ -13,8 +13,8 @@ import matplotlib.ticker
 import numpy as np
 import numpy.typing as npt
 
-from CABS.plots import mk_histo
-from CABS.utils import _chunk_lst
+from CABS.analysis.plots import mk_histo
+from CABS.utils.utils import _chunk_lst
 
 
 class ContactMapFactory:

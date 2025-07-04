@@ -18,20 +18,22 @@ from typing_extensions import Literal
 import numpy as np
 import numpy.typing as npt
 
-from CABS import logger, pdblib, cabs, utils, protein
+from CABS.io import logger
+from CABS.structures import pdblib, protein
+from CABS.core import cabs, trajectory
+from CABS.utils import utils
 from CABS.constants import CABS_FILES, ALLOWED_AA_METHODS, DEFAULT_COLORS, ColorHex
-from CABS.align import save_csv, AlignError, align_to
-from CABS.cluster import Clustering
-from CABS.cmap import ContactMapFactory
-from CABS.filter import Filter
-from CABS.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N, drop_csv_file
-from CABS.protein import ProteinComplex
-from CABS.restraints import Restraints
-from CABS.trajectory import Trajectory
-from CABS.pdblib import Pdb
-import CABS.optparser as opt_parser
-from CABS.cmap import ContactMap
-from CABS.utils import convert_cg_to_all
+from CABS.utils.align import save_csv, AlignError, align_to
+from CABS.analysis.cluster import Clustering
+from CABS.analysis.cmap import ContactMapFactory, ContactMap
+from CABS.utils.filter import Filter
+from CABS.analysis.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N, drop_csv_file
+from CABS.structures.protein import ProteinComplex
+from CABS.analysis.restraints import Restraints
+from CABS.core.trajectory import Trajectory
+from CABS.structures.pdblib import Pdb
+import CABS.io.optparser as opt_parser
+from CABS.utils.utils import convert_cg_to_all
 
 _name = 'JOB'
 

@@ -6,7 +6,7 @@ from typing_extensions import Literal
 
 from tempfile import mkstemp
 from contextlib import closing
-from CABS import logger
+from CABS.io import logger
 import sys
 
 
@@ -44,17 +44,12 @@ def ca2all(
     else:
         sys.stdout = open('/dev/null', 'w')
 
+    from CABS.config_loader import get_aa_names
+    
     pdb = mkstemp(prefix='.', suffix='.pdb', dir=work_dir, text=True)[1]
     prefix = os.path.basename(pdb).rsplit('.', 1)[0]
 
-    aa_names = {
-        'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU',
-        'F': 'PHE', 'G': 'GLY', 'H': 'HIS', 'I': 'ILE',
-        'K': 'LYS', 'L': 'LEU', 'M': 'MET', 'N': 'ASN',
-        'P': 'PRO', 'Q': 'GLN', 'R': 'ARG', 'S': 'SER',
-        'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR'
-    }
-
+    aa_names = get_aa_names()
     aa_names = {v: k for k, v in aa_names.items()}
 
     atoms = []

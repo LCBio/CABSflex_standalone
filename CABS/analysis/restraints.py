@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Tuple, Union, Optional, Any, TextIO
 from typing_extensions import Literal
-from CABS.utils import pep2pep1
+from CABS.utils.utils import pep2pep1
 import random
 
 
