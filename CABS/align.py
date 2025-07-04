@@ -1,5 +1,8 @@
 from functools import reduce
+from typing import Dict, List, Tuple, Union, Optional, Any, TextIO
+from typing_extensions import Literal
 import numpy as np
+import numpy.typing as npt
 import operator
 
 from abc import ABCMeta, abstractmethod
@@ -50,7 +53,7 @@ def raise_aerror_on(*errors):
 
 
 def fmt_csv(atm):
-    return "%s:%i%s:%s" % (atm.chid, atm.resnum, atm.icode.strip(), aa_to_short(atm.resname))
+    return f"{atm.chid}:{atm.resnum}{atm.icode.strip()}:{aa_to_short(atm.resname)}"
 
 
 def save_csv(fname, stcs, aligned_mers):
@@ -81,14 +84,14 @@ def save_fasta(fname, stcs_names, stcs, aligned_mers):
     txt2 = ''
     for mrs in aligned_mers:
         while True:
-            mer = it1.next()
+            mer = next(it1)
             txt1 += aa_to_short(mer.resname)
             if mer not in mrs:
                 txt2 += '-'
                 continue
             break
         while True:
-            mer = it2.next()
+            mer = next(it2)
             txt2 += aa_to_short(mer.resname)
             if mer not in mrs:
                 txt1 += '-'
@@ -96,7 +99,7 @@ def save_fasta(fname, stcs_names, stcs, aligned_mers):
             break
     with open(fname, 'w') as f:
         for name, seq in zip(stcs_names, (txt1, txt2)):
-            f.write(">%s\n%s\n" % (name, seq))
+            f.write(f">{name}\n{seq}\n")
 
 
 def load_csv(fname, *stcs):
@@ -189,9 +192,7 @@ class AlnMeta(ABCMeta):
             self.methodname = self.__name__.lower()
 
 
-class AbstractAlignMethod(object):
-
-    __metaclass__ = AlnMeta
+class AbstractAlignMethod(metaclass=AlnMeta):
 
     @abstractmethod
     def execute(self, mers1, mers2, **kwargs):

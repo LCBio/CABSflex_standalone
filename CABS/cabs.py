@@ -4,6 +4,9 @@ import re
 import os
 import tarfile
 import numpy as np
+from typing import List, Tuple, Dict, Union, Optional, Any
+from typing_extensions import Literal
+import numpy.typing as npt
 
 from operator import attrgetter
 from subprocess import Popen, PIPE
@@ -17,6 +20,7 @@ from time import strftime
 from CABS import logger, _JUNK
 from CABS.vector3d import Vector3d
 from CABS.trajectory import Trajectory
+from CABS.atom import Atoms
 
 _name = 'CABS'
 
@@ -29,15 +33,15 @@ class CabsLattice:
     r13: tuple with min and max allowed values for CA-CA-CA end distance
     """
 
-    def __init__(self, grid_spacing=0.61, r12=(3.28, 4.27), r13=(4.1, 7.35)):
-        self.grid = grid_spacing
+    def __init__(self, grid_spacing: float = 0.61, r12: Tuple[float, float] = (3.28, 4.27), r13: Tuple[float, float] = (4.1, 7.35)) -> None:
+        self.grid: float = grid_spacing
         r12min = round((r12[0] / self.grid) ** 2)
         r12max = round((r12[1] / self.grid) ** 2)
         r13min = round((r13[0] / self.grid) ** 2)
         r13max = round((r13[1] / self.grid) ** 2)
         dim = int(r12max ** 0.5)
 
-        self.vectors = []
+        self.vectors: List[Vector3d] = []
         for i in range(-dim, dim + 1):
             for j in range(-dim, dim + 1):
                 for k in range(-dim, dim + 1):
@@ -46,7 +50,7 @@ class CabsLattice:
                         self.vectors.append(Vector3d(i, j, k))
 
         n = len(self.vectors)
-        self.good = np.zeros((n, n))
+        self.good: npt.NDArray[np.float64] = np.zeros((n, n))
         for i in range(n):
             vi = self.vectors[i]
             for j in range(n):
@@ -54,7 +58,7 @@ class CabsLattice:
                 if r13min < (vi + vj).mod2() < r13max and vi.cross(vj).mod2():
                     self.good[i, j] = 1
 
-    def cast(self, ch):
+    def cast(self, ch: 'Atoms') -> List[Tuple[float, float, float]]:
         """
         Function that casts a single protein chain onto the lattice.
         Returns a list of tuples with (x, y, z) coordinates of CA atoms.
@@ -148,7 +152,7 @@ class CabsRun(Thread):
             for k, v in pairmod.items():
                 mol, res = ids[protein_complex.new_ids[k]]
                 weight, shift = v
-                epfile += '%i %i %.3f %.3f\n' % (mol, res, weight, shift)
+                epfile += f'{mol} {res} {weight:.3f} {shift:.3f}\n'
             with open(os.path.join(cabs_dir, 'EPAIRMOD'), 'w') as f:
                 f.write(epfile)
 
@@ -208,7 +212,7 @@ class CabsRun(Thread):
             for i, chain in enumerate(chains):
                 vectors = CabsRun.LATTICE.cast(chain)
                 fchains[i] += str(len(vectors)) + '\n' + '\n'.join(
-                    ['%i %i %i' % (int(v.x), int(v.y), int(v.z)) for v in vectors]
+                    [f'{int(v.x)} {int(v.y)} {int(v.z)}' for v in vectors]
                 ) + '\n'
 
         return ''.join(fchains), seq, cabs_ids
@@ -218,7 +222,7 @@ class CabsRun(Thread):
         max_r = 0
 
         rest = [r for r in restraints.data if not r.sg]
-        restr = '%i %.2f %.2f\n' % (len(rest), ca_weight[0], ca_weight[1])
+        restr = f'{len(rest)} {ca_weight[0]:.2f} {ca_weight[1]:.2f}\n'
         if len(rest):
             rest.sort(key=attrgetter('id2'))
             rest.sort(key=attrgetter('id1'))
@@ -231,16 +235,15 @@ class CabsRun(Thread):
             restr += ''.join(rest)
 
         rest = [r for r in restraints.data if r.sg]
-        restr += '%i %.2f %.2f\n' % (len(rest), sg_weight[0], sg_weight[1])
+        restr += f'{len(rest)} {sg_weight[0]:.2f} {sg_weight[1]:.2f}\n'
         if len(rest):
             rest.sort(key=attrgetter('id2'))
             rest.sort(key=attrgetter('id1'))
             all_ids = [r.id1 for r in rest] + [r.id2 for r in rest]
             rest_count = {i: all_ids.count(i) for i in all_ids}
             max_r = max(max_r, *rest_count.values())
-            rest = ['%2i %3i %2i %3i %8.4f %8.4f %6.2f %6.2f\n' % (
-                r.id1[0], r.id1[1], r.id2[0], r.id2[1], r.distance, r.width, r.weight_min, r.weight_max
-            ) for r in rest]
+            rest = [f'{r.id1[0]:2d} {r.id1[1]:3d} {r.id2[0]:2d} {r.id2[1]:3d} {r.distance:8.4f} {r.width:8.4f} {r.weight_min:6.2f} {r.weight_max:6.2f}\n'
+                   for r in rest]
             restr += ''.join(rest)
 
         return restr, max_r
@@ -248,8 +251,8 @@ class CabsRun(Thread):
     @staticmethod
     def load_excluding(excl, dist, cabs_ids):
         if excl:
-            return '%i %f\n' % (len(excl), dist) + '\n'.join(
-                '%i %i %i %i' % (cabs_ids[i][0], cabs_ids[i][1], cabs_ids[j][0], cabs_ids[j][1]) for i, j in excl
+            return f'{len(excl)} {dist}\n' + '\n'.join(
+                f'{cabs_ids[i][0]} {cabs_ids[i][1]} {cabs_ids[j][0]} {cabs_ids[j][1]}' for i, j in excl
             )
         else:
             return '0 0.0\n'
@@ -284,24 +287,11 @@ class CabsRun(Thread):
     @staticmethod
     def make_inp(random_number, nmols, force_field, temperature, mc_annealing, mc_cycles, mc_steps, replicas,
                  replicas_dtemp, binding_interactions):
-        return '%i\n%i %i %i %i %i\n%.2f %.2f %.2f %.2f %.2f\n%.3f %.3f %.3f %.3f %.3f\n' % (
-            random_number,
-            mc_annealing,
-            mc_cycles,
-            mc_steps,
-            replicas,
-            nmols,
-            temperature[0],
-            temperature[1],
-            force_field[0],
-            binding_interactions,
-            replicas_dtemp,
-            force_field[1],
-            force_field[2],
-            force_field[3],
-            force_field[4],
-            force_field[5]
-        )
+        return f'''{random_number}
+{mc_annealing} {mc_cycles} {mc_steps} {replicas} {nmols}
+{temperature[0]:.2f} {temperature[1]:.2f} {force_field[0]:.2f} {binding_interactions:.2f} {replicas_dtemp:.2f}
+{force_field[1]:.3f} {force_field[2]:.3f} {force_field[3]:.3f} {force_field[4]:.3f} {force_field[5]:.3f}
+'''
 
     def run(self):
         monitor = logger.CabsObserver(interval=0.2, progress_file=os.path.join(self.cfg['cwd'], 'PROGRESS'))

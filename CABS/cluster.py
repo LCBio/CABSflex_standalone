@@ -1,17 +1,20 @@
 import numpy as np
+import numpy.typing as npt
 import random
+from typing import Dict, List, Tuple, Union, Optional, Any
+from typing_extensions import Literal
 
 from CABS.trajectory import Trajectory
 
 
-class Clustering(object):
+class Clustering:
     def __init__(self, trajectory, selection):
         """Clustering is a class for performing structural clustering of the models according to similarity of selected
         atom subset. If selection is not provided, whole model is used.
         :param trajectory: :class:'trajectory.Trajectory' instance
         :param selection: string representing the selection (i.e. 'chain A and chain B')
         """
-        super(Clustering, self).__init__()
+        super().__init__()
         self.trajectory = trajectory
         self.selection = selection
         self.distance_matrix = None

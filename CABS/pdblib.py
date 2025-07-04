@@ -5,7 +5,8 @@ import os
 import gzip
 import json
 import requests as req
-from typing import Tuple
+from typing import Tuple, List, Dict, Union, Optional, Any, TextIO
+from typing_extensions import Literal
 from copy import deepcopy
 
 from tempfile import mkstemp
@@ -16,7 +17,7 @@ from collections import OrderedDict
 
 from CABS import logger
 from CABS.atom import Atom, Atoms
-from CABS.utils import AA_NAMES, AA_SUB_NAMES
+from CABS.constants import AA_NAMES, AA_SUB_NAMES
 from CABS.plots import drop_csv_file
 
 _name = 'PDB' # module name for logger
@@ -27,29 +28,29 @@ _name = 'PDB' # module name for logger
 #     pass
 
 
-class Pdb(object):
+class Pdb:
     """
     Pdb parser.
     """
 
-    DSSP_COMMAND = 'mkdssp'
+    DSSP_COMMAND: str = 'mkdssp'
 
     class InvalidPdbInput(Exception):
         pass
 
     def __init__(
             self,
-            source,
-            selection='',
-            pdb_cache='~',
-            remove_alternative_locations=True,
-            fix_non_standard_aa=True,
-            remove_water=True,
-            remove_hetero=True,
-            verify=False,
-            no_exit=False,  # does not exit on error, raises InvalidPdbInput instead
-            create_from_aa=False
-    ):
+            source: str,
+            selection: str = '',
+            pdb_cache: str = '~',
+            remove_alternative_locations: bool = True,
+            fix_non_standard_aa: bool = True,
+            remove_water: bool = True,
+            remove_hetero: bool = True,
+            verify: bool = False,
+            no_exit: bool = False,  # does not exit on error, raises InvalidPdbInput instead
+            create_from_aa: bool = False
+    ) -> None:
         if not create_from_aa:
             logger.debug(_name, 'Creating Pdb object from {}'.format(source))
         self.atoms = Atoms()
@@ -217,7 +218,7 @@ class Pdb(object):
                 )
 
     @staticmethod
-    def fetch(pdb_code, pdb_cache, force_download=False):
+    def fetch(pdb_code: str, pdb_cache: str, force_download: bool = False) -> str:
 
         if not re.match(r'[1-9][0-9A-Za-z]{3}', pdb_code):
             raise IOError
@@ -254,16 +255,16 @@ class Pdb(object):
         return filename
 
     @staticmethod
-    def read(filename):
+    def read(filename: str) -> str:
         try:
             with gzip.open(filename, 'rb') as f:
                 content = f.read()
         except IOError:
             with open(filename, 'rb') as f:
                 content = f.read()
-        return content
+        return content.decode('utf-8') if isinstance(content, bytes) else content
 
-    def run_dssp_command(self, command):
+    def run_dssp_command(self, command: List[str]) -> Tuple[Optional[str], Optional[str], int]:
         """Run a subprocess command and return the output, error, and return code."""
         try:
             proc = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
@@ -281,7 +282,7 @@ class Pdb(object):
         except OSError:
             return None, None, -1
 
-    def dssp(self, work_dir='', dssp_from_aa=False):
+    def dssp(self, work_dir: str = '', dssp_from_aa: bool = False) -> None:
         """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
 
         commands_to_try = [
@@ -468,8 +469,8 @@ class Pdb(object):
                 os.makedirs(odir)
             self.all_atoms.save_to_pdb(initial_pdb)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.body
 
-    def __repr__(self):
-        return "<PDB from %s, %i atoms>" % (self.name, len(self.atoms))
+    def __repr__(self) -> str:
+        return f"<PDB from {self.name}, {len(self.atoms)} atoms>"

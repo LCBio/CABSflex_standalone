@@ -1,6 +1,8 @@
 import os
 import glob
 import re
+from typing import Dict, List, Tuple, Union, Optional, Any, TextIO
+from typing_extensions import Literal
 
 from tempfile import mkstemp
 from contextlib import closing
@@ -25,9 +27,9 @@ except ImportError as e:
 
 
 def ca2all(
-        filename, output=None, iterations=1, work_dir='.',
-        out_mdl=os.path.join(os.getcwd(), 'output_data', 'modeller_output_0.txt'),
-        cyclization=False, disulfide_bonds=None, only_cyclization=False
+        filename: Union[str, TextIO], output: Optional[Union[str, TextIO]] = None, iterations: int = 1, work_dir: str = '.',
+        out_mdl: str = os.path.join(os.getcwd(), 'output_data', 'modeller_output_0.txt'),
+        cyclization: Union[bool, List[str]] = False, disulfide_bonds: Optional[List[Tuple[int, int]]] = None, only_cyclization: bool = False
 ):
     """
     Rebuilds ca to all-atom
@@ -99,7 +101,7 @@ def ca2all(
 
         pir = prefix + '.pir'
         with open(pir, 'w') as f:
-            f.write(_PIR_TEMPLATE % (prefix, seq, pdb))
+            f.write(_PIR_TEMPLATE.format(prefix, seq, pdb))
 
         env = Environ()
         env.patch_default = False

@@ -4,6 +4,8 @@ import json
 import re
 import os
 from copy import deepcopy as dc
+from typing import Dict, List, Tuple, Union, Optional, Any
+from typing_extensions import Literal
 from CABS import logger
 
 
@@ -57,7 +59,7 @@ class ConfigFileParser:
 
 def mk_usage(parser_dict, option_dict, indent=4):
     prog = parser_dict['prog']
-    usage = ['usage: %s [OPTIONS]' % prog, '']
+    usage = [f'usage: {prog} [OPTIONS]', '']
     for group, _options in parser_dict['groups']:
         usage.append(group)
         for name in _options:
@@ -75,7 +77,7 @@ def mk_usage(parser_dict, option_dict, indent=4):
                     metavar = ' '.join(metavar)
                 line += ' ' + str(metavar)
             usage.append(line)
-    usage.extend(['', 'For full help run: %s -h, --help' % prog])
+    usage.extend(['', f'For full help run: {prog} -h, --help'])
     return '\n'.join(usage)
 
 

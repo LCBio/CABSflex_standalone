@@ -1,15 +1,18 @@
 import numpy as np
+import numpy.typing as npt
+from typing import Dict, List, Tuple, Union, Optional, Any
+from typing_extensions import Literal
 from CABS.trajectory import Trajectory
 
 
-class Filter(object):
+class Filter:
     def __init__(self, trajectory, num=1000):
         """
         Class for performing trajectory filtering according to chosen criteria (currently -- lowest energy).
         :param trajectory: trajectory.Trajectory instance to be clustered.
         :param num: int the number of models to be filtered out.
         """
-        super(Filter, self).__init__()
+        super().__init__()
         self.trajectory = trajectory
         self.N = num
 

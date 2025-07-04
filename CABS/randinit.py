@@ -1,30 +1,44 @@
+"""
+Random initial structure generator with type annotations.
+"""
+
+from typing import Union, BinaryIO
 from CABS.atom import Atoms
 
 
 class RandomInitialStructure(Atoms):
+    """
+    Random initial structure generator.
+    
+    This class tries to build initial random structure from the source variable.
+    Source can be SEQUENCE, SEQUENCE:SECONDARY or filename.
+    """
 
-    # this class tries to build initial random structure from the source variable
-    # source can be SEQUENCE, SEQUENCE:SECONDARY or filename
-
-    def __init__(self, source):
-
+    def __init__(self, source: Union[str, bytes]) -> None:
+        """
+        Initialize random initial structure.
+        
+        Arguments:
+            source: sequence string, sequence with secondary structure, or filename
+        """
         try:
             # try reading from file
             with open(source, 'rb') as f:
-                source = f.read()
-
-        except IOError:
+                source = f.read().decode('utf-8')
+        except (IOError, TypeError, UnicodeDecodeError):
             # source is considered string from now on
-            pass
+            if isinstance(source, bytes):
+                source = source.decode('utf-8')
 
         # remove white spaces and make capital
         source = source.replace(' ', '').replace('\n', '').upper()
 
-        super(RandomInitialStructure, self).__init__(source)
+        super().__init__(source)
         self.change_chid('X', 'A')
 
     @property
-    def pdb(self):
+    def pdb(self) -> str:
+        """Generate PDB string for random conformation."""
         return self.random_conformation()
 
 

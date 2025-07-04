@@ -1,5 +1,7 @@
 """Module for handling distance restraints"""
 
+from typing import Dict, List, Tuple, Union, Optional, Any, TextIO
+from typing_extensions import Literal
 from CABS.utils import pep2pep1
 import random
 
@@ -33,11 +35,11 @@ class Restraint:
         self.sg = is_side_chain
 
     def __repr__(self):
-        s = '%s %s %.4f %.4f' % (self.id1, self.id2, self.distance, self.width)
+        s = f'{self.id1} {self.id2} {self.distance:.4f} {self.width:.4f}'
         if self.weight_min == self.weight_max:
-            s += ' %.2f' % self.weight_max
+            s += f' {self.weight_max:.2f}'
         else:
-            s += ' %.2f %.2f' % (self.weight_min, self.weight_max)
+            s += f' {self.weight_min:.2f} {self.weight_max:.2f}'
         if self.sg:
             s += ' SG'
         return s

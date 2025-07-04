@@ -1,5 +1,5 @@
 """
-Module for running CABS jobs.
+Module for running CABS jobs with comprehensive type annotations.
 """
 import operator
 import os
@@ -7,14 +7,19 @@ import re
 import tarfile
 import glob
 from copy import deepcopy
-import numpy as np
 from tempfile import mkstemp
 from time import strftime
 import random
 from functools import reduce
-
 from abc import ABCMeta, abstractmethod
+from typing import Dict, List, Union, Optional, Any, Tuple, Set
+from typing_extensions import Literal
+
+import numpy as np
+import numpy.typing as npt
+
 from CABS import logger, pdblib, cabs, utils, protein
+from CABS.constants import CABS_FILES, ALLOWED_AA_METHODS, DEFAULT_COLORS, ColorHex
 from CABS.align import save_csv, AlignError, align_to
 from CABS.cluster import Clustering
 from CABS.cmap import ContactMapFactory
@@ -29,102 +34,106 @@ from CABS.cmap import ContactMap
 from CABS.utils import convert_cg_to_all
 
 _name = 'JOB'
-_CABS_files = ["TRAF", "SEQ", "INP", "OUT", "FCHAINS", "PAIRMOD"]
-_allowed_aa_methods = ['modeller', 'cg2all']
-DEFAULT_COLORS = ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']
+
+# Legacy constants for backward compatibility
+_CABS_files = CABS_FILES  # Deprecated: use CABS_FILES
+_allowed_aa_methods = ALLOWED_AA_METHODS  # Deprecated: use ALLOWED_AA_METHODS
 
 
-class CABSTask(object):
-    """Abstract CABS job instance."""
+class CABSTask:
+    """Abstract CABS job instance with comprehensive type annotations."""
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, **kwargs):
-        self.aa_method = kwargs.get('aa_method')
-        self.aa_rebuild = kwargs.get('aa_rebuild')
-        self.add_peptide = kwargs.get('add_peptide')
-        self.align = kwargs.get('align')
-        self.align_options = dict(kwargs.get('align_options', []))
-        self.align_peptide_options = dict(kwargs.get('align_peptide_options', []))
-        self.binding_interactions = kwargs.get('binding_interactions')
-        self.ca_rest_add = kwargs.get('ca_rest_add')
-        self.ca_rest_file = kwargs.get('ca_rest_file')
-        self.ca_rest_weight = kwargs.get('ca_rest_weight')
-        self.clustering_iterations = kwargs.get('clustering_iterations')
-        self.clustering_medoids = kwargs.get('clustering_medoids')
-        self.contact_map_colors = kwargs.get('contact_map_colors')
-        self.contact_maps = kwargs.get('contact_maps')
-        self.contact_threshold = kwargs.get('contact_threshold')
-        self.contact_threshold_aa = kwargs.get('contact_threshold_aa')
-        self.csv_output = kwargs.get('csv_output')
-        self.cyclization = kwargs.get('backbone_cyclization')
-        self.disable_centro = kwargs.get('disable_centro')
-        self.disulfide_bonds = kwargs.get('disulfide_bonds')
-        self.dssp_command = kwargs.get('dssp_command')
-        self.dssp_output = kwargs.get('dssp_output')
-        self.exclude = kwargs.get('exclude')
-        self.excluding_distance = kwargs.get('excluding_distance')
-        self.filtering_count = kwargs.get('filtering_count')
-        self.filtering_mode = kwargs.get('filtering_mode')
-        self.fortran_command = kwargs.get('fortran_command')
-        self.gauss_iterations = kwargs.get('gauss_iterations')
-        self.image_file_format = kwargs.get('image_file_format')
-        self.input_protein = kwargs.get('input_protein')
-        self.insertion_attempts = kwargs.get('insertion_attempts')
-        self.insertion_clash = kwargs.get('insertion_clash')
-        self.json_output = kwargs.get('json_output')
-        self.load_cabs_files = kwargs.get('load_cabs_files')
-        self.mc_annealing = kwargs.get('mc_annealing')
-        self.mc_cycles = kwargs.get('mc_cycles')
-        self.mc_steps = kwargs.get('mc_steps')
-        self.modeller_iterations = kwargs.get('modeller_iterations')
-        self.nsp3_model_path = kwargs.get('nsp3_model_path')
-        self.pairmod = kwargs.get('pairmod')
-        self.pdb_cache = kwargs.get('pdb_cache_dir')
-        self.pdb_bfac_output = kwargs.get('pdb_bfac_output')
-        self.pdb_output = kwargs.get('pdb_output')
-        self.peptide = kwargs.get('peptide')
-        self.peptide_structure_prediction = kwargs.get('peptide_structure_prediction')
-        self.protein_category = kwargs.get('protein_category')
-        self.protein_flexibility = kwargs.get('protein_flexibility')
-        self.protein_plddt = kwargs.get('protein_plddt')
-        self.protein_restraints = kwargs.get('protein_restraints')
-        self.protein_restraints_retain = kwargs.get('protein_restraints_retain')
-        self.no_protein_restraints = kwargs.get('no_protein_restraints')
-        self.random_seed = kwargs.get('random_seed')
-        self.receptor_ss = kwargs.get('receptor_ss')
-        self.reference_pdb = kwargs.get('reference_pdb')
-        self.remote = kwargs.get('log')
-        self.renumber = kwargs.get('renumber_residues_to_original')
-        self.replicas = kwargs.get('replicas')
-        self.replicas_dtemp = kwargs.get('replicas_dtemp')
-        self.restraints_output = kwargs.get('restraints_output')
-        self.save_cabs_files = kwargs.get('save_cabs_files')
-        self.save_config = kwargs.get('save_config')
-        self.sc_rest_add = kwargs.get('sc_rest_add')
-        self.sc_rest_file = kwargs.get('sc_rest_file')
-        self.sc_rest_weight = kwargs.get('sc_rest_weight')
-        self.separation = kwargs.get('separation')
-        self.ss_output = kwargs.get('ss_output')
-        self.temperature = kwargs.get('temperature')
-        self.verbose = kwargs.get('verbose')
-        self.work_dir = kwargs.get('work_dir')
-        self.weighted_fit = kwargs.get('weighted_fit')
+    def __init__(self, **kwargs: Any) -> None:
+        # Type annotations for all attributes
+        self.aa_method: Optional[Literal['modeller', 'cg2all']] = kwargs.get('aa_method')
+        self.aa_rebuild: Optional[bool] = kwargs.get('aa_rebuild')
+        self.add_peptide: Optional[str] = kwargs.get('add_peptide')
+        self.align: Optional[bool] = kwargs.get('align')
+        self.align_options: Dict[str, Any] = dict(kwargs.get('align_options', []))
+        self.align_peptide_options: Dict[str, Any] = dict(kwargs.get('align_peptide_options', []))
+        self.binding_interactions: Optional[bool] = kwargs.get('binding_interactions')
+        self.ca_rest_add: Optional[str] = kwargs.get('ca_rest_add')
+        self.ca_rest_file: Optional[str] = kwargs.get('ca_rest_file')
+        self.ca_rest_weight: Optional[float] = kwargs.get('ca_rest_weight')
+        self.clustering_iterations: Optional[int] = kwargs.get('clustering_iterations')
+        self.clustering_medoids: Optional[int] = kwargs.get('clustering_medoids')
+        self.contact_map_colors: Optional[List[ColorHex]] = kwargs.get('contact_map_colors')
+        self.contact_maps: Optional[bool] = kwargs.get('contact_maps')
+        self.contact_threshold: Optional[float] = kwargs.get('contact_threshold')
+        self.contact_threshold_aa: Optional[float] = kwargs.get('contact_threshold_aa')
+        self.csv_output: Optional[bool] = kwargs.get('csv_output')
+        self.cyclization: Optional[bool] = kwargs.get('backbone_cyclization')
+        self.disable_centro: Optional[bool] = kwargs.get('disable_centro')
+        self.disulfide_bonds: Optional[bool] = kwargs.get('disulfide_bonds')
+        self.dssp_command: Optional[str] = kwargs.get('dssp_command')
+        self.dssp_output: Optional[bool] = kwargs.get('dssp_output')
+        self.exclude: Optional[Union[str, List[str]]] = kwargs.get('exclude')
+        self.excluding_distance: Optional[float] = kwargs.get('excluding_distance')
+        self.filtering_count: Optional[int] = kwargs.get('filtering_count')
+        self.filtering_mode: Optional[str] = kwargs.get('filtering_mode')
+        self.fortran_command: Optional[str] = kwargs.get('fortran_command')
+        self.gauss_iterations: Optional[int] = kwargs.get('gauss_iterations')
+        self.image_file_format: Optional[str] = kwargs.get('image_file_format')
+        self.input_protein: Optional[str] = kwargs.get('input_protein')
+        self.insertion_attempts: Optional[int] = kwargs.get('insertion_attempts')
+        self.insertion_clash: Optional[float] = kwargs.get('insertion_clash')
+        self.json_output: Optional[bool] = kwargs.get('json_output')
+        self.load_cabs_files: Optional[str] = kwargs.get('load_cabs_files')
+        self.mc_annealing: Optional[bool] = kwargs.get('mc_annealing')
+        self.mc_cycles: Optional[int] = kwargs.get('mc_cycles')
+        self.mc_steps: Optional[int] = kwargs.get('mc_steps')
+        self.modeller_iterations: Optional[int] = kwargs.get('modeller_iterations')
+        self.nsp3_model_path: Optional[str] = kwargs.get('nsp3_model_path')
+        self.pairmod: Optional[str] = kwargs.get('pairmod')
+        self.pdb_cache: Optional[str] = kwargs.get('pdb_cache_dir')
+        self.pdb_bfac_output: Optional[bool] = kwargs.get('pdb_bfac_output')
+        self.pdb_output: Optional[bool] = kwargs.get('pdb_output')
+        self.peptide: Optional[str] = kwargs.get('peptide')
+        self.peptide_structure_prediction: Optional[bool] = kwargs.get('peptide_structure_prediction')
+        self.protein_category: Optional[str] = kwargs.get('protein_category')
+        self.protein_flexibility: Optional[str] = kwargs.get('protein_flexibility')
+        self.protein_plddt: Optional[str] = kwargs.get('protein_plddt')
+        self.protein_restraints: Optional[str] = kwargs.get('protein_restraints')
+        self.protein_restraints_retain: Optional[bool] = kwargs.get('protein_restraints_retain')
+        self.no_protein_restraints: Optional[bool] = kwargs.get('no_protein_restraints')
+        self.random_seed: Optional[int] = kwargs.get('random_seed')
+        self.receptor_ss: Optional[str] = kwargs.get('receptor_ss')
+        self.reference_pdb: Optional[str] = kwargs.get('reference_pdb')
+        self.remote: Optional[bool] = kwargs.get('log')
+        self.renumber: Optional[bool] = kwargs.get('renumber_residues_to_original')
+        self.replicas: Optional[int] = kwargs.get('replicas')
+        self.replicas_dtemp: Optional[float] = kwargs.get('replicas_dtemp')
+        self.restraints_output: Optional[bool] = kwargs.get('restraints_output')
+        self.save_cabs_files: Optional[str] = kwargs.get('save_cabs_files')
+        self.save_config: Optional[bool] = kwargs.get('save_config')
+        self.sc_rest_add: Optional[str] = kwargs.get('sc_rest_add')
+        self.sc_rest_file: Optional[str] = kwargs.get('sc_rest_file')
+        self.sc_rest_weight: Optional[float] = kwargs.get('sc_rest_weight')
+        self.separation: Optional[str] = kwargs.get('separation')
+        self.ss_output: Optional[bool] = kwargs.get('ss_output')
+        self.temperature: Optional[float] = kwargs.get('temperature')
+        self.verbose: Optional[int] = kwargs.get('verbose')
+        self.work_dir: Optional[str] = kwargs.get('work_dir')
+        self.weighted_fit: Optional[bool] = kwargs.get('weighted_fit')
 
         # Job attributes collected.
-        self.config = kwargs
-        self.initial_complex = None
-        self.restraints = None
-        self.cabsrun = None
-        self.trajectory = None
-        self.filtered_trajectory = None
-        self.filtered_ndx = None
-        self.medoids = None
-        self.clusters_dict = None
-        self.clusters = None
-        self.rmslst = {}
-        self.results = None
-        self.reference = None
+        self.config: Dict[str, Any] = kwargs
+        self.initial_complex: Optional[Any] = None
+        self.restraints: Optional[Any] = None
+        self.cabsrun: Optional[Any] = None
+        self.trajectory: Optional[Trajectory] = None
+        self.filtered_trajectory: Optional[Trajectory] = None
+        self.filtered_ndx: Optional[npt.NDArray[np.int_]] = None
+        self.medoids: Optional[Trajectory] = None
+        self.clusters_dict: Optional[Dict[str, Any]] = None
+        self.clusters: Optional[npt.NDArray[np.float64]] = None
+        self.rmslst: Dict[str, Any] = {}
+        self.results: Optional[Dict[str, Any]] = None
+        self.reference: Optional[Any] = None
+        self.file_TRAF: Optional[str] = None
+        self.file_SEQ: Optional[str] = None
 
         # seeding RNG
         random.seed(self.random_seed)
@@ -167,7 +176,7 @@ class CABSTask(object):
             except (ValueError, TypeError, IOError) as e:
                 logger.exit_program(
                     module_name=_name,
-                    msg="Could not load CABS files from %s. An error occurred: %s" % (self.load_cabs_files, e),
+                    msg=f"Could not load CABS files from {self.load_cabs_files}. An error occurred: {e}",
                     exc=e
                 )
 
@@ -566,7 +575,7 @@ class CABSTask(object):
         """
         if ftraf is not None and fseq is not None:
             logger.debug(
-                module_name=_name, msg="Loading trajectories from: %s, %s" % (ftraf, fseq))
+                module_name=_name, msg=f"Loading trajectories from: {ftraf}, {fseq}")
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
             logger.debug(module_name=_name, msg="Loading trajectories from the CABS run")

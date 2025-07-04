@@ -9,6 +9,8 @@ from collections import OrderedDict
 from copy import deepcopy
 from string import ascii_uppercase
 from math import exp
+from typing import Dict, List, Union, Optional, Any, Tuple
+from typing_extensions import Literal
 
 from CABS import utils
 from CABS import logger
@@ -24,11 +26,21 @@ class Protein(Atoms):
     """
     Class for the protein molecule.
     """
-    NSP3_MODEL_PATH = ''
+    NSP3_MODEL_PATH: str = ''
 
-    def __init__(self, source, flexibility=None, exclude=None, weights=None, plddt=None, mode='rigid', work_dir='.',
-                 receptor_ss=None, pdb_cache=None, category=None, save_initial_pdb=False,
-                 predict_peptide_structure=False):
+    def __init__(self, 
+                 source: str, 
+                 flexibility: Optional[Dict[str, float]] = None, 
+                 exclude: Optional[List[str]] = None, 
+                 weights: Optional[Dict[str, float]] = None, 
+                 plddt: Optional[Dict[str, float]] = None, 
+                 mode: Literal['rigid', 'flexible', 'no-protein-restraints', 'unleashed', 'none'] = 'rigid', 
+                 work_dir: str = '.', 
+                 receptor_ss: Optional[Dict[str, str]] = None, 
+                 pdb_cache: Optional[str] = None, 
+                 category: Optional[Dict[str, int]] = None, 
+                 save_initial_pdb: bool = False,
+                 predict_peptide_structure: bool = False) -> None:
 
         Atoms.__init__(self)
 
@@ -300,8 +312,8 @@ class Protein(Atoms):
         key = r'[0-9A-Z]+:[A-Z]'
         val = r'[0-9.]+'
 
-        patt_range = re.compile('(%s) *-* *(%s) +(%s)' % (key, key, val))
-        patt_single = re.compile('(%s) +(%s)' % (key, val))
+        patt_range = re.compile(f'({key}) *-* *({key}) +({val})')
+        patt_single = re.compile(f'({key}) +({val})')
 
         with open(filename) as f:
             d = {}
@@ -414,8 +426,8 @@ class Protein(Atoms):
         key = r'[0-9A-Z]+:[A-Z]'
         val = r'[0-9.]+'
 
-        patt_range = re.compile('(%s) *-* *(%s) +(%s)' % (key, key, val))
-        patt_single = re.compile('(%s) +(%s)' % (key, val))
+        patt_range = re.compile(f'({key}) *-* *({key}) +({val})')
+        patt_single = re.compile(f'({key}) +({val})')
 
         with open(filename, 'r') as f:
             d = {}

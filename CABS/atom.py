@@ -11,15 +11,19 @@ from copy import deepcopy
 from itertools import combinations
 from string import ascii_uppercase
 from collections import OrderedDict, defaultdict
+from typing import Dict, List, Tuple, Union, Optional, Any, Iterator, TextIO, Set
+from typing_extensions import Literal
+import numpy.typing as npt
 
-from CABS.utils import CABS_SS, CABS_SS_reverse, aa_to_long, aa_to_short, smart_flatten, kabsch, check_peptide_sequence
+from CABS.constants import CABS_SS, CABS_SS_REVERSE, AA_NAMES, AA_SUB_NAMES, AminoAcidCode, SecondaryStructureCode
+from CABS.utils import aa_to_long, aa_to_short, smart_flatten, kabsch, check_peptide_sequence
 from CABS.vector3d import Vector3d
 from CABS.logger import ProgressBar
 from CABS import utils
 from random import randint
 
 
-class Atom(object):
+class Atom:
     """
     Class for representation of a single atom.
     """
@@ -27,14 +31,14 @@ class Atom(object):
     # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
     RES_ID_PATT = re.compile(r'(-?[0-9]{1,4})([^0-9]?):([A-Z0-9])')
 
-    def __init__(self, line=None, model=0, **kwargs):
+    def __init__(self, line: Optional[str] = None, model: int = 0, **kwargs: Any) -> None:
         """
         Constructor. Creates an Atom object from string - ATOM/HETATM line from the pdb file.
         If line is empty creates an empty atom equivalent to:
         Atom('HETATM    0 XXXX XXX X   0       0.000   0.000   0.000  0.00  0.00')
         Passing attribute=value to the constructor overwrites default/read values.
-        :param line: str 
-        :param model: int
+        :param line: PDB line string or None
+        :param model: Model number
         """
         if line:
             self.model = model
@@ -83,35 +87,23 @@ class Atom(object):
             if arg in self.__dict__:
                 self.__dict__[arg] = kwargs[arg]
 
-    def __str__(self):
+    def __str__(self) -> str:
         line = "ATOM  "
         if self.hetatm:
             line = "HETATM"
-        fmt_name = " %-3s" % self.name
+        fmt_name = f" {self.name:<3s}"
         if len(self.name) == 4:
             fmt_name = self.name
-        line += "%5d %4s%1s%-4s%1s%4d%1s   %24s%6.2f%6.2f %s" % (
-                self.serial,
-                fmt_name,
-                self.alt,
-                self.resname,
-                self.chid,
-                self.resnum,
-                self.icode,
-                self.coord,
-                self.occ,
-                self.bfac,
-                self.tail
-        )
+        line += f"{self.serial:5d} {fmt_name:4s}{self.alt:1s}{self.resname:<4s}{self.chid:1s}{self.resnum:4d}{self.icode:1s}   {self.coord:24s}{self.occ:6.2f}{self.bfac:6.2f} {self.tail}"
         return line
 
-    def __repr__(self):
-        return "<Atom: %s %s>" % (self.fmt(), self.resname)
+    def __repr__(self) -> str:
+        return f"<Atom: {self.fmt()} {self.resname}>"
 
-    def fmt(self):
-        return "%s%i%s" % (self.chid, self.resnum, self.icode.strip())
+    def fmt(self) -> str:
+        return f"{self.chid}{self.resnum}{self.icode.strip()}"
 
-    def same_model(self, other):
+    def same_model(self, other: 'Atom') -> bool:
         """
         Returns True if both atoms belong to the same model. False otherwise.
         :param other: Atom
@@ -119,7 +111,7 @@ class Atom(object):
         """
         return self.model == other.model
 
-    def same_chain(self, other):
+    def same_chain(self, other: 'Atom') -> bool:
         """
         Returns True if both atoms belong to the same chain and model. False otherwise.
         :param other: Atom
@@ -127,7 +119,7 @@ class Atom(object):
         """
         return self.same_model(other) and self.chid == other.chid
 
-    def same_residue(self, other):
+    def same_residue(self, other: 'Atom') -> bool:
         """
         Returns True if both atoms belong to the same residue, chain and model. False otherwise.
         :param other: Atom
@@ -135,7 +127,7 @@ class Atom(object):
         """
         return self.same_chain(other) and self.resnum == other.resnum and self.icode == other.icode
 
-    def is_hydrogen(self):
+    def is_hydrogen(self) -> bool:
         """
         Returns true if Atom is hydrogen, false otherwise.
         Determined by the first non-digit character in atom's name. If "H" then hydrogen.
@@ -144,7 +136,7 @@ class Atom(object):
         m = re.search("([A-Z])", self.name)
         return m and m.group(0) == "H"
 
-    def dist2(self, other):
+    def dist2(self, other: 'Atom') -> float:
         """
         Returns squared distance between two atoms.
         :param other: Atom
@@ -152,7 +144,7 @@ class Atom(object):
         """
         return (self.coord - other.coord).mod2()
 
-    def distance(self, other):
+    def distance(self, other: 'Atom') -> float:
         """
         Returns distance in Angstroms between two atoms.
         :param other: Atom
@@ -160,18 +152,18 @@ class Atom(object):
         """
         return sqrt(self.dist2(other))
 
-    def min_distance(self, other):
+    def min_distance(self, other: 'Atoms') -> float:
         """
         Returns minimal distance between atom and group of atoms.
-        :param other: Atom
+        :param other: Atoms collection
         :return: float
         """
         return min(self.distance(atom) for atom in other)
 
-    def match_token(self, token):
+    def match_token(self, token: str) -> bool:
         """
         Returns True if Atom matches selection token. False otherwise.
-        :param token: str
+        :param token: Selection token string
         :return: Bool
         """
         words = token.split()
@@ -201,10 +193,10 @@ class Atom(object):
         else:
             raise Exception('Invalid selection syntax: ' + token)
 
-    def match(self, selection):
+    def match(self, selection: 'Selection') -> bool:
         """
          Returns True if Atom matches selection pattern. False otherwise.
-        :param selection: str
+        :param selection: Selection object
         :return: Bool
         """
         pattern = deepcopy(selection.tokens)
@@ -213,17 +205,17 @@ class Atom(object):
                 pattern[i] = str(self.match_token(t))
         return eval(" ".join(pattern))
 
-    def resid_id(self):
+    def resid_id(self) -> str:
         """
         Returns a string with residue identification i.e. 123:A
         :return: str
         """
         return (str(self.resnum) + self.icode).strip() + ":" + self.chid
 
-    def update_id(self, res_id):
+    def update_id(self, res_id: str) -> 'Atom':
         """
         Updates resnum, chid and icode(when necessary) with values taken from dictionary res_id(i.e. 123A:B or 123:C).
-        :param res_id: {str: str}
+        :param res_id: Residue ID string
         """
 
         match = re.match(Atom.RES_ID_PATT, res_id)
@@ -238,7 +230,7 @@ class Atom(object):
             self.chid = match.group(3)
         return self
     
-    def set_category(self, mode='rigid'):
+    def set_category(self, mode: Literal['rigid', 'flexible', 'no-protein-restraints', 'unleashed', 'none'] = 'rigid') -> None:
         category = 0
 
         if mode == 'flexible':
@@ -272,13 +264,13 @@ class Atom(object):
         return self
 
 
-class Atoms(object):
+class Atoms:
     """
     Container for atoms. Has most methods of a list. Also has methods common
     for all multi-atom objects: move, rotate etc.
     """
 
-    def __init__(self, arg=None):
+    def __init__(self, arg: Union[None, List[Atom], Any, str, int] = None) -> None:
         """
         Constructor. arg should be either:
             - None
@@ -329,36 +321,36 @@ class Atoms(object):
                 )
 
         else:
-            self.atoms = []
+            self.atoms: List[Atom] = []
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.atoms)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Atom]:
         return iter(self.atoms)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: Union[int, slice]) -> Union[Atom, List[Atom]]:
         return self.atoms[index]
 
-    def __setitem__(self, index, atom):
+    def __setitem__(self, index: int, atom: Atom) -> None:
         self.atoms[index] = atom
 
-    def __delitem__(self, index):
+    def __delitem__(self, index: int) -> None:
         del self.atoms[index]
 
-    def append(self, atom):
+    def append(self, atom: Atom) -> None:
         self.atoms.append(atom)
 
-    def extend(self, other):
+    def extend(self, other: 'Atoms') -> None:
         self.atoms.extend(other.atoms)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '\n'.join(str(atom) for atom in self.atoms)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "<Atoms: %i>" % len(self.atoms)
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'Atoms') -> bool:
         if len(self.atoms) != len(other.atoms):
             return False
         for atom1, atom2 in zip(self.atoms, other.atoms):
@@ -366,13 +358,13 @@ class Atoms(object):
                 return False
         return True
 
-    def __ne__(self, other):
+    def __ne__(self, other: 'Atoms') -> bool:
         return not (self == other)
 
-    def residues(self):
+    def residues(self) -> List['Atoms']:
         """
         Returns a list of Atoms objects representing residues.
-        :return: [Atoms]
+        :return: List of Atoms objects
         """
         res = []
         residue = Atoms()
@@ -641,7 +633,7 @@ class Atoms(object):
         else:
             s = ''
             for m in models:
-                s += 'MODEL%9i\n' % m[0].model
+                s += f'MODEL{m[0].model:9d}\n'
                 s += str(m)
                 s += '\nENDMDL\n'
                 if bar:
@@ -767,7 +759,7 @@ class Atoms(object):
         """
         sec = {}
         for a in self.atoms:
-            sec[a.resid_id()] = CABS_SS_reverse[a.occ]
+            sec[a.resid_id()] = CABS_SS_REVERSE[a.occ]
         return sec
 
     def update_occ(self, occ):

@@ -2,6 +2,10 @@ from io import StringIO
 import numpy as np
 import os
 from copy import deepcopy
+from typing import List, Dict, Union, Optional, Any, TextIO, Tuple
+from typing_extensions import Literal
+import numpy.typing as npt
+
 from CABS import logger
 from CABS import align
 from CABS import utils
@@ -11,37 +15,31 @@ __all__ = ['Trajectory', 'Header']
 _name = 'Trajectory'
 
 
-class Header(object):
+class Header:
     """Trajectory header read from CABS output: energies and temperatures"""
 
     class CannotMerge(Exception):
         """Raised when trying to merge headers for different frames"""
 
-        def __init__(self, h1, h2):
-            self.msg = 'Cannot merge headers: %s and %s' % (h1, h2)
+        def __init__(self, h1: 'Header', h2: 'Header') -> None:
+            self.msg = f'Cannot merge headers: {h1} and {h2}'
 
-        def __str__(self):
+        def __str__(self) -> str:
             return self.msg
 
-    def __init__(self, line):
+    def __init__(self, line: str) -> None:
         header = line.split()
-        self.model = int(header[0])
-        self.length = (int(header[1]) - 2,)
-        self.energy = np.matrix(header[2: -2], float)
-        self.temperature = float(header[-2])
-        self.replica = int(header[-1])
-        self.rmsd = 0
+        self.model: int = int(header[0])
+        self.length: Tuple[int, ...] = (int(header[1]) - 2,)
+        self.energy: npt.NDArray[np.float64] = np.matrix(header[2: -2], float)
+        self.temperature: float = float(header[-2])
+        self.replica: int = int(header[-1])
+        self.rmsd: float = 0
 
-    def __repr__(self):
-        return 'Replica: %d Model: %d Length: %s T: %.2f E: %s' % (
-            self.replica,
-            self.model,
-            self.length,
-            self.temperature,
-            str(self.energy.tolist())
-        )
+    def __repr__(self) -> str:
+        return f'Replica: {self.replica} Model: {self.model} Length: {self.length} T: {self.temperature:.2f} E: {str(self.energy.tolist())}'
 
-    def __add__(self, other):
+    def __add__(self, other: 'Header') -> 'Header':
         """Merges two headers from two chains of the same frame"""
         if self.replica != other.replica or self.model != other.model:
             raise Header.CannotMerge(self, other)
@@ -77,23 +75,28 @@ class Header(object):
             return np.sum(np.tril(self.energy))
 
 
-class Trajectory(object):
+class Trajectory:
     """
     Class holding compressed trajectory.
     """
-    GRID = 0.61
+    GRID: float = 0.61
 
-    def __init__(self, template, coordinates, headers, number_of_peptides=None, weights=None):
-        self.template = template
-        self.coordinates = coordinates
-        self.headers = headers
-        self.rmsd_native = None
-        self.number_of_peptides = number_of_peptides
-        self.weights = np.diagflat(weights) if weights else None
+    def __init__(self, 
+                 template: Atoms, 
+                 coordinates: npt.NDArray[np.float64], 
+                 headers: List[Header], 
+                 number_of_peptides: Optional[int] = None, 
+                 weights: Optional[npt.NDArray[np.float64]] = None) -> None:
+        self.template: Atoms = template
+        self.coordinates: npt.NDArray[np.float64] = coordinates
+        self.headers: List[Header] = headers
+        self.rmsd_native: Optional[float] = None
+        self.number_of_peptides: Optional[int] = number_of_peptides
+        self.weights: Optional[npt.NDArray[np.float64]] = np.diagflat(weights) if weights is not None else None
 
     @staticmethod
-    def read_seq(filename):
-        atoms = []
+    def read_seq(filename: str) -> List[Atom]:
+        atoms: List[Atom] = []
         with open(filename) as f:
             for i, line in enumerate(f):
                 atoms.append(
@@ -113,11 +116,11 @@ class Trajectory(object):
         return atoms
 
     @staticmethod
-    def read_traf(filename):
-        headers = []
-        replicas = {}
+    def read_traf(filename: str) -> Tuple[List[Header], Dict[int, npt.NDArray[np.float64]]]:
+        headers: List[Header] = []
+        replicas: Dict[int, npt.NDArray[np.float64]] = {}
 
-        def save_header(h):
+        def save_header(h: Header) -> None:
             headers.append(h)
 
         def save_coord(c, r):
@@ -164,18 +167,18 @@ class Trajectory(object):
         length = headers[0].length
 
         if any(length != h.length for h in headers):  # check if all frames have the same shape
-            raise Exception('Invalid headers in %s!!!' % traf)
+            raise Exception(f'Invalid headers in {traf}!!!')
 
         sum_length = sum(length)
 
         if sum_length != len(template):
             # check if number of atoms in SEQ matches that in trajectory headers
-            raise Exception('Different number of atoms in %s and %s!!!' % (traf, seq))
+            raise Exception(f'Different number of atoms in {traf} and {seq}!!!')
 
         # final test if information from headers agrees with number of coordinates
         size_test = replicas * models * sum_length * 3
         if size_test != len(coordinates):
-            raise Exception('Invalid number of atoms in %s!!!' % traf)
+            raise Exception(f'Invalid number of atoms in {traf}!!!')
         coordinates = coordinates.reshape(replicas, models, sum_length, 3)
         
         return cls(template, coordinates, headers)
@@ -337,7 +340,7 @@ class Trajectory(object):
             for i, m in enumerate(execution_mode[mode][0]):
                 pre = execution_mode[mode][1] if name is None else name
                 post = '' if len(execution_mode[mode][0]) == 1 else '_{0}'.format(i)
-                fname = os.path.join(to_dir, '%s%s.pdb' % (pre, post))
+                fname = os.path.join(to_dir, f'{pre}{post}.pdb')
                 Trajectory(self.template, m, None).to_atoms().save_to_pdb(fname)
             out = True
         else:

@@ -1,10 +1,19 @@
+"""
+Plotting utilities for CABS with comprehensive type annotations.
+"""
+
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 from matplotlib.ticker import MaxNLocator
 from matplotlib.ticker import FuncFormatter
 from matplotlib.ticker import EngFormatter
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from typing import List, Tuple, Optional, Union, Sequence, Any
+from typing_extensions import Literal
 
 import numpy as np
+import numpy.typing as npt
 import json
 from itertools import chain
 
@@ -14,22 +23,37 @@ except AttributeError:
     pass
 
 
-def set_fixed_ar(plt, ratio):
+def set_fixed_ar(plt_axes: Axes, ratio: float) -> None:
     """
+    Set fixed aspect ratio for matplotlib subplot.
+    
     Arguments:
-    plt -- matplotlib subplot instance.
-    ratio -- aspect ratio to be set.
+        plt_axes: matplotlib subplot instance.
+        ratio: aspect ratio to be set.
     """
-    xvs = list(map(float, plt.get_xlim()))
-    yvs = list(map(float, plt.get_ylim()))
-    plt.set_aspect(ratio * ((xvs[1] - xvs[0]) / (yvs[1] - yvs[0])), adjustable='box')
+    xvs = list(map(float, plt_axes.get_xlim()))
+    yvs = list(map(float, plt_axes.get_ylim()))
+    plt_axes.set_aspect(ratio * ((xvs[1] - xvs[0]) / (yvs[1] - yvs[0])), adjustable='box')
 
-def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
+
+def mk_discrete_plot(
+    splot: Axes, 
+    xvals: Sequence[npt.NDArray[np.float64]], 
+    series: Sequence[npt.NDArray[np.float64]], 
+    xlim: Optional[Tuple[float, float]] = None, 
+    ylim: Optional[Tuple[float, float]] = None, 
+    joined: bool = False
+) -> Axes:
     """
+    Create discrete plot.
+    
     Arguments:
-    splot -- plt.Axes instance; figure subplot to plot on.
-    xvals -- sequence of x-axis values.
-    series -- nested sequence of data series (floats or ints) of x-axis values len.
+        splot: plt.Axes instance; figure subplot to plot on.
+        xvals: sequence of x-axis values.
+        series: nested sequence of data series (floats or ints) of x-axis values len.
+        xlim: x-axis limits.
+        ylim: y-axis limits.
+        joined: whether to join points with lines.
     """
     fmt = "o" + (":" if joined else " ")
     for sser, xsvals in zip(series, xvals):
@@ -40,12 +64,21 @@ def mk_discrete_plot(splot, xvals, series, xlim=None, ylim=None, joined=False):
         splot.set_ylim(ylim)
     return splot
 
-def mk_histo(sfig, vls, lbls, ylim=(0., 1.)):
+
+def mk_histo(
+    sfig: Union[Axes, List[Axes]], 
+    vls: Union[List[float], List[List[float]]], 
+    lbls: Union[List[str], List[List[str]]], 
+    ylim: Tuple[float, float] = (0., 1.)
+) -> None:
     """
+    Create histogram plot.
+    
     Arguments:
-    sfig -- matplotlib subplot or list of subplots.
-    vls -- list of subsequent histogram values (or list of corresponding number of lists if sfig is a list).
-    lbls -- list of subsequent labels (or list of lists if sfig is a list).
+        sfig: matplotlib subplot or list of subplots.
+        vls: list of subsequent histogram values (or list of corresponding number of lists if sfig is a list).
+        lbls: list of subsequent labels (or list of lists if sfig is a list).
+        ylim: y-axis limits.
     """
     if type(sfig) is not list:
         sfig = [sfig]

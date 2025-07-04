@@ -5,16 +5,19 @@ Created on 4 June 2017 by Tymoteusz hert Oleniecki.
 """
 import operator
 from functools import reduce
+from typing import Dict, List, Tuple, Union, Optional, Any, TextIO
+from typing_extensions import Literal
 import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 import matplotlib.ticker
 import numpy as np
+import numpy.typing as npt
 
 from CABS.plots import mk_histo
 from CABS.utils import _chunk_lst
 
 
-class ContactMapFactory(object):
+class ContactMapFactory:
     def __init__(self, chains1, chains2, temp):
         """Builder for ContactMap.
 
@@ -102,7 +105,7 @@ class ContactMapFactory(object):
         return (mtx * mtx).sum(axis=2) ** .5
 
 
-class ContactMap(object):
+class ContactMap:
     def __init__(self, mtx, nms1, nms2, n):
         """Contact map init.
 
@@ -270,9 +273,9 @@ class ContactMap(object):
         stream -- file-like object; stream to which text will be passed.
         """
         inds1, inds2 = np.nonzero(self.cmtx)
-        stream.write("# n=%i\n" % self.n)
+        stream.write(f"# n={self.n}\n")
         for m1, m2, (c1, c2) in zip([self.s1[i] for i in inds1], [self.s2[i] for i in inds2], zip(inds1, inds2)):
-            stream.write("%s\t%s\t%.3f\n" % (m1, m2, self.cmtx[c1, c2]))
+            stream.write(f"{m1}\t{m2}\t{self.cmtx[c1, c2]:.3f}\n")
 
     def save_all(self, fname, norm_n=False, break_long_x=50, colors=['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']):
         """Creates txt and png of given name."""
