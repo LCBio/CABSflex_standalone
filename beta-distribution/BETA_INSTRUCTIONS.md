@@ -4,11 +4,11 @@ Thank you for participating in the CABS-flex beta program!
 
 ## Quick Installation
 
-1. **Download the beta archive**: `cabsflex-beta-20250706.tar.gz`
+1. **Download the beta archive**: `cabsflex-beta-YYYYMMDD.tar.gz`
 2. **Extract it**:
    ```bash
-   tar -xzf cabsflex-beta-20250706.tar.gz
-   cd cabsflex-beta-20250706
+   tar -xzf cabsflex-beta-YYYYMMDD.tar.gz
+   cd cabsflex-beta-YYYYMMDD
    ```
 3. **Install**:
    ```bash
@@ -28,8 +28,11 @@ CABSdock --help
 ## Quick Test Run
 
 ```bash
-# Test with a simple protein
+# Test CABSflex with a simple protein (short simulation)
 CABSflex -i 1CE1 -a 5 -y 10 -s 10 -w test_output
+
+# Test CABSdock with a simple peptide docking (very short)
+CABSdock -i 1CE1 -p ACDEFGHIKLMNPQRSTVWY -a 3 -y 5 -s 5 -w dock_test
 ```
 
 ## Report Issues

@@ -30,9 +30,15 @@ CABSdock --help
 ## 🧪 Quick Start
 
 ```bash
-# Basic usage examples
-CABSflex input.pdb --mode flex
-CABSdock protein.pdb ligand.pdb
+# CABSflex - protein flexibility simulation
+CABSflex -i 1CE1 -a 10 -y 20 -w output_dir
+
+# CABSdock - peptide-protein docking
+CABSdock -i protein.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
+
+# For more examples see:
+CABSflex --help
+CABSdock --help
 ```
 
 ## 🐛 Beta Testing
