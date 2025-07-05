@@ -164,3 +164,29 @@ cython_debug/
 # Examples
 example/
 NetSurfP-3.0_standalone/*
+
+# Output files
+output*/
+plots/
+# Temporary files
+tmp/
+# Backup files
+*.bak
+# Logs
+*.log
+
+# Ruff cache
+.ruff_cache/
+
+# Beta release archives
+*.tar.gz
+cabsflex-beta-*/
+
+# VS Code settings (optional - remove if you want to commit these)
+.vscode/
+
+# macOS
+.DS_Store
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/

@@ -1,13 +1,13 @@
 """Module for handling distance restraints"""
 
-from typing import Dict, List, Tuple, Union, Optional, Any, TextIO
-from typing_extensions import Literal
-from CABS.utils.utils import pep2pep1
 import random
+
+from CABS.utils.utils import pep2pep1
 
 
 class Restraint:
     """Class represents single distance restraint"""
+
     def __init__(self, line, is_side_chain=False):
         words = line.split()
         if len(words) == 4:
@@ -35,13 +35,13 @@ class Restraint:
         self.sg = is_side_chain
 
     def __repr__(self):
-        s = f'{self.id1} {self.id2} {self.distance:.4f} {self.width:.4f}'
+        s = f"{self.id1} {self.id2} {self.distance:.4f} {self.width:.4f}"
         if self.weight_min == self.weight_max:
-            s += f' {self.weight_max:.2f}'
+            s += f" {self.weight_max:.2f}"
         else:
-            s += f' {self.weight_min:.2f} {self.weight_max:.2f}'
+            s += f" {self.weight_min:.2f} {self.weight_max:.2f}"
         if self.sg:
-            s += ' SG'
+            s += " SG"
         return s
 
     def update_id(self, ids):
@@ -52,6 +52,7 @@ class Restraint:
 
 class Restraints:
     """Container for Restraint(s)"""
+
     def __init__(self, restraints, sg=False):
         self.data = []
         if restraints:
@@ -59,7 +60,7 @@ class Restraints:
 
     @classmethod
     def from_parser(cls, restraints, sg=False):
-        as_strings = [' '.join(str(w) for w in r) for r in restraints]
+        as_strings = [" ".join(str(w) for w in r) for r in restraints]
         return cls(as_strings, sg)
 
     @classmethod
@@ -69,7 +70,7 @@ class Restraints:
         return cls(as_strings, sg)
 
     def __repr__(self):
-        return '\n'.join(str(r) for r in self.data)
+        return "\n".join(str(r) for r in self.data)
 
     def __iadd__(self, other):
         self.data.extend(other.data)
@@ -89,5 +90,5 @@ class Restraints:
         return self.data.__iter__()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

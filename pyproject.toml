@@ -5,23 +5,61 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "CABS"
 dynamic = ["version"]
-description = "CABS in python3"
+description = "CABS-flex: Coarse-grained protein modeling and simulation package"
 authors = [
     { name = "Laboratory of Computational Biology", email = "k.wroblewski7@uw.edu.pl" }
 ]
 license = { text = "MIT" }
-readme = ""
-requires-python = ">=3.6"
-dependencies = [
-    "numpy",
-    "matplotlib", 
-    "requests",
-    "biopandas",
-    "tqdm",
-    "biopython",
-    "typing_extensions"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
-urls = { Homepage = "https://github.com/LCBio/cabsflex" }
+keywords = ["molecular-modeling", "protein-simulation", "bioinformatics", "structural-biology"]
+dependencies = [
+    "numpy>=1.20.0",
+    "matplotlib>=3.5.0", 
+    "requests>=2.25.0",
+    "biopandas>=0.4.0",
+    "tqdm>=4.60.0",
+    "biopython>=1.78",
+    "typing_extensions>=4.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.6.0",
+    "pytest-benchmark>=4.0.0",
+    "pytest-html>=3.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+]
+ml = [
+    "torch>=1.10.0,<2.0",
+    "torchvision<0.15",
+    "h5py>=3.1.0",
+    "netCDF4>=1.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/LCBio/cabsflex"
+Documentation = "https://github.com/LCBio/cabsflex/wiki"
+Repository = "https://github.com/LCBio/cabsflex.git"
+"Bug Tracker" = "https://github.com/LCBio/cabsflex/issues"
 
 [project.scripts]
 CABSdock = "CABS.__main__:run_dock"
@@ -35,4 +73,178 @@ packages = { find = {} }
 
 [tool.setuptools.dynamic]
 version = { attr = "CABS.__version__" }
+
+# =============================================================================
+# Development Tools Configuration
+# =============================================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=CABS",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (>5s duration)",
+    "integration: marks tests as integration tests",
+    "numerical: marks tests for numerical stability",
+    "unit: marks tests as unit tests",
+    "benchmark: marks tests as performance benchmarks",
+]
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::RuntimeWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore:.*IEEE_DENORMAL.*:RuntimeWarning",
+    "ignore:.*matrix subclass.*:PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["CABS"]
+branch = true
+omit = [
+    "tests/*",
+    "setup.py",
+    "CABS/__main__.py",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "venv/*",
+    ".tox/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "ICN",  # flake8-import-conventions
+    "PIE",  # flake8-pie
+    "PYI",  # flake8-pyi
+    "RSE",  # flake8-raise
+    "RUF",  # Ruff-specific rules
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "S101",   # Use of assert
+    "S311",   # Standard pseudo-random generators are not suitable for security/cryptographic purposes
+    "S603",   # subprocess call: check for execution of untrusted input
+    "S607",   # Starting a process with a partial executable path
+    "E501",   # Line too long (handled by black)
+    "N803",   # Argument name should be lowercase (scientific computing uses single letters)
+    "N806",   # Variable in function should be lowercase (scientific computing uses single letters)
+]
+unfixable = [
+    "F841",   # Unused variables
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # Use of assert in tests is expected
+    "S105",   # Possible hardcoded password
+    "S106",   # Possible hardcoded password
+    "PLR2004", # Magic value used in comparison
+]
+"CABS/data/*.py" = [
+    "E501",   # Line too long (data files might have long lines)
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["CABS"]
+force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+disallow_untyped_defs = false  # Set to true gradually
+disallow_incomplete_defs = false  # Set to true gradually
+check_untyped_defs = true
+disallow_untyped_decorators = false  # Set to true gradually
+no_implicit_optional = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "biopandas.*",
+    "Bio.*",
+    "matplotlib.*",
+    "scipy.*",
+    "torch.*",
+    "h5py.*",
+    "netCDF4.*",
+    "tqdm.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist"]
+skips = ["B101", "B601"]  # Skip assert_used and shell_injection tests
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "*/test_*.py"]
 

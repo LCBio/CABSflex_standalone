@@ -1,8 +1,6 @@
-import numpy as np
-import numpy.typing as npt
 import random
-from typing import Dict, List, Tuple, Union, Optional, Any
-from typing_extensions import Literal
+
+import numpy as np
 
 from CABS.core.trajectory import Trajectory
 
@@ -41,9 +39,7 @@ class Clustering:
         m, n = distance_matrix.shape
         if k > n:
             raise Exception(
-                'The number of medoids {0} exceeds the number of structures to be clustered {1}'.format(
-                    k, n
-                )
+                f"The number of medoids {k} exceeds the number of structures to be clustered {n}"
             )
         medoid_ndx = np.arange(n)
         np.random.shuffle(medoid_ndx)
@@ -62,12 +58,12 @@ class Clustering:
                         continue
                     if np.all(distance_matrix[i] == distance_matrix[j]):
                         to_remove.add(j)
-            filtered_targets = [target for target in medoid_ndx if target not in to_remove]
+            filtered_targets = [
+                target for target in medoid_ndx if target not in to_remove
+            ]
             if k > len(filtered_targets):
                 raise Exception(
-                    'The number of unique structures {0} is less than the number of medoids {1}'.format(
-                        len(filtered_targets), k
-                    )
+                    f"The number of unique structures {len(filtered_targets)} is less than the number of medoids {k}"
                 )
             np.random.shuffle(filtered_targets)
             medoid_ndx = np.sort(filtered_targets[:k])
@@ -106,26 +102,29 @@ class Clustering:
         trajectory.Trajectory instances representing the clusters.
         """
         self.calculate_distance_matrix()
-        medoid_ndx, clusters = self.k_medoids(number_of_medoids, tmax=number_of_iterations)
+        medoid_ndx, clusters = self.k_medoids(
+            number_of_medoids, tmax=number_of_iterations
+        )
         model_length = len(self.trajectory.template)
         models = self.trajectory.coordinates.reshape(-1, model_length, 3)
         medoids = Trajectory(
             self.trajectory.template,
             np.array([models[medoid_ndx, :, :]]),
-            [self.trajectory.headers[i] for i in medoid_ndx]
+            [self.trajectory.headers[i] for i in medoid_ndx],
         )
         clusters_as_clusters = []
         for cluster in clusters.keys():
             this_cluster = Cluster(
                 self.trajectory.template,
                 np.array([models[clusters[cluster], :, :]]),
-                [self.trajectory.headers[i] for i in clusters[cluster]]
+                [self.trajectory.headers[i] for i in clusters[cluster]],
             )
             clusters_as_clusters.append(this_cluster)
-        sorting_ndx = (
-            sorted(range(len(clusters_as_clusters)), key=lambda x: clusters_as_clusters[x].score, reverse=True))
-        # print('sorted clusters')
-        # print([clusters_as_clusters[i].score for i in sorting_ndx])
+        sorting_ndx = sorted(
+            range(len(clusters_as_clusters)),
+            key=lambda x: clusters_as_clusters[x].score,
+            reverse=True,
+        )
         medoids.coordinates = medoids.coordinates[:, sorting_ndx, :, :]
         medoids.headers = [medoids.headers[i] for i in sorting_ndx]
         clusters_as_clusters = [clusters_as_clusters[i] for i in sorting_ndx]
@@ -143,7 +142,7 @@ class Cluster(Trajectory):
         super(Cluster, self).__init__(template, coordinates, headers)
         self.score = self.get_score()
 
-    def get_score(self, method='density'):
+    def get_score(self, method="density"):
         """
         Method for cluster scoring. For future development. Now supports two cluster density definitions, based on
         maximal dissimilarity within the cluster (standard) and standard deviation of the dissimilarity (stdev).
@@ -151,10 +150,10 @@ class Cluster(Trajectory):
         :return:
         """
 
-        def density(cluster, mode='standard'):
+        def density(cluster, mode="standard"):
             modes = {
-                'standard': np.max,
-                'stdev': np.std,
+                "standard": np.max,
+                "stdev": np.std,
             }
             cluster_size = cluster.coordinates.shape[1]
             dissimilarity = modes[mode](cluster.rmsd_matrix())
@@ -163,12 +162,10 @@ class Cluster(Trajectory):
             else:
                 return cluster_size / dissimilarity
 
-        methods = {
-            'density': density
-        }
+        methods = {"density": density}
 
         if self.coordinates.shape[1] == 1:
             score = 0
         else:
-            score = methods[method](self, mode='standard')
+            score = methods[method](self, mode="standard")
         return score

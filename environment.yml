@@ -1,26 +1,55 @@
-name: flex_prod
+name: cabs
 channels:
   - conda-forge
+  - bioconda
   - salilab
   - defaults
+
 dependencies:
+  # Core Python
   - python=3.10.*
-  - numpy
-  - matplotlib
-  - requests
-  - biopandas
-  - tqdm
-  - h5py
-  - biopython
-  - click
-  - netCDF4
-  - pytorch<2.0
-  - torchvision<0.15
+  
+  # Core dependencies
+  - numpy >=1.20.0
+  - matplotlib >=3.5.0
+  - requests >=2.25.0
+  - biopandas >=0.4.0
+  - tqdm >=4.60.0
+  - biopython >=1.78
+  
+  # Scientific computing
+  - scipy >=1.7.0
+  - h5py >=3.1.0
+  - netcdf4 >=1.5.0
+  
+  # Machine learning (optional)
+  - pytorch >=1.10.0,<2.0
+  - torchvision <0.15
+  
+  # Structural biology tools
   - modeller
-  - sbl::dssp
+  - salilab::dssp
+  
+  # Development tools
   - pip
+  - pytest >=7.0.0
+  - pytest-cov >=4.0.0
+  - black >=23.0.0
+  - ruff >=0.1.0
+  - mypy >=1.0.0
+  - pre-commit >=3.0.0
+  
+  # Build tools
+  - conda-build
+  - anaconda-client
+  
+  # Pip-only dependencies
   - pip:
       - fair-esm==0.3.1
       - dgl==1.1.*
       - git+http://github.com/huhlim/cg2all
+      - pytest-mock>=3.6.0
+      - pytest-benchmark>=4.0.0
+      - pytest-html>=3.1.0
+      - bandit>=1.7.0
 

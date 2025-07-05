@@ -1,26 +1,40 @@
 """
-Module contains two classes: Atom and Atoms. Atom represents single atom/line from the pdb file.
-Atoms is a container for Atom objects, without actually specifying if they are in the same molecule/chain/residue etc.
+Classes for representing atoms and collections of atoms from PDB structures.
 """
 
-import re
-import json
-import numpy as np
-from math import sqrt
+from collections import defaultdict
 from copy import deepcopy
 from itertools import combinations
-from string import ascii_uppercase
-from collections import OrderedDict, defaultdict
-from typing import Dict, List, Tuple, Union, Optional, Any, Iterator, TextIO, Set
-from typing_extensions import Literal
-import numpy.typing as npt
-
-from CABS.constants import CABS_SS, CABS_SS_REVERSE, AA_NAMES, AA_SUB_NAMES, AminoAcidCode, SecondaryStructureCode
-from CABS.utils.utils import aa_to_long, aa_to_short, smart_flatten, kabsch, check_peptide_sequence
-from CABS.structures.vector3d import Vector3d
-from CABS.io.logger import ProgressBar
-from CABS.utils import utils
+import json
+from math import sqrt
 from random import randint
+import re
+from string import ascii_uppercase
+from typing import (
+    Any,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Union,
+)
+
+import numpy as np
+
+from CABS.constants import (
+    CABS_SS,
+    CABS_SS_REVERSE,
+)
+from CABS.io.logger import ProgressBar
+from CABS.structures.vector3d import Vector3d
+from CABS.utils import utils
+from CABS.utils.utils import (
+    aa_to_long,
+    aa_to_short,
+    check_peptide_sequence,
+    kabsch,
+    smart_flatten,
+)
 
 
 class Atom:
@@ -29,9 +43,11 @@ class Atom:
     """
 
     # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
-    RES_ID_PATT = re.compile(r'(-?[0-9]{1,4})([^0-9]?):([A-Z0-9])')
+    RES_ID_PATT = re.compile(r"(-?[0-9]{1,4})([^0-9]?):([A-Z0-9])")
 
-    def __init__(self, line: Optional[str] = None, model: int = 0, **kwargs: Any) -> None:
+    def __init__(
+        self, line: Optional[str] = None, model: int = 0, **kwargs: Any
+    ) -> None:
         """
         Constructor. Creates an Atom object from string - ATOM/HETATM line from the pdb file.
         If line is empty creates an empty atom equivalent to:
@@ -42,7 +58,7 @@ class Atom:
         """
         if line:
             self.model = model
-            self.hetatm = (line[:6] == "HETATM")
+            self.hetatm = line[:6] == "HETATM"
             self.serial = int(line[6:11])
             self.name = line[11:16].strip()
             self.alt = line[16]
@@ -50,14 +66,10 @@ class Atom:
             self.chid = line[21]
             self.resnum = int(line[22:26])
             self.icode = line[26]
-            self.coord = Vector3d(
-                line[30:38],
-                line[38:46],
-                line[46:54]
-            )
+            self.coord = Vector3d(line[30:38], line[38:46], line[46:54])
             self.occ = float(line[54:60])
             self.bfac = float(line[60:66])
-            self.tail = ' ' * 11 + line[77:].replace('\n', '')
+            self.tail = " " * 11 + line[77:].replace("\n", "")
             self.ss = self.occ
             self.flexibility = self.bfac
             self.plddt = self.bfac
@@ -103,7 +115,7 @@ class Atom:
     def fmt(self) -> str:
         return f"{self.chid}{self.resnum}{self.icode.strip()}"
 
-    def same_model(self, other: 'Atom') -> bool:
+    def same_model(self, other: "Atom") -> bool:
         """
         Returns True if both atoms belong to the same model. False otherwise.
         :param other: Atom
@@ -111,7 +123,7 @@ class Atom:
         """
         return self.model == other.model
 
-    def same_chain(self, other: 'Atom') -> bool:
+    def same_chain(self, other: "Atom") -> bool:
         """
         Returns True if both atoms belong to the same chain and model. False otherwise.
         :param other: Atom
@@ -119,13 +131,17 @@ class Atom:
         """
         return self.same_model(other) and self.chid == other.chid
 
-    def same_residue(self, other: 'Atom') -> bool:
+    def same_residue(self, other: "Atom") -> bool:
         """
         Returns True if both atoms belong to the same residue, chain and model. False otherwise.
         :param other: Atom
         :return: Bool
         """
-        return self.same_chain(other) and self.resnum == other.resnum and self.icode == other.icode
+        return (
+            self.same_chain(other)
+            and self.resnum == other.resnum
+            and self.icode == other.icode
+        )
 
     def is_hydrogen(self) -> bool:
         """
@@ -136,7 +152,7 @@ class Atom:
         m = re.search("([A-Z])", self.name)
         return m and m.group(0) == "H"
 
-    def dist2(self, other: 'Atom') -> float:
+    def dist2(self, other: "Atom") -> float:
         """
         Returns squared distance between two atoms.
         :param other: Atom
@@ -144,7 +160,7 @@ class Atom:
         """
         return (self.coord - other.coord).mod2()
 
-    def distance(self, other: 'Atom') -> float:
+    def distance(self, other: "Atom") -> float:
         """
         Returns distance in Angstroms between two atoms.
         :param other: Atom
@@ -152,7 +168,7 @@ class Atom:
         """
         return sqrt(self.dist2(other))
 
-    def min_distance(self, other: 'Atoms') -> float:
+    def min_distance(self, other: "Atoms") -> float:
         """
         Returns minimal distance between atom and group of atoms.
         :param other: Atoms collection
@@ -168,16 +184,14 @@ class Atom:
         """
         words = token.split()
         if len(words) == 1:
-            # Test here "no argument" selection keywords.
             keyword = token.upper()
             if keyword == "HETERO":
                 return self.hetatm
             else:
-                raise Exception('Invalid selection keyword: ' + keyword)
+                raise Exception("Invalid selection keyword: " + keyword)
         elif len(words) > 1:
-            # Here test selection keywords with arguments.
             keyword = words[0].upper()
-            args = ''.join(words[1:]).split(',')
+            args = "".join(words[1:]).split(",")
             if keyword == "MODEL":
                 return self.model in smart_flatten(args)
             elif keyword == "CHAIN":
@@ -189,11 +203,11 @@ class Atom:
             elif keyword == "NAME":
                 return any([re.match("^%s$" % a, self.name) for a in args])
             else:
-                raise Exception('Invalid selection keyword: ' + keyword)
+                raise Exception("Invalid selection keyword: " + keyword)
         else:
-            raise Exception('Invalid selection syntax: ' + token)
+            raise Exception("Invalid selection syntax: " + token)
 
-    def match(self, selection: 'Selection') -> bool:
+    def match(self, selection: "Selection") -> bool:
         """
          Returns True if Atom matches selection pattern. False otherwise.
         :param selection: Selection object
@@ -212,7 +226,7 @@ class Atom:
         """
         return (str(self.resnum) + self.icode).strip() + ":" + self.chid
 
-    def update_id(self, res_id: str) -> 'Atom':
+    def update_id(self, res_id: str) -> "Atom":
         """
         Updates resnum, chid and icode(when necessary) with values taken from dictionary res_id(i.e. 123A:B or 123:C).
         :param res_id: Residue ID string
@@ -220,23 +234,28 @@ class Atom:
 
         match = re.match(Atom.RES_ID_PATT, res_id)
         if not match:
-            raise Exception('Invalid res_id format: %s' % res_id)
+            raise Exception("Invalid res_id format: %s" % res_id)
         else:
             if match.group(2):
                 self.icode = match.group(2)
             else:
-                self.icode = ' '
+                self.icode = " "
             self.resnum = int(match.group(1))
             self.chid = match.group(3)
         return self
-    
-    def set_category(self, mode: Literal['rigid', 'flexible', 'no-protein-restraints', 'unleashed', 'none'] = 'rigid') -> None:
+
+    def set_category(
+        self,
+        mode: Literal[
+            "rigid", "flexible", "no-protein-restraints", "unleashed", "none"
+        ] = "rigid",
+    ) -> None:
         category = 0
 
-        if mode == 'flexible':
+        if mode == "flexible":
             if self.occ == 2 or self.occ == 4:
                 category = 3
-        elif mode == 'no-protein-restraints' or mode == 'unleashed' or mode == 'none':
+        elif mode == "no-protein-restraints" or mode == "unleashed" or mode == "none":
             pass
         else:
             if self.plddt < 0.5:
@@ -281,17 +300,19 @@ class Atoms:
         """
         if type(arg) is list:
             self.atoms = arg
-        elif hasattr(arg, 'atoms'):
+        elif hasattr(arg, "atoms"):
             self.atoms = arg.atoms
         elif type(arg) is str:
             self.atoms = []
-            if ':' in arg:
-                seq, sec = arg.split(':')
+            if ":" in arg:
+                seq, sec = arg.split(":")
                 if len(sec) != len(seq):
-                    raise Exception('Sequence length != secondary structure in ' + arg + ' !!!')
+                    raise Exception(
+                        "Sequence length != secondary structure in " + arg + " !!!"
+                    )
             else:
                 seq = arg
-                sec = 'C' * len(seq)
+                sec = "C" * len(seq)
 
             check_peptide_sequence(seq)
 
@@ -299,11 +320,11 @@ class Atoms:
                 self.atoms.append(
                     Atom(
                         hetatm=False,
-                        serial=i+1,
-                        name='CA',
+                        serial=i + 1,
+                        name="CA",
                         resname=aa_to_long(ch),
-                        resnum=i+1,
-                        occ=CABS_SS.get(sec[i], 1)
+                        resnum=i + 1,
+                        occ=CABS_SS.get(sec[i], 1),
                     )
                 )
 
@@ -313,10 +334,10 @@ class Atoms:
                 self.atoms.append(
                     Atom(
                         hetatm=False,
-                        serial=i+1,
-                        name='CA',
-                        resname='ALA',
-                        resnum=i+1
+                        serial=i + 1,
+                        name="CA",
+                        resname="ALA",
+                        resnum=i + 1,
                     )
                 )
 
@@ -341,16 +362,16 @@ class Atoms:
     def append(self, atom: Atom) -> None:
         self.atoms.append(atom)
 
-    def extend(self, other: 'Atoms') -> None:
+    def extend(self, other: "Atoms") -> None:
         self.atoms.extend(other.atoms)
 
     def __str__(self) -> str:
-        return '\n'.join(str(atom) for atom in self.atoms)
+        return "\n".join(str(atom) for atom in self.atoms)
 
     def __repr__(self) -> str:
         return "<Atoms: %i>" % len(self.atoms)
 
-    def __eq__(self, other: 'Atoms') -> bool:
+    def __eq__(self, other: "Atoms") -> bool:
         if len(self.atoms) != len(other.atoms):
             return False
         for atom1, atom2 in zip(self.atoms, other.atoms):
@@ -358,10 +379,10 @@ class Atoms:
                 return False
         return True
 
-    def __ne__(self, other: 'Atoms') -> bool:
+    def __ne__(self, other: "Atoms") -> bool:
         return not (self == other)
 
-    def residues(self) -> List['Atoms']:
+    def residues(self) -> List["Atoms"]:
         """
         Returns a list of Atoms objects representing residues.
         :return: List of Atoms objects
@@ -437,7 +458,7 @@ class Atoms:
         return mdl
 
     def to_numpy(self):
-        """"
+        """ "
         Returns np.array(N, 3) with coordinates, where N is the number of Atoms.
         """
         return np.array([a.coord.to_numpy() for a in self.atoms])
@@ -452,7 +473,7 @@ class Atoms:
         elif matrix.shape == (3, len(self)):
             self.from_numpy(matrix.T)
         else:
-            raise Exception('Invalid matrix shape: ' + str(matrix.shape))
+            raise Exception("Invalid matrix shape: " + str(matrix.shape))
         return self
 
     def move(self, v):
@@ -473,13 +494,13 @@ class Atoms:
         :return: Atoms
         """
         if matrix.shape != (3, 3):
-            raise Exception('Invalid matrix shape: ' + matrix.shape)
+            raise Exception("Invalid matrix shape: " + matrix.shape)
         self.from_numpy(np.dot(matrix, self.to_numpy().T))
         return self
 
     def rotate_in_place(self, matrix):
         if matrix.shape != (3, 3):
-            raise Exception('Invalid matrix shape: ' + matrix.shape)
+            raise Exception("Invalid matrix shape: " + matrix.shape)
         com = self.cent_of_mass()
         self.move(-com)
         self.from_numpy(np.dot(matrix, self.to_numpy().T))
@@ -525,7 +546,9 @@ class Atoms:
         :return: np.array(3, 3)
         """
         if len(self) != len(other):
-            raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
+            raise Exception(
+                "Atom sets have different length: %i != %i" % (len(self), len(other))
+            )
         t = other.to_numpy()
         q = self.to_numpy()
         return kabsch(t, q, concentric=concentric)
@@ -547,11 +570,13 @@ class Atoms:
         :return: float
         """
         if len(self) != len(other):
-            raise Exception('Atom sets have different length: %i != %i' % (len(self), len(other)))
+            raise Exception(
+                "Atom sets have different length: %i != %i" % (len(self), len(other))
+            )
         r = 0
         for a1, a2 in zip(self, other):
             r += a1.dist2(a2)
-        return sqrt(r/len(self))
+        return sqrt(r / len(self))
 
     def min_distance(self, other):
         """
@@ -603,7 +628,7 @@ class Atoms:
         Returns a dictionary [chain ID] = chain_residue_count
         :return: {str: int}
         """
-        d = OrderedDict()
+        d = {}
         for ch in self.chains():
             d[ch[0].chid] = Atoms(ch).residue_count()
         return d
@@ -615,7 +640,7 @@ class Atoms:
         """
         return sqrt(max([p[0].dist2(p[1]) for p in combinations(self.atoms, 2)]))
 
-    def make_pdb(self, bar_msg=''):
+    def make_pdb(self, bar_msg=""):
         """
         Returns a pdb-like formatted string. bar_msg is a string with message to show at ProgressBar initialization.
         bar_msg = '' disables the bar.
@@ -629,20 +654,20 @@ class Atoms:
             bar = None
         if len(models) == 1:
             s = str(self)
-            s += '\n'
+            s += "\n"
         else:
-            s = ''
+            s = ""
             for m in models:
-                s += f'MODEL{m[0].model:9d}\n'
+                s += f"MODEL{m[0].model:9d}\n"
                 s += str(m)
-                s += '\nENDMDL\n'
+                s += "\nENDMDL\n"
                 if bar:
                     bar.update()
         if bar:
             bar.done(False)
         return s
 
-    def save_to_pdb(self, filename, bar_msg='', header=''):
+    def save_to_pdb(self, filename, bar_msg="", header=""):
         """
         Saves atoms to a file in the pdb format. Calls Atoms.make_pdb(). bar_msg is a string with message to show
         at ProgressBar initialization. bar_msg = '' disables the bar.
@@ -651,10 +676,9 @@ class Atoms:
         :param header: str
         :return: None
         """
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             f.write(header)
             f.write(self.make_pdb(bar_msg=bar_msg))
-
 
     def save_to_json(self, filename):
         """
@@ -663,7 +687,10 @@ class Atoms:
         :return:
         """
 
-        chain_indices = {chain_id: id_num for id_num, chain_id in enumerate(self.list_chains().keys())}
+        chain_indices = {
+            chain_id: id_num
+            for id_num, chain_id in enumerate(self.list_chains().keys())
+        }
 
         chain_residues = defaultdict(dict)
 
@@ -680,9 +707,8 @@ class Atoms:
 
         data = {chain_idx: res_dict for chain_idx, res_dict in chain_residues.items()}
 
-        with open(filename, 'w') as out:
+        with open(filename, "w") as out:
             json.dump(data, out)
-
 
     def select(self, selection):
         """
@@ -749,7 +775,7 @@ class Atoms:
         """
         if sec:
             for a in self.atoms:
-                a.occ = CABS_SS[sec.get(a.resid_id(), 'C')]
+                a.occ = CABS_SS[sec.get(a.resid_id(), "C")]
         return self
 
     def get_sec(self):
@@ -798,7 +824,7 @@ class Atoms:
     def set_bfac(self, bfac=0.0):
         """
         Sets beta factor of all atoms to bfac.
-        :param bfac: float 
+        :param bfac: float
         :return: Atoms
         """
         for atom in self.atoms:
@@ -814,7 +840,7 @@ class Atoms:
         for a in self.atoms:
             bfac[a.resid_id()] = a.bfac
         return bfac
-    
+
     def update_flexibility(self, flexibility, default=1.0):
         """
         Reads dictionary with keys = Atom.resid_id() and values = flexibility and puts it into Atom.flexibility
@@ -830,13 +856,13 @@ class Atoms:
     def set_flexibility(self, flexibility=1.0):
         """
         Sets beta factor of all atoms to bfac.
-        :param flexibility: float 
+        :param flexibility: float
         :return: Atoms
         """
         for atom in self.atoms:
             atom.flexibility = flexibility
         return self
-    
+
     def update_plddt(self, plddt, default=1.0):
         """
         Reads dictionary with keys = Atom.resid_id() and values = plddt and puts it into Atom.plddt
@@ -852,7 +878,7 @@ class Atoms:
     def set_plddt(self, plddt=1.0):
         """
         Sets pLDDT of all atoms to plddt.
-        :param plddt: float 
+        :param plddt: float
         :return: Atoms
         """
         for atom in self.atoms:
@@ -868,7 +894,7 @@ class Atoms:
         for a in self.atoms:
             plddt[a.resid_id()] = a.plddt
         return plddt
-    
+
     def update_category(self, category, default=None):
         """
         Reads dictionary with keys = Atom.resid_id() and values = beta factors and puts it into Atom.category
@@ -888,7 +914,7 @@ class Atoms:
                     a.set_category()
         return self
 
-    def determine_category(self, mode='rigid'):
+    def determine_category(self, mode="rigid"):
         """
         Sets category of all atoms according to plddt and secondary structure.
         :return: Atoms
@@ -907,7 +933,7 @@ class Atoms:
             category[a.resid_id()] = a.category
         return category
 
-    def valid_residues(self, must_have='CA, N, C, O'):
+    def valid_residues(self, must_have="CA, N, C, O"):
         """
         Returns only those residues that have atoms specified in "must_have" parameter.
         TODO: This is just temporary and it will be replaced by conditional selection class.
@@ -915,11 +941,11 @@ class Atoms:
         :return: Atoms
         """
         valid = Atoms()
-        mh = [word.strip() for word in must_have.split(',')]
+        mh = [word.strip() for word in must_have.split(",")]
         for residue in self.residues():
             keep = True
             for nm in mh:
-                if len(residue.select('name ' + nm)) == 0:
+                if len(residue.select("name " + nm)) == 0:
                     keep = False
                     break
             if keep:
@@ -931,7 +957,9 @@ class Atoms:
         Removes atoms with alternative locations other than ' ' or 'A'
         :return: Atoms
         """
-        self.atoms = [atom for atom in self.atoms if (atom.alt == ' ' or atom.alt == 'A')]
+        self.atoms = [
+            atom for atom in self.atoms if (atom.alt == " " or atom.alt == "A")
+        ]
         return self
 
     def set_model_number(self, number):
@@ -944,7 +972,7 @@ class Atoms:
             a.model = number
         return self
 
-    def fix_broken_chains(self, cut_off=4.5, used_letters=''):
+    def fix_broken_chains(self, cut_off=4.5, used_letters=""):
         """
         Checks for gaps in protein chains (Ca-Ca distance > cut_off). Splits broken chains
         on gaps taking next available letter for the new chain, except for those in used_letters.
@@ -954,19 +982,21 @@ class Atoms:
         :return: Atoms
         """
 
-        used_letters += ''.join(self.list_chains().keys())
+        used_letters += "".join(self.list_chains().keys())
 
         old_ids = {}
         for chain in self.chains():
             prev = None
             for residue in chain.residues():
-                ca = residue.select('name CA')[0]
+                ca = residue.select("name CA")[0]
                 res_id = ca.resid_id()
                 if prev:
                     chid = prev.chid
                     d = (ca.coord - prev.coord).length()
                     if d > cut_off:
-                        chid = sorted(re.sub('[' + used_letters + ']', '', ascii_uppercase))[0]
+                        chid = sorted(
+                            re.sub("[" + used_letters + "]", "", ascii_uppercase)
+                        )[0]
                         used_letters += chid
                     for a in residue:
                         a.chid = chid
@@ -986,7 +1016,9 @@ class Atoms:
             r_id = ids.get(a.resid_id())
             if not r_id:
                 if pedantic:
-                    raise Exception('%s not found in %s' % (a.resid_id(), sorted(ids.keys())))
+                    raise Exception(
+                        "%s not found in %s" % (a.resid_id(), sorted(ids.keys()))
+                    )
             else:
                 a.update_id(r_id)
         return self
@@ -997,7 +1029,7 @@ class Atoms:
         :return: Atoms
         """
         for a in self.atoms:
-            a.tail = ''
+            a.tail = ""
         return self
 
     def atom_range(self, first, last):
@@ -1017,11 +1049,13 @@ class Atoms:
         length = len(self)
         models, max_length, dim = lib.shape
         if length > max_length:
-            raise Exception('Cannot generate random coordinates for peptide length = %d (max is %d)'
-                            % (length, max_length))
+            raise Exception(
+                "Cannot generate random coordinates for peptide length = %d (max is %d)"
+                % (length, max_length)
+            )
         model = randint(0, models - 1)
         index = randint(0, max_length - length)
-        self.from_numpy(lib[model][index: index + length])
+        self.from_numpy(lib[model][index : index + length])
         return self
 
 
@@ -1031,14 +1065,14 @@ class Selection:
     TODO: aliases
     """
 
-    ARGS_KEYWORDS = ['MODEL', 'CHAIN', 'RESNUM', 'RESNAME', 'NAME']
-    NO_ARGS_KEYWORDS = ['HETERO']
-    OPERATORS = ['NOT', 'AND', 'OR']
-    PARENTHESIS = ['(', ')']
+    ARGS_KEYWORDS = ["MODEL", "CHAIN", "RESNUM", "RESNAME", "NAME"]
+    NO_ARGS_KEYWORDS = ["HETERO"]
+    OPERATORS = ["NOT", "AND", "OR"]
+    PARENTHESIS = ["(", ")"]
     JOINTS = OPERATORS + PARENTHESIS
     KEYWORDS = ARGS_KEYWORDS + NO_ARGS_KEYWORDS + JOINTS
 
-    def __init__(self, s=''):
+    def __init__(self, s=""):
         """
         Takes a string as input and parses it into selection tokens
         :param s: str
@@ -1046,7 +1080,7 @@ class Selection:
         """
         self.tokens = []
         if s is not None:
-            for word in s.replace('(', ' ( ').replace(')', ' ) ').split():
+            for word in s.replace("(", " ( ").replace(")", " ) ").split():
                 if word.upper() in self.KEYWORDS:
                     self.tokens.append(word)
                 elif len(self.tokens) != 0:  # changed to != 0
@@ -1059,5 +1093,5 @@ class Selection:
         return " ".join(self.tokens)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

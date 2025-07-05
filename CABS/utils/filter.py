@@ -1,7 +1,5 @@
 import numpy as np
-import numpy.typing as npt
-from typing import Dict, List, Tuple, Union, Optional, Any
-from typing_extensions import Literal
+
 from CABS.core.trajectory import Trajectory
 
 
@@ -47,17 +45,26 @@ class Filter:
         filtered_total_ndx = []
 
         for i, replica in enumerate(self.trajectory.coordinates):
-            energies = [header.get_energy(number_of_peptides=self.trajectory.number_of_peptides) for header in
-                        self.trajectory.headers if header.replica == i + 1]
-            headers = [header for header in self.trajectory.headers if header.replica == i + 1]
+            energies = [
+                header.get_energy(number_of_peptides=self.trajectory.number_of_peptides)
+                for header in self.trajectory.headers
+                if header.replica == i + 1
+            ]
+            headers = [
+                header for header in self.trajectory.headers if header.replica == i + 1
+            ]
             filtered_ndx = self.mdl_fltr(replica, energies, num=fromeach)
             if len(filtered_models) == 0:
                 filtered_models = replica[filtered_ndx, :, :]
                 filtered_headers = [headers[k] for k in filtered_ndx]
             else:
-                filtered_models = np.concatenate([filtered_models, replica[filtered_ndx, :, :]])
+                filtered_models = np.concatenate(
+                    [filtered_models, replica[filtered_ndx, :, :]]
+                )
                 filtered_headers += [headers[k] for k in filtered_ndx]
             filtered_total_ndx.extend(np.array(filtered_ndx) + i * n_models)
-        traj = Trajectory(self.trajectory.template, np.array([filtered_models]), filtered_headers)
+        traj = Trajectory(
+            self.trajectory.template, np.array([filtered_models]), filtered_headers
+        )
         traj.number_of_peptides = self.trajectory.number_of_peptides
         return traj, filtered_total_ndx

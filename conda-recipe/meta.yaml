@@ -1,0 +1,61 @@
+{% set name = "cabsflex" %}
+{% set version = "1.0.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ../
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv
+  noarch: python
+
+requirements:
+  host:
+    - python >=3.8
+    - pip
+    - setuptools
+    - wheel
+  run:
+    - python >=3.8
+    - numpy >=1.20.0
+    - matplotlib >=3.5.0
+    - requests >=2.25.0
+    - biopandas >=0.4.0
+    - tqdm >=4.60.0
+    - biopython >=1.78
+    - typing_extensions >=4.0.0
+
+test:
+  imports:
+    - CABS
+    - CABS.structures
+    - CABS.core
+    - CABS.analysis
+    - CABS.utils
+  commands:
+    - CABSflex --help
+    - CABSdock --help
+  requires:
+    - pytest
+    - pytest-cov
+
+about:
+  home: https://github.com/LCBio/cabsflex
+  license: MIT
+  license_family: MIT
+  license_file: LICENSE
+  summary: 'CABS-flex: Coarse-grained protein modeling and simulation package'
+  description: |
+    CABS-flex is a Python package for coarse-grained modeling and simulation 
+    of protein structures. It provides tools for protein flexibility analysis,
+    docking simulations, and structural predictions using the CABS force field.
+  doc_url: https://github.com/LCBio/cabsflex/wiki
+  dev_url: https://github.com/LCBio/cabsflex
+
+extra:
+  recipe-maintainers:
+    - LCBio

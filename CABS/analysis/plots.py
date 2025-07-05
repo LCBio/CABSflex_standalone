@@ -3,22 +3,19 @@ Plotting utilities for CABS with comprehensive type annotations.
 """
 
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
-from matplotlib.ticker import MaxNLocator
-from matplotlib.ticker import FuncFormatter
-from matplotlib.ticker import EngFormatter
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from typing import List, Tuple, Optional, Union, Sequence, Any
-from typing_extensions import Literal
 
+plt.switch_backend("agg")
+from itertools import chain
+import json
+from typing import List, Optional, Sequence, Tuple, Union
+
+from matplotlib.axes import Axes
+from matplotlib.ticker import EngFormatter, FuncFormatter, MaxNLocator
 import numpy as np
 import numpy.typing as npt
-import json
-from itertools import chain
 
 try:
-    plt.rcParams['axes.prop_cycle'] = plt.cycler(color=['#666666', '#ff4000'])
+    plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#666666", "#ff4000"])
 except AttributeError:
     pass
 
@@ -26,27 +23,29 @@ except AttributeError:
 def set_fixed_ar(plt_axes: Axes, ratio: float) -> None:
     """
     Set fixed aspect ratio for matplotlib subplot.
-    
+
     Arguments:
         plt_axes: matplotlib subplot instance.
         ratio: aspect ratio to be set.
     """
     xvs = list(map(float, plt_axes.get_xlim()))
     yvs = list(map(float, plt_axes.get_ylim()))
-    plt_axes.set_aspect(ratio * ((xvs[1] - xvs[0]) / (yvs[1] - yvs[0])), adjustable='box')
+    plt_axes.set_aspect(
+        ratio * ((xvs[1] - xvs[0]) / (yvs[1] - yvs[0])), adjustable="box"
+    )
 
 
 def mk_discrete_plot(
-    splot: Axes, 
-    xvals: Sequence[npt.NDArray[np.float64]], 
-    series: Sequence[npt.NDArray[np.float64]], 
-    xlim: Optional[Tuple[float, float]] = None, 
-    ylim: Optional[Tuple[float, float]] = None, 
-    joined: bool = False
+    splot: Axes,
+    xvals: Sequence[npt.NDArray[np.float64]],
+    series: Sequence[npt.NDArray[np.float64]],
+    xlim: Optional[Tuple[float, float]] = None,
+    ylim: Optional[Tuple[float, float]] = None,
+    joined: bool = False,
 ) -> Axes:
     """
     Create discrete plot.
-    
+
     Arguments:
         splot: plt.Axes instance; figure subplot to plot on.
         xvals: sequence of x-axis values.
@@ -66,14 +65,14 @@ def mk_discrete_plot(
 
 
 def mk_histo(
-    sfig: Union[Axes, List[Axes]], 
-    vls: Union[List[float], List[List[float]]], 
-    lbls: Union[List[str], List[List[str]]], 
-    ylim: Tuple[float, float] = (0., 1.)
+    sfig: Union[Axes, List[Axes]],
+    vls: Union[List[float], List[List[float]]],
+    lbls: Union[List[str], List[List[str]]],
+    ylim: Tuple[float, float] = (0.0, 1.0),
 ) -> None:
     """
     Create histogram plot.
-    
+
     Arguments:
         sfig: matplotlib subplot or list of subplots.
         vls: list of subsequent histogram values (or list of corresponding number of lists if sfig is a list).
@@ -85,15 +84,16 @@ def mk_histo(
         vls = [vls]
         lbls = [lbls]
     for n, (vl, lb, sf) in enumerate(zip(vls, lbls, sfig)):
-        xloc = [.5 * i for i in range(len(lb))]
+        xloc = [0.5 * i for i in range(len(lb))]
         sf.set_ylim(*ylim)
-        sf.bar(xloc, vl, width=.51)
+        sf.bar(xloc, vl, width=0.51)
         sf.set_xticks(xloc)
         sf.set_xticklabels(lb)
         sf.tick_params(labelsize=6)
     return sfig
 
-def mk_histos_series(series, labels, fname, titles=None, fmt='svg', n_y_ticks=5):
+
+def mk_histos_series(series, labels, fname, titles=None, fmt="svg", n_y_ticks=5):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
@@ -110,16 +110,15 @@ def mk_histos_series(series, labels, fname, titles=None, fmt='svg', n_y_ticks=5)
         ylim = max(chain((n_y_ticks,), *series)) + 1
     except ValueError:  # for empty series
         ylim = n_y_ticks + 1
-    get_xloc = lambda x: [.5 * i for i in range(len(x))]
+    get_xloc = lambda x: [0.5 * i for i in range(len(x))]
 
     fig.set_figheight(len(series))
 
     for n, (vls, ticks) in enumerate(zip(series, labels)):
         xloc = get_xloc(ticks)
         sfigarr[n, 0].set_ylim((0, ylim))
-        sfigarr[n, 0].bar(xloc, vls, width=.51)
-        #~ sfigarr[n, 0].yaxis.set_major_locator(MaxNLocator(n_y_ticks))
-        #~ sfigarr[n, 0].yaxis.set_major_formatter(FuncFormatter(lambda x, pos: "%i" % x))
+        sfigarr[n, 0].bar(xloc, vls, width=0.51)
+
         sfigarr[n, 0].set_xticks(xloc)
         sfigarr[n, 0].set_xticklabels(ticks)
         sfigarr[n, 0].tick_params(labelsize=6)
@@ -131,8 +130,9 @@ def mk_histos_series(series, labels, fname, titles=None, fmt='svg', n_y_ticks=5)
         pass
 
     plt.tight_layout()
-    plt.savefig(fname + '.' + fmt, format=fmt)
+    plt.savefig(fname + "." + fmt, format=fmt)
     plt.close(fig)
+
 
 def drop_csv_file(fname, columns, fmts="%s"):
     """
@@ -147,12 +147,13 @@ def drop_csv_file(fname, columns, fmts="%s"):
     """
     if type(fmts) is str:
         fmts = [fmts for dummy in columns]
-    with open(fname + '.csv', 'w') as f:
+    with open(fname + ".csv", "w") as f:
         for vals in zip(*columns):
             f.write("\t".join([fmt % val for fmt, val in zip(fmts, vals)]))
-            f.write('\n')
+            f.write("\n")
 
-def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg', interaction=True):
+
+def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt="svg", interaction=True):
     """
     Creates energy(RMSD) plots.
 
@@ -171,16 +172,22 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg', interaction=True)
     """
     max_data = 5
     if interaction:
-        sets, labels = (0, 1), ('total','interaction')
+        sets, labels = (0, 1), ("total", "interaction")
     else:
-        sets, labels = (0,), ('total',)
+        sets, labels = (0,), ("total",)
     for ind, etp in zip(sets, labels):
         fig = plt.figure(figsize=(9, 12))
         grid = plt.GridSpec(2, 1)
         plot = plt.subplot(grid[0, 0])
         histo = plt.subplot(grid[1, 0])
 
-        data = [[h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides) for h in traj.headers] for traj in trajectories]
+        data = [
+            [
+                h.get_energy(mode=etp, number_of_peptides=traj.number_of_peptides)
+                for h in traj.headers
+            ]
+            for traj in trajectories
+        ]
         xlim = (0, max(chain((max_data,), *rmsds)))
         ylim = (min(chain((-max_data,), *data)), max(chain(*data)))
         mk_discrete_plot(plot, rmsds, data, xlim, ylim)
@@ -194,23 +201,32 @@ def plot_E_RMSD(trajectories, rmsds, labels, fname, fmt='svg', interaction=True)
             sfig.xaxis.set_major_locator(MaxNLocator(10))
             sfig.xaxis.set_minor_locator(MaxNLocator(20))
 
-        plot.set_xlabel('RMSD')
-        plot.set_ylabel('%s energy' % etp.capitalize())
-        plot.set_title('CABS %s energy vs. RMSD' % etp)
-        set_fixed_ar(plot, .75)
+        plot.set_xlabel("RMSD")
+        plot.set_ylabel("%s energy" % etp.capitalize())
+        plot.set_title("CABS %s energy vs. RMSD" % etp)
+        set_fixed_ar(plot, 0.75)
 
         histo.set_xlim(xlim)
-        histo.yaxis.set_major_formatter(EngFormatter(range(int(histo.get_ylim()[1] + 1))))
-        histo.set_xlabel('RMSD')
-        histo.set_ylabel('Number of frames')
-        set_fixed_ar(histo, .75)
+        histo.yaxis.set_major_formatter(
+            EngFormatter(range(int(histo.get_ylim()[1] + 1)))
+        )
+        histo.set_xlabel("RMSD")
+        histo.set_ylabel("Number of frames")
+        set_fixed_ar(histo, 0.75)
 
-        histo.legend(bbox_to_anchor=(0., -.202, 1., -.102), loc=3, ncol=len(labels), mode="expand", borderaxespad=0.)
+        histo.legend(
+            bbox_to_anchor=(0.0, -0.202, 1.0, -0.102),
+            loc=3,
+            ncol=len(labels),
+            mode="expand",
+            borderaxespad=0.0,
+        )
 
-        plt.savefig(fname + '_%s.' % etp + fmt, format=fmt)
+        plt.savefig(fname + "_%s." % etp + fmt, format=fmt)
         plt.close()
 
-def plot_RMSD_N(rmsds, fname, fmt='svg'):
+
+def plot_RMSD_N(rmsds, fname, fmt="svg"):
     """Plots and saves to a file RMSD(Nframe) plot.
 
     Arguments:
@@ -220,36 +236,38 @@ def plot_RMSD_N(rmsds, fname, fmt='svg'):
     See plt.savefig for more formats.
     """
     for n, rmsd_lst in enumerate(rmsds):
-        tfname = fname + '_replica_%i' % n
+        tfname = fname + "_replica_%i" % n
         nfs = range(len(rmsd_lst))
 
         fig, sfig = plt.subplots(1)
         mk_discrete_plot(sfig, [nfs], [rmsd_lst], joined=True)
-        sfig.set_ylabel('RMSD')
-        sfig.set_xlabel('Frame index')
-        plt.savefig(tfname + '.' + fmt, format=fmt)
+        sfig.set_ylabel("RMSD")
+        sfig.set_xlabel("Frame index")
+        plt.savefig(tfname + "." + fmt, format=fmt)
         plt.close(fig)
         drop_csv_file(tfname, (map(str, nfs), rmsd_lst), fmts=("%s", "%.3f"))
 
-def graph_RMSF(trajectory, chains, fname, fmt='svg'):
-    #~ if hist: # old version producting histo instead of plot; self is class from CABS.job
-        #~ rmsf_vals = _chunk_lst(trajectory.rmsf(self.initial_complex.receptor_chains), 15, 0)
-        #~ lbls = _chunk_lst([i.fmt() for i in trajectory.template.atoms if i.chid in self.initial_complex.receptor_chains], 15, "")
-        #~ mk_histos_series(rmsf_vals, lbls, fname + '_hist')
+
+def graph_RMSF(trajectory, chains, fname, fmt="svg"):
     rmsf_vals = [trajectory.rmsf(chains)]
     lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
-    plot_RMSF_seq(rmsf_vals, lbls, fname + '_seq',fmt)
+    plot_RMSF_seq(rmsf_vals, lbls, fname + "_seq", fmt)
     drop_csv_file(fname, (lbls, tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
     rmsf_min = np.min(rmsf_vals[0])
     rmsf_max = np.max(rmsf_vals[0])
     rmsf_med = np.median(rmsf_vals[0])
     rmsf_med2 = 2 * rmsf_med - rmsf_min
-    stats_dict = {'min': f'{rmsf_min:.3f}', 'med': f'{rmsf_med:.3f}', 'med2': f'{rmsf_med2:.3f}', 'max': f'{rmsf_max:.3f}'}
-    with open(fname + '_stats.json', 'w') as f:
+    stats_dict = {
+        "min": f"{rmsf_min:.3f}",
+        "med": f"{rmsf_med:.3f}",
+        "med2": f"{rmsf_med2:.3f}",
+        "max": f"{rmsf_max:.3f}",
+    }
+    with open(fname + "_stats.json", "w") as f:
         json.dump(stats_dict, f)
 
 
-def plot_RMSF_seq(series, labels, fname, fmt='svg'):
+def plot_RMSF_seq(series, labels, fname, fmt="svg"):
     """
     Arguments:
     series -- list of sequences of data to be plotted.
@@ -260,13 +278,17 @@ def plot_RMSF_seq(series, labels, fname, fmt='svg'):
     """
     fig, sfig = plt.subplots(1)
     xvals = [range(len(series[0]))]
-    mk_discrete_plot(sfig, xvals, series, xlim=(min(xvals[0]), max(xvals[0])), joined=True)
-    sfig.set_ylabel('RMSF')
-    sfig.set_xlabel('Residue index')
+    mk_discrete_plot(
+        sfig, xvals, series, xlim=(min(xvals[0]), max(xvals[0])), joined=True
+    )
+    sfig.set_ylabel("RMSF")
+    sfig.set_xlabel("Residue index")
     sfig.xaxis.set_major_locator(MaxNLocator(25, integer=True))
-    sfig.xaxis.set_major_formatter(FuncFormatter(lambda x, p: labels[min(int(x), len(labels) - 1)]))
+    sfig.xaxis.set_major_formatter(
+        FuncFormatter(lambda x, p: labels[min(int(x), len(labels) - 1)])
+    )
     for tick in sfig.get_xticklabels():
         tick.set_rotation(90)
     fig.tight_layout()
-    plt.savefig(fname + '.' + fmt, format=fmt)
+    plt.savefig(fname + "." + fmt, format=fmt)
     plt.close(fig)

@@ -1,124 +1,128 @@
 """
 Module for running CABS jobs with comprehensive type annotations.
 """
+
+from abc import ABCMeta, abstractmethod
+from copy import deepcopy
+from functools import reduce
+import glob
 import operator
 import os
+import random
 import re
 import tarfile
-import glob
-from copy import deepcopy
-from tempfile import mkstemp
+from tempfile import NamedTemporaryFile
 from time import strftime
-import random
-from functools import reduce
-from abc import ABCMeta, abstractmethod
-from typing import Dict, List, Union, Optional, Any, Tuple, Set
-from typing_extensions import Literal
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 
-from CABS.io import logger
-from CABS.structures import pdblib, protein
-from CABS.core import cabs, trajectory
-from CABS.utils import utils
-from CABS.constants import CABS_FILES, ALLOWED_AA_METHODS, DEFAULT_COLORS, ColorHex
-from CABS.utils.align import save_csv, AlignError, align_to
 from CABS.analysis.cluster import Clustering
-from CABS.analysis.cmap import ContactMapFactory, ContactMap
-from CABS.utils.filter import Filter
-from CABS.analysis.plots import graph_RMSF, plot_E_RMSD, plot_RMSD_N, drop_csv_file
-from CABS.structures.protein import ProteinComplex
+from CABS.analysis.cmap import ContactMap, ContactMapFactory
+from CABS.analysis.plots import drop_csv_file, graph_RMSF, plot_E_RMSD, plot_RMSD_N
 from CABS.analysis.restraints import Restraints
+from CABS.constants import ALLOWED_AA_METHODS, CABS_FILES, DEFAULT_COLORS, ColorHex
+from CABS.core import cabs
 from CABS.core.trajectory import Trajectory
-from CABS.structures.pdblib import Pdb
+from CABS.io import logger
 import CABS.io.optparser as opt_parser
+from CABS.structures import pdblib, protein
+from CABS.structures.pdblib import Pdb
+from CABS.structures.protein import ProteinComplex
+from CABS.utils import utils
+from CABS.utils.align import AlignError, align_to, save_csv
+from CABS.utils.filter import Filter
 from CABS.utils.utils import convert_cg_to_all
 
-_name = 'JOB'
-
-# Legacy constants for backward compatibility
-_CABS_files = CABS_FILES  # Deprecated: use CABS_FILES
-_allowed_aa_methods = ALLOWED_AA_METHODS  # Deprecated: use ALLOWED_AA_METHODS
+_name = "JOB"
 
 
-class CABSTask:
+class CABSTask(metaclass=ABCMeta):
     """Abstract CABS job instance with comprehensive type annotations."""
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs: Any) -> None:
         # Type annotations for all attributes
-        self.aa_method: Optional[Literal['modeller', 'cg2all']] = kwargs.get('aa_method')
-        self.aa_rebuild: Optional[bool] = kwargs.get('aa_rebuild')
-        self.add_peptide: Optional[str] = kwargs.get('add_peptide')
-        self.align: Optional[bool] = kwargs.get('align')
-        self.align_options: Dict[str, Any] = dict(kwargs.get('align_options', []))
-        self.align_peptide_options: Dict[str, Any] = dict(kwargs.get('align_peptide_options', []))
-        self.binding_interactions: Optional[bool] = kwargs.get('binding_interactions')
-        self.ca_rest_add: Optional[str] = kwargs.get('ca_rest_add')
-        self.ca_rest_file: Optional[str] = kwargs.get('ca_rest_file')
-        self.ca_rest_weight: Optional[float] = kwargs.get('ca_rest_weight')
-        self.clustering_iterations: Optional[int] = kwargs.get('clustering_iterations')
-        self.clustering_medoids: Optional[int] = kwargs.get('clustering_medoids')
-        self.contact_map_colors: Optional[List[ColorHex]] = kwargs.get('contact_map_colors')
-        self.contact_maps: Optional[bool] = kwargs.get('contact_maps')
-        self.contact_threshold: Optional[float] = kwargs.get('contact_threshold')
-        self.contact_threshold_aa: Optional[float] = kwargs.get('contact_threshold_aa')
-        self.csv_output: Optional[bool] = kwargs.get('csv_output')
-        self.cyclization: Optional[bool] = kwargs.get('backbone_cyclization')
-        self.disable_centro: Optional[bool] = kwargs.get('disable_centro')
-        self.disulfide_bonds: Optional[bool] = kwargs.get('disulfide_bonds')
-        self.dssp_command: Optional[str] = kwargs.get('dssp_command')
-        self.dssp_output: Optional[bool] = kwargs.get('dssp_output')
-        self.exclude: Optional[Union[str, List[str]]] = kwargs.get('exclude')
-        self.excluding_distance: Optional[float] = kwargs.get('excluding_distance')
-        self.filtering_count: Optional[int] = kwargs.get('filtering_count')
-        self.filtering_mode: Optional[str] = kwargs.get('filtering_mode')
-        self.fortran_command: Optional[str] = kwargs.get('fortran_command')
-        self.gauss_iterations: Optional[int] = kwargs.get('gauss_iterations')
-        self.image_file_format: Optional[str] = kwargs.get('image_file_format')
-        self.input_protein: Optional[str] = kwargs.get('input_protein')
-        self.insertion_attempts: Optional[int] = kwargs.get('insertion_attempts')
-        self.insertion_clash: Optional[float] = kwargs.get('insertion_clash')
-        self.json_output: Optional[bool] = kwargs.get('json_output')
-        self.load_cabs_files: Optional[str] = kwargs.get('load_cabs_files')
-        self.mc_annealing: Optional[bool] = kwargs.get('mc_annealing')
-        self.mc_cycles: Optional[int] = kwargs.get('mc_cycles')
-        self.mc_steps: Optional[int] = kwargs.get('mc_steps')
-        self.modeller_iterations: Optional[int] = kwargs.get('modeller_iterations')
-        self.nsp3_model_path: Optional[str] = kwargs.get('nsp3_model_path')
-        self.pairmod: Optional[str] = kwargs.get('pairmod')
-        self.pdb_cache: Optional[str] = kwargs.get('pdb_cache_dir')
-        self.pdb_bfac_output: Optional[bool] = kwargs.get('pdb_bfac_output')
-        self.pdb_output: Optional[bool] = kwargs.get('pdb_output')
-        self.peptide: Optional[str] = kwargs.get('peptide')
-        self.peptide_structure_prediction: Optional[bool] = kwargs.get('peptide_structure_prediction')
-        self.protein_category: Optional[str] = kwargs.get('protein_category')
-        self.protein_flexibility: Optional[str] = kwargs.get('protein_flexibility')
-        self.protein_plddt: Optional[str] = kwargs.get('protein_plddt')
-        self.protein_restraints: Optional[str] = kwargs.get('protein_restraints')
-        self.protein_restraints_retain: Optional[bool] = kwargs.get('protein_restraints_retain')
-        self.no_protein_restraints: Optional[bool] = kwargs.get('no_protein_restraints')
-        self.random_seed: Optional[int] = kwargs.get('random_seed')
-        self.receptor_ss: Optional[str] = kwargs.get('receptor_ss')
-        self.reference_pdb: Optional[str] = kwargs.get('reference_pdb')
-        self.remote: Optional[bool] = kwargs.get('log')
-        self.renumber: Optional[bool] = kwargs.get('renumber_residues_to_original')
-        self.replicas: Optional[int] = kwargs.get('replicas')
-        self.replicas_dtemp: Optional[float] = kwargs.get('replicas_dtemp')
-        self.restraints_output: Optional[bool] = kwargs.get('restraints_output')
-        self.save_cabs_files: Optional[str] = kwargs.get('save_cabs_files')
-        self.save_config: Optional[bool] = kwargs.get('save_config')
-        self.sc_rest_add: Optional[str] = kwargs.get('sc_rest_add')
-        self.sc_rest_file: Optional[str] = kwargs.get('sc_rest_file')
-        self.sc_rest_weight: Optional[float] = kwargs.get('sc_rest_weight')
-        self.separation: Optional[str] = kwargs.get('separation')
-        self.ss_output: Optional[bool] = kwargs.get('ss_output')
-        self.temperature: Optional[float] = kwargs.get('temperature')
-        self.verbose: Optional[int] = kwargs.get('verbose')
-        self.work_dir: Optional[str] = kwargs.get('work_dir')
-        self.weighted_fit: Optional[bool] = kwargs.get('weighted_fit')
+        self.aa_method: Optional[Literal["modeller", "cg2all"]] = kwargs.get(
+            "aa_method"
+        )
+        self.aa_rebuild: Optional[bool] = kwargs.get("aa_rebuild")
+        self.add_peptide: Optional[str] = kwargs.get("add_peptide")
+        self.align: Optional[bool] = kwargs.get("align")
+        self.align_options: Dict[str, Any] = dict(kwargs.get("align_options", []))
+        self.align_peptide_options: Dict[str, Any] = dict(
+            kwargs.get("align_peptide_options", [])
+        )
+        self.binding_interactions: Optional[bool] = kwargs.get("binding_interactions")
+        self.ca_rest_add: Optional[str] = kwargs.get("ca_rest_add")
+        self.ca_rest_file: Optional[str] = kwargs.get("ca_rest_file")
+        self.ca_rest_weight: Optional[float] = kwargs.get("ca_rest_weight")
+        self.clustering_iterations: Optional[int] = kwargs.get("clustering_iterations")
+        self.clustering_medoids: Optional[int] = kwargs.get("clustering_medoids")
+        self.contact_map_colors: Optional[List[ColorHex]] = kwargs.get(
+            "contact_map_colors"
+        )
+        self.contact_maps: Optional[bool] = kwargs.get("contact_maps")
+        self.contact_threshold: Optional[float] = kwargs.get("contact_threshold")
+        self.contact_threshold_aa: Optional[float] = kwargs.get("contact_threshold_aa")
+        self.csv_output: Optional[bool] = kwargs.get("csv_output")
+        self.cyclization: Optional[bool] = kwargs.get("backbone_cyclization")
+        self.disable_centro: Optional[bool] = kwargs.get("disable_centro")
+        self.disulfide_bonds: Optional[bool] = kwargs.get("disulfide_bonds")
+        self.dssp_command: Optional[str] = kwargs.get("dssp_command")
+        self.dssp_output: Optional[bool] = kwargs.get("dssp_output")
+        self.exclude: Optional[Union[str, List[str]]] = kwargs.get("exclude")
+        self.excluding_distance: Optional[float] = kwargs.get("excluding_distance")
+        self.filtering_count: Optional[int] = kwargs.get("filtering_count")
+        self.filtering_mode: Optional[str] = kwargs.get("filtering_mode")
+        self.fortran_command: Optional[str] = kwargs.get("fortran_command")
+        self.gauss_iterations: Optional[int] = kwargs.get("gauss_iterations")
+        self.image_file_format: Optional[str] = kwargs.get("image_file_format")
+        self.input_protein: Optional[str] = kwargs.get("input_protein")
+        self.insertion_attempts: Optional[int] = kwargs.get("insertion_attempts")
+        self.insertion_clash: Optional[float] = kwargs.get("insertion_clash")
+        self.json_output: Optional[bool] = kwargs.get("json_output")
+        self.load_cabs_files: Optional[str] = kwargs.get("load_cabs_files")
+        self.mc_annealing: Optional[bool] = kwargs.get("mc_annealing")
+        self.mc_cycles: Optional[int] = kwargs.get("mc_cycles")
+        self.mc_steps: Optional[int] = kwargs.get("mc_steps")
+        self.modeller_iterations: Optional[int] = kwargs.get("modeller_iterations")
+        self.nsp3_model_path: Optional[str] = kwargs.get("nsp3_model_path")
+        self.pairmod: Optional[str] = kwargs.get("pairmod")
+        self.pdb_cache: Optional[str] = kwargs.get("pdb_cache_dir")
+        self.pdb_bfac_output: Optional[bool] = kwargs.get("pdb_bfac_output")
+        self.pdb_output: Optional[bool] = kwargs.get("pdb_output")
+        self.peptide: Optional[str] = kwargs.get("peptide")
+        self.peptide_structure_prediction: Optional[bool] = kwargs.get(
+            "peptide_structure_prediction"
+        )
+        self.protein_category: Optional[str] = kwargs.get("protein_category")
+        self.protein_flexibility: Optional[str] = kwargs.get("protein_flexibility")
+        self.protein_plddt: Optional[str] = kwargs.get("protein_plddt")
+        self.protein_restraints: Optional[str] = kwargs.get("protein_restraints")
+        self.protein_restraints_retain: Optional[bool] = kwargs.get(
+            "protein_restraints_retain"
+        )
+        self.no_protein_restraints: Optional[bool] = kwargs.get("no_protein_restraints")
+        self.random_seed: Optional[int] = kwargs.get("random_seed")
+        self.receptor_ss: Optional[str] = kwargs.get("receptor_ss")
+        self.reference_pdb: Optional[str] = kwargs.get("reference_pdb")
+        self.remote: Optional[bool] = kwargs.get("log")
+        self.renumber: Optional[bool] = kwargs.get("renumber_residues_to_original")
+        self.replicas: Optional[int] = kwargs.get("replicas")
+        self.replicas_dtemp: Optional[float] = kwargs.get("replicas_dtemp")
+        self.restraints_output: Optional[bool] = kwargs.get("restraints_output")
+        self.save_cabs_files: Optional[str] = kwargs.get("save_cabs_files")
+        self.save_config: Optional[bool] = kwargs.get("save_config")
+        self.sc_rest_add: Optional[str] = kwargs.get("sc_rest_add")
+        self.sc_rest_file: Optional[str] = kwargs.get("sc_rest_file")
+        self.sc_rest_weight: Optional[float] = kwargs.get("sc_rest_weight")
+        self.separation: Optional[str] = kwargs.get("separation")
+        self.ss_output: Optional[bool] = kwargs.get("ss_output")
+        self.temperature: Optional[float] = kwargs.get("temperature")
+        self.verbose: Optional[int] = kwargs.get("verbose")
+        self.work_dir: Optional[str] = kwargs.get("work_dir")
+        self.weighted_fit: Optional[bool] = kwargs.get("weighted_fit")
 
         # Job attributes collected.
         self.config: Dict[str, Any] = kwargs
@@ -144,15 +148,25 @@ class CABSTask:
         self.work_dir = os.path.abspath(self.work_dir)
 
         try:
-            logger.setup(log_level=self.verbose, remote=self.remote, work_dir=self.work_dir,
-                         save_dssp=self.dssp_output, save_ss=self.ss_output, save_restraints=self.restraints_output)
+            logger.setup(
+                log_level=self.verbose,
+                remote=self.remote,
+                work_dir=self.work_dir,
+                save_dssp=self.dssp_output,
+                save_ss=self.ss_output,
+                save_restraints=self.restraints_output,
+            )
             os.makedirs(self.work_dir)
         except OSError:
             if os.path.isdir(self.work_dir):
-                logger.warning(_name, '{} already exists. Output data will be overwritten.'.format(self.work_dir))
+                logger.warning(
+                    _name,
+                    f"{self.work_dir} already exists. Output data will be overwritten.",
+                )
             else:
                 logger.exit_program(
-                    _name, '{} already exists and is not a directory. Choose different name.'.format(self.work_dir)
+                    _name,
+                    f"{self.work_dir} already exists and is not a directory. Choose different name.",
                 )
 
         if self.dssp_command:
@@ -163,7 +177,8 @@ class CABSTask:
 
         if self.disable_centro:
             cabs.CabsRun.FORCE_FIELD = tuple(
-                0.0 if i == 3 else cabs.CabsRun.FORCE_FIELD[i] for i, _ in enumerate(cabs.CabsRun.FORCE_FIELD)
+                0.0 if i == 3 else cabs.CabsRun.FORCE_FIELD[i]
+                for i, _ in enumerate(cabs.CabsRun.FORCE_FIELD)
             )
 
         if self.nsp3_model_path:
@@ -175,50 +190,50 @@ class CABSTask:
                 self.load_cabs_results()
                 self.file_TRAF = os.path.join(self.work_dir, "TRAF")
                 self.file_SEQ = os.path.join(self.work_dir, "SEQ")
-            except (ValueError, TypeError, IOError) as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.exit_program(
                     module_name=_name,
                     msg=f"Could not load CABS files from {self.load_cabs_files}. An error occurred: {e}",
-                    exc=e
+                    exc=e,
                 )
 
         # self.peptide + self.add_peptide -> self.ligand
         self.peptides = []
         if self.peptide:
-            self.peptides.extend([[p, 'random', 'random'] for p in self.peptide])
+            self.peptides.extend([[p, "random", "random"] for p in self.peptide])
         if self.add_peptide:
             self.peptides.extend([p for p in self.add_peptide if p])
 
-        valid_letters = set('RFCMSAN')
+        valid_letters = set("RFCMSAN")
 
         try:
             if not all(letter in valid_letters for letter in self.pdb_output):
                 raise ValueError("Contains letters outside of 'RFCMSAN'.")
 
             # Process 'A' or 'N' in pdb_output
-            if 'A' in self.pdb_output:
-                self.pdb_output = 'RFCMS'
-            elif 'N' in self.pdb_output:
-                self.pdb_output = ''
+            if "A" in self.pdb_output:
+                self.pdb_output = "RFCMS"
+            elif "N" in self.pdb_output:
+                self.pdb_output = ""
 
         except ValueError as e:
             logger.exit_program(
                 module_name=_name,
                 msg="Invalid pdb_output. An error occurred: %s" % e,
-                exc=e
+                exc=e,
             )
 
-        valid_bfac_letters = set('ABCPRSN')
+        valid_bfac_letters = set("ABCPRSN")
 
         try:
             if not all(letter in valid_bfac_letters for letter in self.pdb_bfac_output):
                 raise ValueError("Contains letters outside of 'ABCPRSN'.")
 
             # Process 'A' or 'N' in pdb_bfac_output
-            if 'A' in self.pdb_bfac_output:
-                self.pdb_bfac_output = 'BCPRS'
-            elif 'N' in self.pdb_bfac_output:
-                self.pdb_bfac_output = ''
+            if "A" in self.pdb_bfac_output:
+                self.pdb_bfac_output = "BCPRS"
+            elif "N" in self.pdb_bfac_output:
+                self.pdb_bfac_output = ""
 
             if self.pdb_bfac_output:
                 self.save_initial_pdb = True
@@ -229,25 +244,25 @@ class CABSTask:
             logger.exit_program(
                 module_name=_name,
                 msg="Invalid pdb_bfac_output. An error occurred: %s" % e,
-                exc=e
+                exc=e,
             )
 
-        valid_csv_letters = set('ABCPSN')
+        valid_csv_letters = set("ABCPSN")
 
         try:
             if not all(letter in valid_csv_letters for letter in self.csv_output):
                 raise ValueError("Contains letters outside of 'ABCPSN'.")
 
-            if 'A' in self.csv_output:
-                self.csv_output = 'BCPS'
-            elif 'N' in self.csv_output:
-                self.csv_output = ''
+            if "A" in self.csv_output:
+                self.csv_output = "BCPS"
+            elif "N" in self.csv_output:
+                self.csv_output = ""
 
         except ValueError as e:
             logger.exit_program(
                 module_name=_name,
                 msg="Invalid csv_output. An error occurred: %s" % e,
-                exc=e
+                exc=e,
             )
 
         if self.contact_map_colors:
@@ -256,52 +271,62 @@ class CABSTask:
             self.colors = DEFAULT_COLORS
 
         # Flag to check if dynamic weights should be used
-        self.gauss = self.weighted_fit == 'gauss'
+        self.gauss = self.weighted_fit == "gauss"
         if self.gauss and self.gauss_iterations:
-
             utils.GAUSS_MAX_ITER = self.gauss_iterations
 
-        allowed_modes = ['rigid', 'plddt', 'manual', 'flexible']
-        # Check whether to use restraints based on pLDDT
+        allowed_modes = ["rigid", "plddt", "manual", "flexible"]
         if not self.no_protein_restraints:
             mode, gap, min_d, max_d = self.protein_restraints
-            if mode in ['manual', 'plddt'] and not (self.protein_plddt or self.protein_category):
+            if mode in ["manual", "plddt"] and not (
+                self.protein_plddt or self.protein_category
+            ):
                 logger.warning(
-                    _name, 'No information about pLDDT or flexibility categories provided. '
-                           'Changing protein restraints  mode to \'rigid\'. '
-                           'If you want to use restraints based on pLDDT or flexibility categories, '
-                           'please provide the necessary data.')
-                self.protein_restraints = ('rigid', gap, min_d, max_d)
-            elif mode.lower == 'none' or mode.lower == 'unleashed' or mode.lower == 'no-protein-restraints':
+                    _name,
+                    "No information about pLDDT or flexibility categories provided. "
+                    "Changing protein restraints  mode to 'rigid'. "
+                    "If you want to use restraints based on pLDDT or flexibility categories, "
+                    "please provide the necessary data.",
+                )
+                self.protein_restraints = ("rigid", gap, min_d, max_d)
+            elif (
+                mode.lower == "none"
+                or mode.lower == "unleashed"
+                or mode.lower == "no-protein-restraints"
+            ):
                 self.no_protein_restraints = True
             elif mode not in allowed_modes:
                 logger.warning(
-                    _name, 'Unknown protein restraints mode: \'%s\'. Changing to \'rigid\'.' % mode)
-                self.protein_restraints = ('rigid', gap, min_d, max_d)
+                    _name,
+                    "Unknown protein restraints mode: '%s'. Changing to 'rigid'."
+                    % mode,
+                )
+                self.protein_restraints = ("rigid", gap, min_d, max_d)
 
         if self.no_protein_restraints:
-            self.category_mode = 'unleashed'
+            self.category_mode = "unleashed"
         else:
-            if self.protein_restraints[0].lower() == 'flexible':
-                self.category_mode = 'flexible'
+            if self.protein_restraints[0].lower() == "flexible":
+                self.category_mode = "flexible"
             else:
-                self.category_mode = 'rigid'
+                self.category_mode = "rigid"
 
         # pairwise potential modification
         if self.pairmod:
             pairmod = {}
             try:
-                with open(self.pairmod, 'r') as f:
+                with open(self.pairmod) as f:
                     for line in f:
-                        r, w, s = line.replace('PEP ', 'PEP1 ').split()
+                        r, w, s = line.replace("PEP ", "PEP1 ").split()
                         pairmod[r] = (float(w), float(s))
                     logger.info(
                         module_name=_name,
-                        msg='Using pairwise potential modification from ' + self.pairmod
+                        msg="Using pairwise potential modification from "
+                        + self.pairmod,
                     )
                     self.pairmod = pairmod
-            except (IOError, ValueError):
-                logger.warning(_name, 'Error while reading file: ' + self.pairmod)
+            except (OSError, ValueError):
+                logger.warning(_name, "Error while reading file: " + self.pairmod)
                 self.pairmod = None
 
     def run(self):
@@ -321,9 +346,9 @@ class CABSTask:
         self.score_results(
             n_filtered=self.filtering_count,
             number_of_medoids=self.clustering_medoids,
-            number_of_iterations=self.clustering_iterations
+            number_of_iterations=self.clustering_iterations,
         )
-        if self.pdb_output: # Is this line necessary
+        if self.pdb_output:
             self.save_models()
         if self.reference:
             try:
@@ -338,26 +363,30 @@ class CABSTask:
         if self.csv_output:
             self.save_csv_files()
         if self.load_cabs_files:
-            for _file in _CABS_files:
+            for _file in CABS_FILES:
                 try:
                     os.remove(os.path.join(self.work_dir, _file))
                 except OSError:
                     pass
-        logger.info(module_name=_name, msg='Simulation completed successfully')
+        logger.info(module_name=_name, msg="Simulation completed successfully")
 
     def save_cabs_res(self):
-        tar_dir = mkstemp(
+        with NamedTemporaryFile(
             prefix=strftime(cabs.CabsRun.CABS_DIR_FMT),
             dir=self.work_dir,
-            suffix='.cbs'
-        )[1]
+            suffix=".cbs",
+            delete=False,
+        ) as temp_file:
+            tar_dir = temp_file.name
+
         with tarfile.open(tar_dir, "w:gz") as tar:
-            logger.log_file(
-                _name, "Saving CABS simulation files to: %s" % tar_dir)
-            for file_name in _CABS_files:
+            logger.log_file(_name, "Saving CABS simulation files to: %s" % tar_dir)
+            for file_name in CABS_FILES:
                 try:
-                    tar.add(os.path.join(
-                        self.cabsrun.cfg['cwd'], file_name), arcname=file_name)
+                    tar.add(
+                        os.path.join(self.cabsrun.cfg["cwd"], file_name),
+                        arcname=file_name,
+                    )
                 except OSError:
                     pass
                     # print("Could not add %s to the tar file" % file_name)
@@ -366,36 +395,43 @@ class CABSTask:
         if not os.path.exists(self.load_cabs_files):
             logger.exit_program(
                 module_name=_name,
-                msg="Provided CABS files path does not exist (%s)" % self.load_cabs_files,
-                traceback=False
+                msg="Provided CABS files path does not exist (%s)"
+                % self.load_cabs_files,
+                traceback=False,
             )
         try:
             files = glob.glob(os.path.join(self.load_cabs_files, "*.cbs"))
             if len(files) > 1:
-                logger.critical(module_name=_name,
-                                msg="More than one .cbs file in provided directory %s "
-                                    % " \n".join(files))
-                logger.exit_program(module_name=_name,
-                                    msg="Please re-run with --load-cabs-files <filename> "
-                                        "or remove the files you do not need. Quiting.",
-                                    traceback=False)
+                logger.critical(
+                    module_name=_name,
+                    msg="More than one .cbs file in provided directory %s "
+                    % " \n".join(files),
+                )
+                logger.exit_program(
+                    module_name=_name,
+                    msg="Please re-run with --load-cabs-files <filename> "
+                    "or remove the files you do not need. Quiting.",
+                    traceback=False,
+                )
             elif len(files) == 1:
-                logger.info(module_name=_name,
-                            msg="Loading CABS files from %s" % files[0])
+                logger.info(
+                    module_name=_name, msg="Loading CABS files from %s" % files[0]
+                )
                 with tarfile.open(files[0], "r:gz") as f:
                     f.extractall(os.path.join(self.work_dir))
 
             else:
-                raise IOError
+                raise OSError
 
-        except IOError:
+        except OSError:
             files_loc = self.load_cabs_files
             try:
                 with tarfile.open(files_loc, "r:gz") as f:
-                    logger.info(module_name=_name,
-                                msg="Loading CABS files from %s" % files_loc)
+                    logger.info(
+                        module_name=_name, msg="Loading CABS files from %s" % files_loc
+                    )
                     f.extractall(os.path.join(self.work_dir))
-            except IOError:
+            except OSError:
                 raise
         return
 
@@ -415,19 +451,26 @@ class CABSTask:
             self.initial_complex.protein,
             self.initial_complex.protein.list_chains().keys(),
             self.align,
-            self.align_options
+            self.align_options,
         )
         mtx_p = mtx_p.to_numpy()
         mtx_q = mtx_q.to_numpy()
         dummy_rmsd, rot, t_com, q_com = utils.dynamic_kabsch(mtx_p, mtx_q)
-        self.reference[0].from_np(np.dot(self.reference[0].to_numpy() - q_com, rot) + t_com)
+        self.reference[0].from_np(
+            np.dot(self.reference[0].to_numpy() - q_com, rot) + t_com
+        )
 
     def load_all_atom_tops(self):
         if self.aa_rebuild:
             pth = os.path.join(self.work_dir, "output_pdbs", "model_%i.pdb")
-            med_traj = np.array([Pdb(pth % i, create_from_aa=True).atoms.to_numpy() for i in range(10)])
+            med_traj = np.array(
+                [Pdb(pth % i, create_from_aa=True).atoms.to_numpy() for i in range(10)]
+            )
             med_traj = np.expand_dims(med_traj, axis=1)
-            mod0 = Pdb(os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"), create_from_aa=True)
+            mod0 = Pdb(
+                os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"),
+                create_from_aa=True,
+            )
             self.medoids = Trajectory(mod0, med_traj, self.medoids.headers)
         else:
             self.medoids.coordinates = np.swapaxes(self.medoids.coordinates, 0, 1)
@@ -456,7 +499,7 @@ class CABSTask:
         else:
             sc_med = scmodeler.calculate_sc_traj(meds.coordinates)
 
-        cmapdir = os.path.join(self.work_dir, 'contact_maps')
+        cmapdir = os.path.join(self.work_dir, "contact_maps")
         try:
             os.mkdir(cmapdir)
         except OSError:
@@ -464,25 +507,28 @@ class CABSTask:
 
         return sc_traj_full, sc_med, cmapdir
 
-    def prepare_restraints(self, output=''):
-
+    def prepare_restraints(self, output=""):
         # generate protein restraints
         if self.no_protein_restraints:
             protein_restraints = Restraints(None)
         else:
             protein_restraints = Restraints(
                 self.initial_complex.protein.generate_restraints(
-                    *self.protein_restraints)
+                    *self.protein_restraints
+                )
             )
 
         # reduce number of restraints
         if self.protein_restraints_retain:
             if self.protein_restraints_retain < 100:
                 protein_restraints.retain_percentage(self.protein_restraints_retain)
-                logger.debug(module_name=_name, msg=f'Retaining {self.protein_restraints_retain}% of restraints.')
+                logger.debug(
+                    module_name=_name,
+                    msg=f"Retaining {self.protein_restraints_retain}% of restraints.",
+                )
 
         # additional restraints
-        add_restraints = Restraints('')
+        add_restraints = Restraints("")
 
         if self.ca_rest_add:
             add_restraints += Restraints.from_parser(self.ca_rest_add)
@@ -501,35 +547,39 @@ class CABSTask:
         if self.cyclization:
             add_restraints += Restraints(
                 self.initial_complex.protein.generate_backbone_restraints(
-                    self.cyclization)
+                    self.cyclization
+                )
             )
 
         if self.disulfide_bonds:
             add_restraints += Restraints(
                 self.initial_complex.protein.generate_disulfide_restraints(
-                    self.disulfide_bonds), sg=True
+                    self.disulfide_bonds
+                ),
+                sg=True,
             )
 
-        protein_restraints += add_restraints.update_id(
-            self.initial_complex.new_ids)
+        protein_restraints += add_restraints.update_id(self.initial_complex.new_ids)
 
         if output and logger.output_restraints():
-            restraints_for_output = deepcopy(protein_restraints).update_id(self.initial_complex.old_ids)
-            output_restraints = os.path.join(output, 'output_data', 'restraints.txt')
+            restraints_for_output = deepcopy(protein_restraints).update_id(
+                self.initial_complex.old_ids
+            )
+            output_restraints = os.path.join(output, "output_data", "restraints.txt")
             odir = os.path.dirname(output_restraints)
             if not os.path.isdir(odir):
                 os.makedirs(odir)
             logger.to_file(
                 filename=output_restraints,
                 content=str(restraints_for_output),
-                msg='Saving restraints output to %s' % output_restraints
+                msg="Saving restraints output to %s" % output_restraints,
             )
 
         return protein_restraints
 
     def save_config_file(self):
         if self.save_config:
-            with open(os.path.join(self.work_dir, 'config.ini'), 'w') as configfile:
+            with open(os.path.join(self.work_dir, "config.ini"), "w") as configfile:
                 configfile.write(utils.CONFIG_HEADER)
                 for k in sorted(self.config):
                     value = self.config[k]
@@ -539,12 +589,13 @@ class CABSTask:
                         configfile.write(option)
                     except Exception as e:
                         logger.warning(
-                            _name, "Failed to save %s option to config file. Reason: %s." % (
-                                name, e)
+                            _name,
+                            "Failed to save %s option to config file. Reason: %s."
+                            % (name, e),
                         )
 
     def setup_cabs_run(self):
-        logger.info(module_name="CABS", msg='Setting up CABS simulation.')
+        logger.info(module_name="CABS", msg="Setting up CABS simulation.")
         # Initializing CabsRun instance
         self.cabsrun = cabs.CabsRun(
             protein_complex=self.initial_complex,
@@ -560,7 +611,7 @@ class CABSTask:
             mc_annealing=self.mc_annealing,
             mc_cycles=self.mc_cycles,
             mc_steps=self.mc_steps,
-            pairmod=self.pairmod
+            pairmod=self.pairmod,
         )
         return self.cabsrun
 
@@ -577,195 +628,248 @@ class CABSTask:
         """
         if ftraf is not None and fseq is not None:
             logger.debug(
-                module_name=_name, msg=f"Loading trajectories from: {ftraf}, {fseq}")
+                module_name=_name, msg=f"Loading trajectories from: {ftraf}, {fseq}"
+            )
             self.trajectory = Trajectory.read_trajectory(ftraf, fseq)
         else:
-            logger.debug(module_name=_name, msg="Loading trajectories from the CABS run")
+            logger.debug(
+                module_name=_name, msg="Loading trajectories from the CABS run"
+            )
             self.trajectory = self.cabsrun.get_trajectory()
         self.trajectory.weights = self.initial_complex.protein.weights
-        self.trajectory.template.update_ids(self.initial_complex.protein.old_ids, pedantic=False)
+        self.trajectory.template.update_ids(
+            self.initial_complex.protein.old_ids, pedantic=False
+        )
         self.initial_complex.protein.update_ids(self.initial_complex.protein.old_ids)
-        chs = ''.join(self.initial_complex.protein_chains)
-        tchs = ''.join(sorted(set(chs).intersection(self.trajectory.template.list_chains())))
+        chs = "".join(self.initial_complex.protein_chains)
+        tchs = "".join(
+            sorted(set(chs).intersection(self.trajectory.template.list_chains()))
+        )
         self.trajectory.tmp_target_chs = tchs
         ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(
-            self.initial_complex.protein, chs, tchs, align_mth='trivial'
+            self.initial_complex.protein, chs, tchs, align_mth="trivial"
         )
         self.trajectory.superimpose_to(ic_stc, tt_stc)
         logger.info(module_name=_name, msg="Trajectories loaded successfully")
         return self.trajectory
 
     @abstractmethod
-    def score_results(self, n_filtered, number_of_medoids,
-                      number_of_iterations):
+    def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         pass
 
     def save_models(self):
-        # output folder
-        output_folder = os.path.join(self.work_dir, 'output_pdbs')
-        logger.log_file(module_name=_name,
-                        msg="Saving pdb files to " + str(output_folder))
+        output_folder = os.path.join(self.work_dir, "output_pdbs")
+        logger.log_file(
+            module_name=_name, msg="Saving pdb files to " + str(output_folder)
+        )
         try:
             os.mkdir(output_folder)
         except OSError:
             logger.warning(
-                _name, "Possibly overwriting previous pdb files. Use --work-dir <DIR> to avoid that.")
+                _name,
+                "Possibly overwriting previous pdb files. Use --work-dir <DIR> to avoid that.",
+            )
         # Saving the trajectory to PDBs:
-        if 'R' in self.pdb_output:
-            logger.log_file(module_name=_name, msg='Saving replicas...')
-            self.trajectory.to_pdb(mode='replicas', to_dir=output_folder)
+        if "R" in self.pdb_output:
+            logger.log_file(module_name=_name, msg="Saving replicas...")
+            self.trajectory.to_pdb(mode="replicas", to_dir=output_folder)
         # Saving top1000 models to PDB:
-        if 'F' in self.pdb_output:
-            logger.log_file(module_name=_name, msg='Saving filtered models...')
+        if "F" in self.pdb_output:
+            logger.log_file(module_name=_name, msg="Saving filtered models...")
             self.filtered_trajectory.to_pdb(
-                mode='replicas', to_dir=output_folder, name='top1000')
+                mode="replicas", to_dir=output_folder, name="top1000"
+            )
         # Saving clusters in CA representation
-        if 'C' in self.pdb_output:
-            logger.log_file(module_name=_name, msg='Saving clusters...')
+        if "C" in self.pdb_output:
+            logger.log_file(module_name=_name, msg="Saving clusters...")
             for i, cluster in enumerate(self.clusters):
-                cluster.to_pdb(mode='replicas', to_dir=output_folder,
-                               name='cluster_{0}'.format(i))
-        if 'S' in self.pdb_output:
-            logger.log_file(module_name=_name,
-                            msg='Saving starting structure...')
-            self.initial_complex.save_to_pdb(
-                os.path.join(output_folder, 'start.pdb'))
+                cluster.to_pdb(
+                    mode="replicas", to_dir=output_folder, name=f"cluster_{i}"
+                )
+        if "S" in self.pdb_output:
+            logger.log_file(module_name=_name, msg="Saving starting structure...")
+            self.initial_complex.save_to_pdb(os.path.join(output_folder, "start.pdb"))
 
         # Saving final models:
-        if 'M' in self.pdb_output:
+        if "M" in self.pdb_output:
             save_to_ca = True
-            odir = os.path.join(self.work_dir, 'output_data')
+            odir = os.path.join(self.work_dir, "output_data")
             if not os.path.isdir(odir):
                 os.makedirs(odir)
             if self.aa_rebuild:
-                if self.aa_method in _allowed_aa_methods:
-                    logger.log_file(module_name=_name, msg='Saving final models (in AA representation).')
-                    if self.aa_method == 'modeller':
+                if self.aa_method in ALLOWED_AA_METHODS:
+                    logger.log_file(
+                        module_name=_name,
+                        msg="Saving final models (in AA representation).",
+                    )
+                    if self.aa_method == "modeller":
                         try:
-                            from CABS.ca2all import ca2all
+                            from CABS.reconstruction.ca2all import ca2all
                         except ImportError:
-                            logger.warning(_name, msg="Modeller not found. Skipping AA rebuild.")
+                            logger.warning(
+                                _name, msg="Modeller not found. Skipping AA rebuild."
+                            )
                         else:
-                            logger.log_file(module_name=_name, msg='Running Modeller to rebuild models.')
+                            logger.log_file(
+                                module_name=_name,
+                                msg="Running Modeller to rebuild models.",
+                            )
                             pdb_medoids = self.medoids.to_pdb()
                             for i, fname in enumerate(pdb_medoids):
                                 ca2all(
                                     fname,
-                                    output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                                    output=os.path.join(
+                                        output_folder, f"model_{i}.pdb"
+                                    ),
                                     iterations=self.modeller_iterations,
-                                    out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                                    out_mdl=os.path.join(
+                                        self.work_dir,
+                                        "output_data",
+                                        f"modeller_output_{i}.txt",
+                                    ),
                                     work_dir=self.work_dir,
                                     cyclization=self.cyclization,
                                     disulfide_bonds=self.disulfide_bonds,
                                 )
-                                pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                                pth_tmp = os.path.join(
+                                    self.work_dir, "output_pdbs", f"model_{i}.pdb"
+                                )
                                 mod = Pdb(pth_tmp, create_from_aa=True)
-                                # ssh = mod.mk_ss_header(dssp_from_aa=True)
-                                ssh = ''
+                                ssh = ""
                                 mod.atoms.save_to_pdb(pth_tmp, header=ssh)
                             save_to_ca = False
-                    elif self.aa_method == 'cg2all':
-                        logger.log_file(module_name=_name, msg='Running cg2all to rebuild models.')
+                    elif self.aa_method == "cg2all":
+                        logger.log_file(
+                            module_name=_name, msg="Running cg2all to rebuild models."
+                        )
                         attempt_cyclization = False
                         if self.cyclization or self.disulfide_bonds:
                             try:
-                                from CABS.ca2all import ca2all
+                                from CABS.reconstruction.ca2all import ca2all
                             except ImportError:
-                                logger.warning(_name, msg="Modeller not found. Skipping backbone and/or disulfide cyclization.")
+                                logger.warning(
+                                    _name,
+                                    msg="Modeller not found. Skipping backbone and/or disulfide cyclization.",
+                                )
                             else:
                                 attempt_cyclization = True
                         pdb_medoids = self.medoids.to_pdb()
-                        original_chains = ''.join(self.medoids.template.list_chains())
+                        original_chains = "".join(self.medoids.template.list_chains())
                         for i, fname in enumerate(pdb_medoids):
-                            convert_cg_to_all(fname, work_dir=self.work_dir,
-                                              iter=i,
-                                              reference_pdb=self.input_protein,
-                                              renumber_flag=self.renumber)
+                            convert_cg_to_all(
+                                fname,
+                                work_dir=self.work_dir,
+                                iter=i,
+                                reference_pdb=self.input_protein,
+                                renumber_flag=self.renumber,
+                            )
                             if attempt_cyclization:
-                                pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
-                                with open(pth_tmp, 'r') as f:
+                                pth_tmp = os.path.join(
+                                    self.work_dir, "output_pdbs", f"model_{i}.pdb"
+                                )
+                                with open(pth_tmp) as f:
                                     ca2all(
                                         f,
-                                        output=os.path.join(output_folder, 'model_{0}.pdb'.format(i)),
+                                        output=os.path.join(
+                                            output_folder, f"model_{i}.pdb"
+                                        ),
                                         iterations=1,
-                                        out_mdl=os.path.join(self.work_dir, 'output_data', 'modeller_output_{0}.txt'.format(i)),
+                                        out_mdl=os.path.join(
+                                            self.work_dir,
+                                            "output_data",
+                                            f"modeller_output_{i}.txt",
+                                        ),
                                         work_dir=self.work_dir,
                                         cyclization=self.cyclization,
                                         disulfide_bonds=self.disulfide_bonds,
-                                        only_cyclization=True
+                                        only_cyclization=True,
                                     )
-                            pth_tmp = os.path.join(self.work_dir, 'output_pdbs', 'model_{0}.pdb'.format(i))
+                            pth_tmp = os.path.join(
+                                self.work_dir, "output_pdbs", f"model_{i}.pdb"
+                            )
                             mod = Pdb(pth_tmp, create_from_aa=True)
-                            # ssh = mod.mk_ss_header(dssp_from_aa=True)
-                            ssh=''
+                            ssh = ""
                             output_atoms = mod.atoms
-                            output_chains = ''.join(output_atoms.list_chains())
+                            output_chains = "".join(output_atoms.list_chains())
                             if original_chains != output_chains:
                                 output_atoms.change_chid(output_chains, original_chains)
                             output_atoms.save_to_pdb(pth_tmp, header=ssh)
                         save_to_ca = False
                 else:
-                    logger.warning(module_name=_name, msg='Unknown AA method: %s. Skipping AA rebuild.' % self.aa_method)
+                    logger.warning(
+                        module_name=_name,
+                        msg="Unknown AA method: %s. Skipping AA rebuild."
+                        % self.aa_method,
+                    )
 
             if save_to_ca:
-                logger.log_file(module_name=_name, msg='Saving final models (in CA representation).')
-                self.medoids.to_pdb(mode='models', to_dir=output_folder, name='model')
+                logger.log_file(
+                    module_name=_name, msg="Saving final models (in CA representation)."
+                )
+                self.medoids.to_pdb(mode="models", to_dir=output_folder, name="model")
 
             if self.json_output:
-                json_file = os.path.join(self.work_dir, 'output_data', 'medoid.json')
+                json_file = os.path.join(self.work_dir, "output_data", "medoid.json")
                 odir = os.path.dirname(json_file)
                 if not os.path.isdir(odir):
                     os.makedirs(odir)
-                logger.log_file(module_name=_name, msg='Saving JSON output.')
+                logger.log_file(module_name=_name, msg="Saving JSON output.")
                 medoids_ca_atoms_list = self.medoids.to_atoms_list()
                 medoids_ca_atoms_list[0].save_to_json(json_file)
 
     def save_bfac_models(self):
-        pdb_output = os.path.join(self.work_dir, 'output_pdbs')
+        pdb_output = os.path.join(self.work_dir, "output_pdbs")
         if not os.path.isdir(pdb_output):
             os.makedirs(pdb_output)
-        logger.log_file(module_name=_name,
-                        msg="Saving starting structures with different beta factors to " + str(pdb_output))
+        logger.log_file(
+            module_name=_name,
+            msg="Saving starting structures with different beta factors to "
+            + str(pdb_output),
+        )
 
         try:
-            initial_pdb = os.path.join(pdb_output, 'start_all.pdb')
+            initial_pdb = os.path.join(pdb_output, "start_all.pdb")
             if not os.path.exists(initial_pdb):
                 raise FileNotFoundError
             initial_pdb_file = Pdb(initial_pdb, create_from_aa=True).atoms
             initial_pdb_file.update_occ(self.initial_complex.get_occ())
         except FileNotFoundError:
-            logger.warning(_name, 'No start_all.pdb file found. Skipping beta-factor calculations.')
+            logger.warning(
+                _name, "No start_all.pdb file found. Skipping beta-factor calculations."
+            )
             return
 
-        if 'B' in self.pdb_bfac_output:
-            logger.log_file(module_name=_name,
-                            msg='Saving starting structure with beta-factors...')
+        if "B" in self.pdb_bfac_output:
+            logger.log_file(
+                module_name=_name, msg="Saving starting structure with beta-factors..."
+            )
             bfac_update_dict = self.initial_complex.get_bfac()
             initial_pdb_file.update_bfac(bfac_update_dict)
-            initial_pdb_file.save_to_pdb(
-                os.path.join(pdb_output, 'start_bfac.pdb'))
+            initial_pdb_file.save_to_pdb(os.path.join(pdb_output, "start_bfac.pdb"))
 
-        if 'C' in self.pdb_bfac_output:
-            logger.log(module_name=_name,
-                       msg='Saving starting structure with flexibility categories...')
+        if "C" in self.pdb_bfac_output:
+            logger.log(
+                module_name=_name,
+                msg="Saving starting structure with flexibility categories...",
+            )
             category_update_dict = self.initial_complex.get_category()
             initial_pdb_file.update_bfac(category_update_dict)
-            initial_pdb_file.save_to_pdb(
-                os.path.join(pdb_output, 'start_category.pdb'))
+            initial_pdb_file.save_to_pdb(os.path.join(pdb_output, "start_category.pdb"))
 
-        if 'P' in self.pdb_bfac_output:
-            logger.log(module_name=_name,
-                       msg='Saving starting structure with pLDDT values...')
+        if "P" in self.pdb_bfac_output:
+            logger.log(
+                module_name=_name, msg="Saving starting structure with pLDDT values..."
+            )
             plddt_update_dict = self.initial_complex.get_plddt()
             for key in plddt_update_dict:
                 plddt_update_dict[key] = plddt_update_dict[key] * 100
             initial_pdb_file.update_bfac(plddt_update_dict)
-            initial_pdb_file.save_to_pdb(
-                os.path.join(pdb_output, 'start_plddt.pdb'))
+            initial_pdb_file.save_to_pdb(os.path.join(pdb_output, "start_plddt.pdb"))
 
-        if 'R' in self.pdb_bfac_output:
-            logger.log(module_name=_name,
-                       msg='Saving starting structure with RMSF values...')
+        if "R" in self.pdb_bfac_output:
+            logger.log(
+                module_name=_name, msg="Saving starting structure with RMSF values..."
+            )
             rmsfs = self.trajectory.rmsf(self.initial_complex.protein_chains)
             rmsf_update_dict = {}
             i = 0
@@ -774,56 +878,72 @@ class CABSTask:
                     rmsf_update_dict[atom.resid_id()] = rmsfs[i]
                     i += 1
             initial_pdb_file.update_bfac(rmsf_update_dict)
-            initial_pdb_file.save_to_pdb(
-                os.path.join(pdb_output, 'start_rmsf.pdb'))
+            initial_pdb_file.save_to_pdb(os.path.join(pdb_output, "start_rmsf.pdb"))
 
-        if 'S' in self.pdb_bfac_output:
-            logger.log(module_name=_name,
-                       msg='Saving starting structure with secondary structure...')
+        if "S" in self.pdb_bfac_output:
+            logger.log(
+                module_name=_name,
+                msg="Saving starting structure with secondary structure...",
+            )
             ss_update_dict = self.initial_complex.get_occ()
             initial_pdb_file.update_bfac(ss_update_dict)
-            initial_pdb_file.save_to_pdb(
-                os.path.join(pdb_output, 'start_secstr.pdb'))
+            initial_pdb_file.save_to_pdb(os.path.join(pdb_output, "start_secstr.pdb"))
 
     def save_csv_files(self):
-        csv_output = os.path.join(self.work_dir, 'output_data')
+        csv_output = os.path.join(self.work_dir, "output_data")
         if not os.path.isdir(csv_output):
             os.makedirs(csv_output)
 
-        logger.log_file(module_name=_name,
-                        msg="Saving csv files to " + str(csv_output))
+        logger.log_file(module_name=_name, msg="Saving csv files to " + str(csv_output))
 
-        if 'B' in self.csv_output:
-            logger.log_file(module_name=_name,
-                            msg='Saving csv file with beta-factors...')
+        if "B" in self.csv_output:
+            logger.log_file(
+                module_name=_name, msg="Saving csv file with beta-factors..."
+            )
             bfac_dict = self.initial_complex.get_bfac()
-            drop_csv_file(os.path.join(csv_output, 'bfactor'),
-                          [list(bfac_dict.keys()), list(bfac_dict.values())], fmts=["%s", "%s"])
+            drop_csv_file(
+                os.path.join(csv_output, "bfactor"),
+                [list(bfac_dict.keys()), list(bfac_dict.values())],
+                fmts=["%s", "%s"],
+            )
 
-        if 'C' in self.csv_output:
-            logger.log(module_name=_name,
-                       msg='Saving csv file with flexibility categories...')
+        if "C" in self.csv_output:
+            logger.log(
+                module_name=_name, msg="Saving csv file with flexibility categories..."
+            )
             category_dict = self.initial_complex.get_category()
-            drop_csv_file(os.path.join(csv_output, 'category'),
-                          [list(category_dict.keys()), list(category_dict.values())], fmts=["%s", "%s"])
+            drop_csv_file(
+                os.path.join(csv_output, "category"),
+                [list(category_dict.keys()), list(category_dict.values())],
+                fmts=["%s", "%s"],
+            )
 
-        if 'P' in self.csv_output:
-            logger.log(module_name=_name,
-                       msg='Saving csv file with pLDDT values...')
+        if "P" in self.csv_output:
+            logger.log(module_name=_name, msg="Saving csv file with pLDDT values...")
             plddt_dict = self.initial_complex.get_plddt()
             for key in plddt_dict:
                 plddt_dict[key] = plddt_dict[key] * 100
-            drop_csv_file(os.path.join(csv_output, 'plddt'),
-                          [list(plddt_dict.keys()), list(plddt_dict.values())], fmts=["%s", "%s"])
+            drop_csv_file(
+                os.path.join(csv_output, "plddt"),
+                [list(plddt_dict.keys()), list(plddt_dict.values())],
+                fmts=["%s", "%s"],
+            )
 
-        if 'S' in self.csv_output:
-            logger.log(module_name=_name,
-                       msg='Saving csv file with secondary structure...')
+        if "S" in self.csv_output:
+            logger.log(
+                module_name=_name, msg="Saving csv file with secondary structure..."
+            )
             ss_dict = self.initial_complex.get_occ()
             resname_dict = self.initial_complex.get_resname()
-            drop_csv_file(os.path.join(csv_output, 'secstr'),
-                          [list(ss_dict.keys()), list(resname_dict.values()), list(ss_dict.values())], fmts=["%s", "%s", "%s"])
-
+            drop_csv_file(
+                os.path.join(csv_output, "secstr"),
+                [
+                    list(ss_dict.keys()),
+                    list(resname_dict.values()),
+                    list(ss_dict.values()),
+                ],
+                fmts=["%s", "%s", "%s"],
+            )
 
 
 class DockTask(CABSTask):
@@ -831,7 +951,7 @@ class DockTask(CABSTask):
 
     def setup_job(self):
         if not self.peptides:
-            raise ValueError('No peptide given')
+            raise ValueError("No peptide given")
         self.initial_complex = ProteinComplex(
             protein=self.input_protein,
             flexibility=self.protein_flexibility,
@@ -849,7 +969,7 @@ class DockTask(CABSTask):
             receptor_ss=self.receptor_ss,
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
-            json_output=self.json_output
+            json_output=self.json_output,
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -867,52 +987,68 @@ class DockTask(CABSTask):
         logger.debug(module_name=_name, msg="RMSD calculations starting...")
         sfname = None
         if save:
-            odir = os.path.join(self.work_dir, 'output_data')
+            odir = os.path.join(self.work_dir, "output_data")
             try:
                 os.mkdir(odir)
             except OSError:
                 pass
         all_results = {}
         ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(
-            self.reference[0], self.reference[1], self.trajectory.tmp_target_chs,
-            align_mth=self.align, kwargs=self.align_options
+            self.reference[0],
+            self.reference[1],
+            self.trajectory.tmp_target_chs,
+            align_mth=self.align,
+            kwargs=self.align_options,
         )
         if save:
-            sfname = os.path.join(
-                self.work_dir, 'output_data', 'reference_alignment')
-            paln_trg = sfname + '_target.csv'
-            save_csv(paln_trg, ('reference', 'template'), trg_aln)
-        for pept_chain, ref_pept_chain in zip(self.initial_complex.peptide_chains, self.reference[2]):
+            sfname = os.path.join(self.work_dir, "output_data", "reference_alignment")
+            paln_trg = sfname + "_target.csv"
+            save_csv(paln_trg, ("reference", "template"), trg_aln)
+        for pept_chain, ref_pept_chain in zip(
+            self.initial_complex.peptide_chains, self.reference[2]
+        ):
             ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(
-                self.reference[0], ref_pept_chain, pept_chain, align_mth=self.align,
-                kwargs=self.align_peptide_options
+                self.reference[0],
+                ref_pept_chain,
+                pept_chain,
+                align_mth=self.align,
+                kwargs=self.align_peptide_options,
             )
             if save:
-                paln_pep = sfname + '_%s.csv' % pept_chain
-                save_csv(paln_pep, ('reference', 'template'), pep_aln)
+                paln_pep = sfname + "_%s.csv" % pept_chain
+                save_csv(paln_pep, ("reference", "template"), pep_aln)
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
-                ref_pep_stc, self_pep_stc)
+                ref_pep_stc, self_pep_stc
+            )
             rmsds = [header.rmsd for header in self.medoids.headers]
             results = {
-                'rmsds_all': [header.rmsd for header in self.trajectory.headers],
-                'rmsds_filtered': [header.rmsd for header in self.filtered_trajectory.headers],
-                'rmsds_medoids': rmsds
+                "rmsds_all": [header.rmsd for header in self.trajectory.headers],
+                "rmsds_filtered": [
+                    header.rmsd for header in self.filtered_trajectory.headers
+                ],
+                "rmsds_medoids": rmsds,
             }
-            results['lowest_all'] = sorted(results['rmsds_all'])[0]
-            results['lowest_filtered'] = sorted(results['rmsds_filtered'])[0]
-            results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
+            results["lowest_all"] = sorted(results["rmsds_all"])[0]
+            results["lowest_filtered"] = sorted(results["rmsds_filtered"])[0]
+            results["lowest_medoids"] = sorted(results["rmsds_medoids"])[0]
             # Saving rmsd results
             if save:
-                with open(os.path.join(odir, 'lowest_rmsds_%s.txt' % pept_chain), 'w') as outfile:
+                with open(
+                    os.path.join(odir, "lowest_rmsds_%s.txt" % pept_chain), "w"
+                ) as outfile:
                     outfile.write(
-                        'lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}'.format(
-                            results['lowest_all'], results['lowest_filtered'], results['lowest_medoids']
+                        "lowest_all; lowest_filtered; lowest_medoids\n {0};{1};{2}".format(
+                            results["lowest_all"],
+                            results["lowest_filtered"],
+                            results["lowest_medoids"],
                         )
                     )
-                for _type in ['all', 'filtered', 'medoids']:
-                    with open(os.path.join(odir, '{0}_rmsds_{1}.txt'.format(_type, pept_chain)), 'w') as outfile:
-                        for rmsd in results['rmsds_' + _type]:
-                            outfile.write(str(rmsd) + ';\n')
+                for _type in ["all", "filtered", "medoids"]:
+                    with open(
+                        os.path.join(odir, f"{_type}_rmsds_{pept_chain}.txt"), "w"
+                    ) as outfile:
+                        for rmsd in results["rmsds_" + _type]:
+                            outfile.write(str(rmsd) + ";\n")
             all_results[pept_chain] = results
         logger.info(module_name=_name, msg="RMSD successfully saved")
         return all_results
@@ -921,14 +1057,19 @@ class DockTask(CABSTask):
         logger.debug(module_name=_name, msg="Scoring results")
         # Filtering the trajectory
         self.filtered_trajectory, self.filtered_ndx = Filter(
-            self.trajectory, n_filtered).cabs_filter()
+            self.trajectory, n_filtered
+        ).cabs_filter()
         # Clustering the trajectory
         self.medoids, self.clusters_dict, self.clusters = Clustering(
             self.filtered_trajectory,
-            'chain ' + ','.join(
+            "chain "
+            + ",".join(
                 self.initial_complex.peptide_chains,
-            )
-        ).cabs_clustering(number_of_medoids=number_of_medoids, number_of_iterations=number_of_iterations)
+            ),
+        ).cabs_clustering(
+            number_of_medoids=number_of_medoids,
+            number_of_iterations=number_of_iterations,
+        )
         logger.info(module_name=_name, msg="Scoring results successful")
 
     def draw_plots(self, plots_dir=None, colors=None):
@@ -936,7 +1077,7 @@ class DockTask(CABSTask):
         super(DockTask, self).draw_plots()
         # set the plots dir
         if plots_dir is None:
-            pltdir = os.path.join(self.work_dir, 'plots')
+            pltdir = os.path.join(self.work_dir, "plots")
             try:
                 os.mkdir(pltdir)
             except OSError:
@@ -945,8 +1086,11 @@ class DockTask(CABSTask):
             pltdir = plots_dir
         logger.log_file(module_name=_name, msg="Saving plots to %s" % pltdir)
 
-        graph_RMSF(self.trajectory, self.initial_complex.protein_chains,
-                   os.path.join(pltdir, 'RMSF'))
+        graph_RMSF(
+            self.trajectory,
+            self.initial_complex.protein_chains,
+            os.path.join(pltdir, "RMSF"),
+        )
 
         # RMSD-based graphs
         if self.reference_pdb:
@@ -954,13 +1098,13 @@ class DockTask(CABSTask):
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD(
                     [self.trajectory, self.filtered_trajectory],
-                    [rmslst, rmslst[self.filtered_ndx, ]],
-                    ['all models', 'top 1000 models'],
-                    os.path.join(pltdir, 'E_RMSD_%s' % k)
+                    [rmslst, rmslst[self.filtered_ndx,]],
+                    ["all models", "top 1000 models"],
+                    os.path.join(pltdir, "E_RMSD_%s" % k),
                 )
                 plot_RMSD_N(
                     rmslst.reshape(self.replicas, -1),
-                    os.path.join(pltdir, 'RMSD_frame_%s' % k)
+                    os.path.join(pltdir, "RMSD_frame_%s" % k),
                 )
 
         # Contact maps
@@ -974,7 +1118,7 @@ class DockTask(CABSTask):
                 self.contact_threshold,
                 self.contact_threshold_aa,
                 pltdir,
-                colors=colors
+                colors=colors,
             )
         logger.info(module_name=_name, msg="Plots successfully saved")
 
@@ -982,70 +1126,96 @@ class DockTask(CABSTask):
     def _add_cmaps(mk_cmap_output):
         # breakpoint()
         map_1, map_2 = mk_cmap_output
-        return ContactMap(map_1.cmtx + map_2.cmtx, map_1.s1, map_2.s2, map_1.n + map_2.n)
+        return ContactMap(
+            map_1.cmtx + map_2.cmtx, map_1.s1, map_2.s2, map_1.n + map_2.n
+        )
 
-    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, thra, plots_dir, colors=DEFAULT_COLORS):
+    def mk_cmaps(
+        self,
+        ca_traj,
+        meds,
+        clusts,
+        top1k_inds,
+        thr,
+        thra,
+        plots_dir,
+        colors=DEFAULT_COLORS,
+    ):
         sc_traj_full, sc_med, cmapdir = super(DockTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, thra, plots_dir
         )
 
         thrt = thra if self.aa_rebuild else thr
 
-        sc_traj_1k = sc_traj_full.reshape(
-            1, -1, len(ca_traj.template), 3)[:, top1k_inds, :, :]
+        sc_traj_1k = sc_traj_full.reshape(1, -1, len(ca_traj.template), 3)[
+            :, top1k_inds, :, :
+        ]
 
         rchs = self.initial_complex.protein_chains
         lchs = self.initial_complex.peptide_chains
 
         targ_cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
 
-        cmfs = {lig: ContactMapFactory(
-            rchs, lig, ca_traj.template) for lig in lchs}
+        cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
         # cmap10ktarg = self._add_cmaps(targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
-        cmap10ktarg.save_all(cmapdir + '/target_all',
-                             break_long_x=0, norm_n=True, colors=colors)
+        cmap10ktarg.save_all(
+            cmapdir + "/target_all", break_long_x=0, norm_n=True, colors=colors
+        )
 
         for lig, cmf in cmfs.items():
             cmaps = cmf.mk_cmap(sc_traj_full, thr)
             for n, cmap in enumerate(cmaps):
-                cmap.save_all(cmapdir + '/replica_%i_ch_%s' %
-                              (n + 1, lig), norm_n=True, colors=colors)
+                cmap.save_all(
+                    cmapdir + "/replica_%i_ch_%s" % (n + 1, lig),
+                    norm_n=True,
+                    colors=colors,
+                )
             cmap10k = reduce(operator.add, cmaps)
-            cmap10k.save_all(cmapdir + '/all_ch_%s' %
-                             lig, norm_n=True, colors=colors)
-            cmap10k.save_histo(plots_dir + '/all_contacts_histo_%s' % lig)
+            cmap10k.save_all(cmapdir + "/all_ch_%s" % lig, norm_n=True, colors=colors)
+            cmap10k.save_histo(plots_dir + "/all_contacts_histo_%s" % lig)
             cmap1k = cmf.mk_cmap(sc_traj_1k, thr)[0]
-            cmap1k.save_all(cmapdir + '/top1000_ch_%s' %
-                            lig, norm_n=True, colors=colors)
+            cmap1k.save_all(
+                cmapdir + "/top1000_ch_%s" % lig, norm_n=True, colors=colors
+            )
             if self.aa_rebuild:
                 cmft = ContactMapFactory(rchs, rchs, self.medoids.template)
-                #  ref to self.medoids is confusing -- remove in future
             else:
                 cmft = cmf
             cmaps_top = cmft.mk_cmap(sc_med, thrt)
             for n, cmap in enumerate(cmaps_top):
-                cmap.save_all(cmapdir + '/top_%i_ch_%s' %
-                              (n + 1, lig), norm_n=True, colors=colors)
+                cmap.save_all(
+                    cmapdir + "/top_%i_ch_%s" % (n + 1, lig), norm_n=True, colors=colors
+                )
             for cn, clust in clusts.items():
                 ccmap = cmf.mk_cmap(sc_traj_1k, thr, frames=clust)[0]
-                ccmap.save_all(cmapdir + '/cluster_%i_ch_%s' %
-                               (cn, lig), norm_n=True, colors=colors)
+                ccmap.save_all(
+                    cmapdir + "/cluster_%i_ch_%s" % (cn, lig),
+                    norm_n=True,
+                    colors=colors,
+                )
 
     def parse_reference(self, ref, pdb_cache):
         try:
-            source, rec, pep = ref.split(':')
-            self.reference = (pdblib.Pdb(
-                ref, pdb_cache=pdb_cache, selection='name CA and (chain %s)' % ','.join(rec + pep),
-                no_exit=True, verify=True
-            ).atoms, rec, pep)
+            source, rec, pep = ref.split(":")
+            self.reference = (
+                pdblib.Pdb(
+                    ref,
+                    pdb_cache=pdb_cache,
+                    selection="name CA and (chain %s)" % ",".join(rec + pep),
+                    no_exit=True,
+                    verify=True,
+                ).atoms,
+                rec,
+                pep,
+            )
             super(DockTask, self).parse_reference(ref, pdb_cache)
             if len(self.initial_complex.peptide_chains) != len(self.reference[2]):
                 raise ValueError
-            logger.info(_name, 'Reference {} loaded.'.format(ref))
+            logger.info(_name, f"Reference {ref} loaded.")
         except (ValueError, pdblib.Pdb.InvalidPdbInput):
-            logger.warning(_name, 'Invalid reference {}'.format(ref))
+            logger.warning(_name, f"Invalid reference {ref}")
             self.reference = None
 
 
@@ -1077,19 +1247,18 @@ class FlexTask(CABSTask):
         if self.reference_pdb is None:
             self.reference_pdb = True
 
-        # remove filtered trajectory from pdb saving
-        self.pdb_output = self.pdb_output.replace('F', '')
+        self.pdb_output = self.pdb_output.replace("F", "")
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory
-        clst = Clustering(self.trajectory, 'chain ' +
-                          ','.join(self.initial_complex.protein_chains))
+        clst = Clustering(
+            self.trajectory, "chain " + ",".join(self.initial_complex.protein_chains)
+        )
         self.medoids, self.clusters_dict, self.clusters = clst.cabs_clustering(
             number_of_medoids=number_of_medoids,
-            number_of_iterations=number_of_iterations
+            number_of_iterations=number_of_iterations,
         )
-        self.rmslst = {
-            self.initial_complex.protein_chains: clst.distance_matrix[0]}
+        self.rmslst = {self.initial_complex.protein_chains: clst.distance_matrix[0]}
 
     def load_output(self, *args, **kwargs):
         ret = super(FlexTask, self).load_output(*args, **kwargs)
@@ -1100,7 +1269,7 @@ class FlexTask(CABSTask):
         logger.debug(module_name=_name, msg="RMSD calculations starting...")
         odir = None
         if save:
-            odir = os.path.join(self.work_dir, 'output_data')
+            odir = os.path.join(self.work_dir, "output_data")
             try:
                 os.mkdir(odir)
             except OSError:
@@ -1108,43 +1277,59 @@ class FlexTask(CABSTask):
 
         chs_ids = self.trajectory.tmp_target_chs
         ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(
-            self.reference[0], self.reference[1], chs_ids,
-            align_mth=self.align, kwargs=self.align_options
+            self.reference[0],
+            self.reference[1],
+            chs_ids,
+            align_mth=self.align,
+            kwargs=self.align_options,
         )
         if save:
-            sfname = os.path.join(
-                self.work_dir, 'output_data', 'reference_alignment')
-            paln_trg = sfname + '_target.csv'
-            save_csv(paln_trg, ('reference', 'template'), trg_aln)
+            sfname = os.path.join(self.work_dir, "output_data", "reference_alignment")
+            paln_trg = sfname + "_target.csv"
+            save_csv(paln_trg, ("reference", "template"), trg_aln)
         self.rmslst[chs_ids] = self.trajectory.rmsd_to_reference(
-            ref_trg_stc, self_trg_stc)
+            ref_trg_stc, self_trg_stc
+        )
         rmsds = [header.rmsd for header in self.medoids.headers]
         results = {
-            'rmsds_all': [header.rmsd for header in self.trajectory.headers],
-            'rmsds_medoids': rmsds
+            "rmsds_all": [header.rmsd for header in self.trajectory.headers],
+            "rmsds_medoids": rmsds,
         }
-        results['lowest_all'] = sorted(results['rmsds_all'])[0]
-        results['lowest_medoids'] = sorted(results['rmsds_medoids'])[0]
+        results["lowest_all"] = sorted(results["rmsds_all"])[0]
+        results["lowest_medoids"] = sorted(results["rmsds_medoids"])[0]
         # Saving rmsd results
         if save:
-            with open(os.path.join(odir, 'lowest_rmsds_%s.txt' % chs_ids), 'w') as outfile:
+            with open(
+                os.path.join(odir, "lowest_rmsds_%s.txt" % chs_ids), "w"
+            ) as outfile:
                 outfile.write(
-                    'lowest_all; lowest_medoids\n {0};{1}'.format(
-                        results['lowest_all'], results['lowest_medoids']
+                    "lowest_all; lowest_medoids\n {0};{1}".format(
+                        results["lowest_all"], results["lowest_medoids"]
                     )
                 )
-            for _type in ['all', 'medoids']:
-                with open(os.path.join(odir, '{0}_rmsds_{1}.txt'.format(_type, chs_ids)), 'w') as outfile:
-                    for rmsd in results['rmsds_' + _type]:
-                        outfile.write(str(rmsd) + ';\n')
+            for _type in ["all", "medoids"]:
+                with open(
+                    os.path.join(odir, f"{_type}_rmsds_{chs_ids}.txt"), "w"
+                ) as outfile:
+                    for rmsd in results["rmsds_" + _type]:
+                        outfile.write(str(rmsd) + ";\n")
         logger.info(module_name=_name, msg="RMSD successfully saved")
         return {chs_ids: results}
 
-    def mk_cmaps(self, ca_traj, meds, clusts, top1k_inds, thr, thra, plots_dir, colors=DEFAULT_COLORS):
+    def mk_cmaps(
+        self,
+        ca_traj,
+        meds,
+        clusts,
+        top1k_inds,
+        thr,
+        thra,
+        plots_dir,
+        colors=DEFAULT_COLORS,
+    ):
         sc_traj_full, sc_med, cmapdir = super(FlexTask, self).mk_cmaps(
             ca_traj, meds, clusts, top1k_inds, thr, thra, plots_dir
         )
-        # Here add saving the contact maps
 
         thrt = thra if self.aa_rebuild else thr
 
@@ -1153,7 +1338,6 @@ class FlexTask(CABSTask):
         cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
         if self.aa_rebuild:
             cmft = ContactMapFactory(rchs, rchs, self.medoids.template)
-            #  ref to self.medoids is confusing -- remove in future
         else:
             cmft = cmf
         cmap_all = reduce(operator.add, cmf.mk_cmap(sc_traj_full, thr))
@@ -1162,37 +1346,50 @@ class FlexTask(CABSTask):
         cmaptop = reduce(operator.add, topscms)
 
         for cmap, fname in zip(
-                (cmap_all, cmaptop) + tuple(topscms),
-                ('all', 'top10') + tuple(["top_%i" % (i + 1) for i, dummy in enumerate(topscms)])):
+            (cmap_all, cmaptop) + tuple(topscms),
+            ("all", "top10")
+            + tuple(["top_%i" % (i + 1) for i, dummy in enumerate(topscms)]),
+        ):
             cmap.zero_diagonal()
-            cmap.save_all(cmapdir + '/' + fname, break_long_x=0,
-                          norm_n=True, colors=colors)
+            cmap.save_all(
+                cmapdir + "/" + fname, break_long_x=0, norm_n=True, colors=colors
+            )
 
     def parse_reference(self, ref, pdb_cache):
         try:
             try:
                 dummy, trg_chids = ref.split(":")
                 self.reference = (
-                    pdblib.Pdb(ref, pdb_cache=pdb_cache, selection='name CA',
-                               no_exit=True, verify=True).atoms, trg_chids
+                    pdblib.Pdb(
+                        ref,
+                        pdb_cache=pdb_cache,
+                        selection="name CA",
+                        no_exit=True,
+                        verify=True,
+                    ).atoms,
+                    trg_chids,
                 )
                 super(FlexTask, self).parse_reference(ref, pdb_cache)
-                logger.info(_name, 'Reference {} loaded.'.format(ref))
+                logger.info(_name, f"Reference {ref} loaded.")
             except AttributeError:  # if ref is None it has no split mth
                 ref_stc = self.initial_complex.select(
-                    'name CA and (chain %s)' % ','.join(self.initial_complex.protein_chains)
+                    "name CA and (chain %s)"
+                    % ",".join(self.initial_complex.protein_chains)
                 )
                 ref_stc.update_ids(self.initial_complex.protein.old_ids)
-                self.reference = (ref_stc, "".join(sorted(set([i.chid for i in ref_stc]))))
-                logger.info(_name, 'Input loaded as reference.')
+                self.reference = (
+                    ref_stc,
+                    "".join(sorted(set([i.chid for i in ref_stc]))),
+                )
+                logger.info(_name, "Input loaded as reference.")
         except (pdblib.Pdb.InvalidPdbInput, ValueError):
-            logger.warning(_name, 'Invalid reference {}'.format(ref))
+            logger.warning(_name, f"Invalid reference {ref}")
 
     def draw_plots(self, plots_dir=None, colors=DEFAULT_COLORS):
         super(FlexTask, self).draw_plots()
         # set the plots dir
         if plots_dir is None:
-            pltdir = os.path.join(self.work_dir, 'plots')
+            pltdir = os.path.join(self.work_dir, "plots")
             try:
                 os.mkdir(pltdir)
             except OSError:
@@ -1200,10 +1397,12 @@ class FlexTask(CABSTask):
         else:
             pltdir = plots_dir
 
-        graph_RMSF(self.trajectory,
-                   self.initial_complex.protein_chains,
-                   os.path.join(pltdir, 'RMSF'),
-                   fmt=self.image_file_format)
+        graph_RMSF(
+            self.trajectory,
+            self.initial_complex.protein_chains,
+            os.path.join(pltdir, "RMSF"),
+            fmt=self.image_file_format,
+        )
 
         # RMSD-based graphs
         if self.reference_pdb:
@@ -1211,15 +1410,15 @@ class FlexTask(CABSTask):
                 plot_E_RMSD(
                     [self.trajectory],
                     [rmslst],
-                    ['all models'],
-                    os.path.join(pltdir, 'E_RMSD_%s' % k),
+                    ["all models"],
+                    os.path.join(pltdir, "E_RMSD_%s" % k),
                     self.image_file_format,
-                    interaction=False
+                    interaction=False,
                 )
                 plot_RMSD_N(
                     rmslst.reshape(self.replicas, -1),
-                    os.path.join(pltdir, 'RMSD_frame_%s' % k),
-                    self.image_file_format
+                    os.path.join(pltdir, "RMSD_frame_%s" % k),
+                    self.image_file_format,
                 )
 
         # Contact maps
@@ -1232,5 +1431,5 @@ class FlexTask(CABSTask):
                 self.contact_threshold,
                 self.contact_threshold_aa,
                 pltdir,
-                colors=colors
+                colors=colors,
             )

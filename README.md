@@ -1,12 +1,68 @@
 # CABS-flex
 
-Welcome to the new **CABS-flex** in Python 3!
+Welcome to **CABS-flex** - a Python package for coarse-grained protein modeling and simulation!
 
-1. git clone [https://github.com/LCBio/cabsflex.git](https://github.com/LCBio/cabsflex/tree/main)
-2. conda env create -f environment.yml
-3. conda activate flex_prod
-4. pip install .
-5. Download the [NetSurfP-3.0_standalone](https://services.healthtech.dtu.dk/cgi-bin/sw_request?software=netsurfp&version=3.0&packageversion=3.0&platform=Linux).
-6. Unzip the downloaded file and copy the `NetSurfP-3.0_standalone` folder to the `cabsflex` folder.
-7. cd ./NetSurfP-3.0_standalone
-8. python setup.py install
+CABS-flex provides tools for protein flexibility analysis, docking simulations, and structural predictions using the CABS force field.
+
+> **⚠️ Private Beta**: This is currently a private repository for selected beta testers. The package will be made open source and available on conda-forge in the future.
+
+## 🚀 Installation
+
+### Prerequisites
+- Conda or Miniconda installed
+- Python 3.8-3.11
+
+### Setup
+
+```bash
+# Create environment with all dependencies
+conda env create -f environment.yml
+conda activate cabs
+
+# Install CABSflex in development mode
+pip install -e .
+
+# Test installation
+CABSflex --help
+CABSdock --help
+```
+
+## 🧪 Quick Start
+
+```bash
+# Basic usage examples
+CABSflex input.pdb --mode flex
+CABSdock protein.pdb ligand.pdb
+```
+
+## 🐛 Beta Testing
+
+As a beta tester, please:
+- Report any installation issues
+- Test on your specific use cases
+- Provide feedback on the API and usability
+- Open GitHub issues for bugs or feature requests
+
+See [`BETA_TESTING.md`](BETA_TESTING.md) for detailed testing guidelines.
+
+## 🔮 Future Public Release
+
+Once ready for public release:
+```bash
+# Future installation (will be available)
+conda install -c conda-forge -c bioconda cabsflex
+```
+
+## 👨‍💻 For Developers
+
+```bash
+# Run tests
+pytest tests/
+
+# Code quality
+ruff check CABS tests
+black --check CABS tests
+mypy CABS --ignore-missing-imports
+```
+
+**Contact**: k.wroblewski7@uw.edu.pl
