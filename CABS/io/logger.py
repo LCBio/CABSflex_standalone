@@ -47,10 +47,10 @@ _init_time = time()
 _log_level = 2
 _color = True
 _stream = sys.stderr
-_line_format = '%-20s %-19s%-75s %s\n'
-_first_line_format = '%-20s %-19s%-75s \n'
-_middle_line_format = '%-22s%-75s \n'
-_last_line_format = '%-22s%-75s %s\n'
+_line_format = '{:<20} {:<19}{:<75} {}\n'
+_first_line_format = '{:<20} {:<19}{:<75} \n'
+_middle_line_format = '{:<22}{:<75} \n'
+_last_line_format = '{:<22}{:<75} {}\n'
 _line_break = 76
 _remote = False
 _prefix = color_prefix
@@ -106,7 +106,7 @@ def setup(log_level: int = 2, remote: bool = False, work_dir: Union[str, Path] =
         _prefix = log_levels
         
     _log_level = log_level
-    info(_name, f'Verbosity set to: {log_level} - {log_levels[log_level]}')
+    info(_name, f'Verbosity set to: {log_level} - {log_levels[str(log_level)]}')
     _save_dssp = save_dssp
     _save_ss = save_ss
     _save_restraints = save_restraints
@@ -191,7 +191,7 @@ def log(module_name: str = 'MISC', msg: str = 'Processing', l_level: int = 2,
         t = gmtime(time() - _init_time)
         if len(msg) < _line_break:
             msg_str = _line_format.format(
-                _prefix[l_level],
+                _prefix[str(l_level)],
                 coloring(msg=f'{module_name}:', color_name='light_blue'),
                 msg,
                 strftime('(%H:%M:%S)', t)
@@ -203,7 +203,7 @@ def log(module_name: str = 'MISC', msg: str = 'Processing', l_level: int = 2,
                 msg = msg.decode('utf-8')
             lines = textwrap.wrap(msg, width=_line_break - 1)
             first_line = _first_line_format.format(
-                _prefix[l_level],
+                _prefix[str(l_level)],
                 coloring(msg=f'{module_name}:', color_name='light_blue'),
                 lines[0]
             )
@@ -321,7 +321,7 @@ class ProgressBar:
         self.job_name = job_name
         self.is_done = False
         self.module_name = module_name
-        self.prefix = _prefix[LogLevel.INFO.value]
+        self.prefix = _prefix[str(LogLevel.INFO.value)]
         
         if start_msg:
             self.stream.write(coloring(msg=start_msg) + '\n')

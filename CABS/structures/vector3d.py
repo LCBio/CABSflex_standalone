@@ -82,6 +82,20 @@ class Vector3d:
         """Formatted string representation."""
         return f"{self.x:8.3f}{self.y:8.3f}{self.z:8.3f}"
 
+    def __format__(self, format_spec: str) -> str:
+        """Support for format() and f-string formatting."""
+        if format_spec == '' or format_spec.endswith('s'):
+            # For string formats, use the __str__ representation
+            base_str = str(self)
+            if format_spec and format_spec[:-1].isdigit():
+                # Handle width specifiers like "24s"
+                width = int(format_spec[:-1])
+                return f"{base_str:<{width}}"
+            return base_str
+        else:
+            # For other format specifiers, just use __str__
+            return str(self)
+
     def __add__(self, other: 'Vector3d') -> 'Vector3d':
         """Vector addition."""
         return Vector3d(self.x + other.x, self.y + other.y, self.z + other.z)

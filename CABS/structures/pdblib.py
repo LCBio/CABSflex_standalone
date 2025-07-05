@@ -105,7 +105,9 @@ class Pdb:
             if not create_from_aa:
                 logger.debug(_name, 'Processing {}'.format(name))
             current_model = 0
-            self.body = self.body.decode('utf-8')
+            # Ensure body is a string (handle both Python 2 and 3 compatibility)
+            if isinstance(self.body, bytes):
+                self.body = self.body.decode('utf-8')
             new_body = 'HEADER' + 74 * ' ' + '\n'
             for line in self.body.split('\n'):
                 match = re.match(r'(ATOM|HETATM)', line)
@@ -219,6 +221,10 @@ class Pdb:
 
     @staticmethod
     def fetch(pdb_code: str, pdb_cache: str, force_download: bool = False) -> str:
+        
+        # Strip .pdb extension if present
+        if pdb_code.lower().endswith('.pdb'):
+            pdb_code = pdb_code[:-4]
 
         if not re.match(r'[1-9][0-9A-Za-z]{3}', pdb_code):
             raise IOError
@@ -246,7 +252,7 @@ class Pdb:
 
         if not os.path.isfile(filename) or force_download:
             logger.debug(_name, 'Downloading {}'.format(pdb_low))
-            url = f'http://files.rcsb.org/download/{pdb_low}.pdb.gz'
+            url = f'https://files.rcsb.org/download/{pdb_low}.pdb.gz'
             r = req.get(url)
             r.raise_for_status()
             with open(filename, 'wb') as f:

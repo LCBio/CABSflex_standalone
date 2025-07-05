@@ -257,8 +257,8 @@ class SmithWaterman(AbstractAlignMethod):
         for i, r1 in enumerate([aa_to_short(k.resname) for k in atoms1], 1):
             for j, r2 in enumerate([aa_to_short(kk.resname) for kk in atoms2], 1):
                 dgn = mtx[i - 1, j - 1] + BLOSUM62[B62h[r1], B62h[r2]]
-                dwn = mtx[i - 1, j] + BLOSUM62[B62h[None], B62h[r2]]
-                rght = mtx[i, j - 1] + BLOSUM62[B62h[r1], B62h[None]]
+                dwn = mtx[i - 1, j] + BLOSUM62[B62h["null"], B62h[r2]]
+                rght = mtx[i, j - 1] + BLOSUM62[B62h[r1], B62h["null"]]
                 mtx[i, j] = max((dgn, dwn, rght, 0))
         # finding path
         i, j = np.unravel_index(np.argmax(mtx), mtx.shape)

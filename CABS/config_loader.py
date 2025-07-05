@@ -7,6 +7,7 @@ It caches loaded configurations to avoid repeated file I/O operations.
 
 import json
 import os
+import warnings
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
@@ -15,7 +16,10 @@ from typing_extensions import Literal
 try:
     from importlib.resources import files, as_file
 except ImportError:
-    from pkg_resources import resource_filename
+    # Suppress pkg_resources deprecation warning until we fully migrate to importlib.resources
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
+        from pkg_resources import resource_filename
 
 
 @lru_cache(maxsize=None)
@@ -42,8 +46,10 @@ def _load_json_config(config_name: str) -> Dict[str, Any]:
                 with open(data_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except (ImportError, AttributeError):
-            # Fallback to pkg_resources
-            data_file = resource_filename('CABS', f'data/{config_file}')
+            # Fallback to pkg_resources with warning suppression
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
+                data_file = resource_filename('CABS', f'data/{config_file}')
             with open(data_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except FileNotFoundError:

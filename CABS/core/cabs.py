@@ -12,7 +12,11 @@ from operator import attrgetter
 from subprocess import Popen, PIPE
 from random import randint
 from threading import Thread
-from pkg_resources import resource_filename
+import warnings
+# Suppress pkg_resources deprecation warning until we fully migrate to importlib.resources
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
+    from pkg_resources import resource_filename
 from collections import OrderedDict
 from tempfile import mkdtemp
 from time import strftime

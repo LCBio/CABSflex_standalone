@@ -91,7 +91,7 @@ class Trajectory:
         self.headers: List[Header] = headers
         self.rmsd_native: Optional[float] = None
         self.number_of_peptides: Optional[int] = number_of_peptides
-        self.weights: Optional[npt.NDArray[np.float64]] = np.diagflat(weights) if weights is not None else None
+        self.weights: Optional[npt.NDArray[np.float64]] = np.array(weights) if weights is not None else None
 
     @staticmethod
     def read_seq(filename: str) -> List[Atom]:
@@ -261,13 +261,15 @@ class Trajectory:
 
         target = reference.to_numpy()
 
-        if self.weights:
-            t_com = np.average(target, axis=0, weights=self.weights)
+        if self.weights is not None:
+            # Extract weights for the corresponding pieces to match query structure
+            query_weights = np.concatenate([self.weights[slice(*piece)] for piece in pieces])
+            t_com = np.average(target, axis=0, weights=query_weights)
 
             for model in self.coordinates.reshape(-1, len(self.template), 3):
                 query = np.concatenate([model[slice(*piece)] for piece in pieces])
-                q_com = np.average(query, axis=0, weights=self.weights)
-                rot = utils.kabsch(target - t_com, query - q_com, weights=self.weights, concentric=True)
+                q_com = np.average(query, axis=0, weights=query_weights)
+                rot = utils.kabsch(target - t_com, query - q_com, weights=query_weights, concentric=True)
                 np.copyto(model, np.dot(model - q_com, rot) + t_com)
 
         else:  # dynamic weights

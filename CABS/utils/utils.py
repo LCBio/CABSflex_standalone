@@ -332,7 +332,7 @@ def rmsd(
 ) -> float:
     """Calculate RMSD between target and query coordinates."""
     _diff = target if query is None else query - target
-    _rmsd = np.sqrt(np.average(np.sum(_diff ** 2, axis=1), axis=0, weights=weights))
+    _rmsd = np.sqrt(np.average(np.sum(_diff ** 2, axis=1), weights=weights))
     return _rmsd if _rmsd > _TINY else 0.0
 
 

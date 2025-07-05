@@ -4,11 +4,16 @@ Modern main entry point for CABS application with proper Python 3 support.
 
 import argparse
 import sys
+import warnings
 import importlib.util
 import traceback as _tr
 from pathlib import Path
 from shutil import rmtree
 from typing import List, Optional, Union
+
+# Suppress pkg_resources deprecation warnings early
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
+warnings.filterwarnings("ignore", message=".*pkg_resources.*")
 
 # Create pre-parser for initial argument handling
 pre_parser = argparse.ArgumentParser(

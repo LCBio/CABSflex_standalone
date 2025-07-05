@@ -440,7 +440,7 @@ class Atoms:
         """"
         Returns np.array(N, 3) with coordinates, where N is the number of Atoms.
         """
-        return np.concatenate([a.coord.to_numpy() for a in self.atoms])
+        return np.array([a.coord.to_numpy() for a in self.atoms])
 
     def from_numpy(self, matrix):
         """
