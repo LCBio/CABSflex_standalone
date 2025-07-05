@@ -1,0 +1,102 @@
+name: Beta Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Beta version (e.g., v1.0.0-beta.1)'
+        required: true
+        default: 'v1.0.0-beta.1'
+      notes:
+        description: 'Release notes'
+        required: false
+        default: 'Beta release for testing'
+
+jobs:
+  create-beta-release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Create Release Archive
+      run: |
+        # Create clean archive without git history
+        mkdir -p release-temp
+        rsync -av --exclude='.git' --exclude='release-temp' --exclude='.github/workflows' . release-temp/
+        cd release-temp
+        
+        # Remove development files
+        rm -rf __pycache__ build dist *.egg-info
+        find . -name "*.pyc" -delete
+        find . -name "__pycache__" -delete
+        
+        # Create archive
+        cd ..
+        tar -czf cabsflex-${{ github.event.inputs.version }}.tar.gz -C release-temp .
+        
+        # Create zip for Windows users
+        cd release-temp
+        zip -r ../cabsflex-${{ github.event.inputs.version }}.zip .
+        cd ..
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.event.inputs.version }}
+        release_name: CABS-flex ${{ github.event.inputs.version }}
+        body: |
+          # CABS-flex Beta Release ${{ github.event.inputs.version }}
+          
+          ${{ github.event.inputs.notes }}
+          
+          ## Installation
+          
+          **Recommended (one command):**
+          ```bash
+          curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install-beta.sh | bash -s YOUR_BETA_TOKEN
+          ```
+          
+          **Manual installation:**
+          1. Download and extract the archive
+          2. `conda env create -f environment.yml`
+          3. `conda activate cabs`
+          4. `pip install -e .`
+          
+          ## Testing
+          
+          ```bash
+          conda activate cabs
+          CABSflex --help
+          CABSdock --help
+          ```
+          
+          ## Support
+          
+          - 📧 Contact: k.wroblewski7@uw.edu.pl
+          - 🐛 Report issues: [GitHub Issues](https://github.com/LCBio/cabsflex/issues)
+          
+          Thank you for beta testing CABS-flex! 🧬
+        draft: false
+        prerelease: true
+    
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./cabsflex-${{ github.event.inputs.version }}.tar.gz
+        asset_name: cabsflex-${{ github.event.inputs.version }}.tar.gz
+        asset_content_type: application/gzip
+    
+    - name: Upload ZIP Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./cabsflex-${{ github.event.inputs.version }}.zip
+        asset_name: cabsflex-${{ github.event.inputs.version }}.zip
+        asset_content_type: application/zip
