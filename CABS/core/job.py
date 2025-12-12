@@ -580,7 +580,7 @@ class CABSTask(metaclass=ABCMeta):
     def save_config_file(self):
         if self.save_config:
             with open(os.path.join(self.work_dir, "config.ini"), "w") as configfile:
-                configfile.write(utils.CONFIG_HEADER)
+                configfile.write(CONFIG_HEADER)   ##Modified as there was error
                 for k in sorted(self.config):
                     value = self.config[k]
                     name = re.sub("_", "-", str(k))
