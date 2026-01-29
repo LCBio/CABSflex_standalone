@@ -353,6 +353,10 @@ class CabsRun(Thread):
             out, err = build_proc.communicate(
                 lines.encode("utf-8")
             )  # changed to encode
+
+            import subprocess
+            subprocess.run(["codesign", "-s", "-", "-f", run_cmd], check=True)
+
             if err:
                 warning_message = err.decode("utf-8").split("\n")[-2]  # added
                 logger.warning(_name, warning_message)  # inserteds
