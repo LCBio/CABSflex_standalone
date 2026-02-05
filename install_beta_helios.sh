@@ -8,7 +8,7 @@ set -e
 # ==============================================================================
 # Installation Paths
 BASE_INSTALL_DIR="${PLG_GROUPS_STORAGE}/plggmodel/NC/programs"
-VENV_NAME="cabs-venv"
+VENV_NAME="cabs_005"
 VENV_DIR="$BASE_INSTALL_DIR/$VENV_NAME"
 TEMP_ROOT="$SCRATCH"
 

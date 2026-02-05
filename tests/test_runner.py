@@ -13,10 +13,10 @@ import traceback
 def run_tests_without_pytest():
     """Run tests without pytest dependency."""
     test_modules = [
-        "test_core_functionality",
-        "test_vector3d_comprehensive",
-        "test_numerical_utils",
-        "test_integration_new",
+        "test_atom",
+        "test_vector3d",
+        "test_utils",
+        "test_integration",
     ]
 
     total_tests = 0
@@ -29,7 +29,11 @@ def run_tests_without_pytest():
     for module_name in test_modules:
         print(f"\nRunning {module_name}...")
         try:
-            module = importlib.import_module(module_name)
+            # Need to prefix module name with 'tests.' if running from outside the tests directory
+            if "tests" in sys.modules:
+                module = importlib.import_module(f"tests.{module_name}")
+            else:
+                module = importlib.import_module(module_name)
 
             # Find test classes
             test_classes = []
