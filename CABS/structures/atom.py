@@ -49,15 +49,25 @@ class Atom:
         self, line: Optional[str] = None, model: int = 0, **kwargs: Any
     ) -> None:
         """
-        Constructor. Creates an Atom object from string - ATOM/HETATM line from the pdb file.
-        If line is empty creates an empty atom equivalent to:
-        Atom('HETATM    0 XXXX XXX X   0       0.000   0.000   0.000  0.00  0.00')
-        Passing attribute=value to the constructor overwrites default/read values.
-        :param line: PDB line string or None
-        :param model: Model number
+        Constructor. Creates an Atom object from a PDB line or keyword arguments.
         """
+        # 1. Initialize with basic defaults
+        self.model = model
+        self.hetatm = True
+        self.serial = 0
+        self.name = "XXXX"
+        self.alt = ""
+        self.resname = "XXX"
+        self.chid = "X"
+        self.resnum = 0
+        self.icode = ""
+        self.coord = Vector3d()
+        self.occ = 0.0
+        self.bfac = 0.0
+        self.tail = ""
+
+        # 2. If a raw PDB line is provided, parse it (Legacy support)
         if line:
-            self.model = model
             self.hetatm = line[:6] == "HETATM"
             self.serial = int(line[6:11])
             self.name = line[11:16].strip()
@@ -70,34 +80,20 @@ class Atom:
             self.occ = float(line[54:60])
             self.bfac = float(line[60:66])
             self.tail = " " * 11 + line[77:].replace("\n", "")
-            self.ss = self.occ
-            self.flexibility = self.bfac
-            self.plddt = self.bfac
-            self.category = 0.0
-            self.set_category()
-        else:
-            self.model = model
-            self.hetatm = True
-            self.serial = 0
-            self.name = "XXXX"
-            self.alt = ""
-            self.resname = "XXX"
-            self.chid = "X"
-            self.resnum = 0
-            self.icode = ""
-            self.coord = Vector3d()
-            self.occ = 0.0
-            self.bfac = 0.0
-            self.tail = ""
-            self.ss = self.occ
-            self.flexibility = self.bfac
-            self.plddt = self.bfac
-            self.category = 0.0
-            self.set_category()
 
-        for arg in kwargs:
-            if arg in self.__dict__:
-                self.__dict__[arg] = kwargs[arg]
+        # 3. OVERRIDE with kwargs (This is where data from the new pdblib.py arrives)
+        for arg, value in kwargs.items():
+            if hasattr(self, arg) or arg in ['plddt', 'flexibility', 'category', 'ss']:
+                setattr(self, arg, value)
+
+        # 4. CALCULATE derived metadata now that all data is present
+        self.ss = getattr(self, 'ss', self.occ)
+        self.flexibility = getattr(self, 'flexibility', self.bfac)
+        self.plddt = getattr(self, 'plddt', self.bfac)
+        self.category = getattr(self, 'category', 0.0)
+
+        # Finally, set the category based on the final plddt/ss values
+        self.set_category()
 
     def __str__(self) -> str:
         line = "ATOM  "

@@ -50,6 +50,14 @@
     "BE": "E",
     "T": "T"
   },
+  "remote_services": {
+    "rcsb_api": "https://data.rcsb.org/rest/v1/core/entry/",
+    "mirrors": [
+        "https://files.rcsb.org/download/",
+        "https://www.ebi.ac.uk/pdbe/entry-files/download/",
+        "https://pdbj.org/download/"
+        ]
+  },
   "default_colors": [
     "#ffffff",
     "#f2d600",

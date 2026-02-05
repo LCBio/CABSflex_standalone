@@ -596,6 +596,16 @@ class CABSTask(metaclass=ABCMeta):
 
     def setup_cabs_run(self):
         logger.info(module_name="CABS", msg="Setting up CABS simulation.")
+
+        # --- Memory Warning Logic ---
+        n_mols = len(self.initial_complex.chain_list)
+        if n_mols > 10:
+            logger.warning(
+                "CABS",
+                f"Large system detected ({n_mols} chains). This simulation may require "
+                "significant RAM per replica. Ensure enough memory is available."
+            )
+
         # Initializing CabsRun instance
         self.cabsrun = cabs.CabsRun(
             protein_complex=self.initial_complex,

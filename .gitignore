@@ -190,3 +190,6 @@ cabsflex-beta-*/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
+#Back up files
+CABS/structures/pdblib_old.py
