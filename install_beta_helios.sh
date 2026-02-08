@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 # ==============================================================================
 # 🧬 CABS-flex Local Installer (Beta - Helios Optimized)
 # ==============================================================================
@@ -7,21 +7,24 @@ set -e
 # ==============================================================================
 # --- 1. CONFIGURATION SECTION ---
 # ==============================================================================
-MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
+INSTALL_MODELLER="TRUE"
+MODELLER_KEY=""   # <<< SET YOUR ACADEMIC LICENSE KEY HERE
 MODELLER_VERSION="10.7"
 MODELLER_ARCH_INDEX="2"      # 2 = x86_64-intel8
 
-INSTALL_NSP3="FALSE"         # <<< SET TO TRUE TO ENABLE FULL ML TIER INSTALLATION
-
-BASE_INSTALL_DIR=""          #Set Base directory of installation path
-VENV_NAME="cabsflex3"        #Set Venv directory name
+BASE_INSTALL_DIR="${PLG_GROUPS_STORAGE}/plggmodel/NC/programs"
+VENV_NAME="cabs_021"
 VENV_DIR="$BASE_INSTALL_DIR/$VENV_NAME"
+CG2ALL_VENV_DIR="$VENV_DIR/cg2all"
 TEMP_ROOT="$SCRATCH" # Use scratch for high-I/O operations
 
 # HPC Environment Modules
 GCC_MODULE="GCCcore/13.2.0"
 PYTHON_MODULE="Python/3.11.5"
-
+BZIP2_MODULE="bzip2/1.0.8"
+INTEL_MODULE="HDF5/1.14.3-serial"
+NETCDF_MODULE="impi/2021.10.0 netCDF/4.9.3 "
+HDF5_MODULE="intel-compilers/2023.2.1 HDF5/1.14.3-serial"
 # Dependencies (Kept lean: MDTraj replaces DSSP binary)
 CORE_DEPS=("numpy" "matplotlib" "requests" "biopython" "mdtraj" "biopandas" "tqdm" "scipy")
 TORCH_URL="https://download.pytorch.org/whl/cpu"
@@ -37,8 +40,14 @@ echo -e "${BLUE}================================================================
 
 # --- Environment Setup ---
 module purge
+# module load "$GCC_MODULE"
+# module load "$BZIP2_MODULE"
+# module load "$INTEL_MODULE"
+# module load "$HDF5_MODULE"
+# module load "$NETCDF_MODULE"
 module load "$GCC_MODULE" "$PYTHON_MODULE"
-export PYTHONNOUSERSITE=1
+
+
 CABS_FLEX_LOCAL_PATH=$(pwd)
 
 if [ ! -f "$CABS_FLEX_LOCAL_PATH/requirements-runtime.txt" ]; then
@@ -52,15 +61,35 @@ PIP_CACHE_DIR="$TEMP_ROOT/pip-cache"
 mkdir -p "$PIP_CACHE_DIR"
 cd "$TEMP_DIR"
 
-# --- Virtual Environment Management ---
+# --- 1. Preparing CABS Virtual Environment Management ---
 if [ -d "$VENV_DIR" ]; then
     echo -e "${YELLOW}⚠️  Existing venv found at $VENV_DIR. Recreating for clean install...${NC}"
     rm -rf "$VENV_DIR"
 fi
+
+unset PYTHONPATH
+export PYTHONNOUSERSITE=1
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
+module purge
+module load "$GCC_MODULE"
+module load "$BZIP2_MODULE"
 
-# --- 1. Install Core Dependencies ---
+cat >> "$VENV_DIR/bin/activate" <<EOF
+
+# ---- cg2all runtime safety ----
+export PYTHONNOUSERSITE=1
+export DGL_DISABLE_GRAPHBOLT=1
+
+module purge
+module load $GCC_MODULE
+module load $BZIP2_MODULE
+# --------------------------------
+
+EOF
+
+
+# --- 2. Install Core Dependencies ---
 echo -e "${YELLOW}📦 Upgrading pip tools...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" --upgrade pip setuptools wheel
 
@@ -69,60 +98,12 @@ cp "$CABS_FLEX_LOCAL_PATH/requirements-runtime.txt" .
 pip install --cache-dir "$PIP_CACHE_DIR" -r requirements-runtime.txt
 
 
-# --- 2. OPTIONAL: NetSurfP-3.0 Package & Model Download --
-_install_nsp3() {
-    if [[ "$INSTALL_NSP3" != "TRUE" ]]; then
+# --- 3. Optional MODELLER Installation (CONDITIONAL) ---
+_install_modeller() {
+    if [[ "$INSTALL_MODELLER" != "TRUE" ]]; then
         echo -e "${YELLOW}ℹ️  INSTALL_NSP3 is set to FALSE. Skipping ML Prediction setup.${NC}"
         return 0
     fi
-
-    local nsp3_dir="$TEMP_DIR/nsp3_repo"
-    local nsp3_model_dir="$CABS_FLEX_LOCAL_PATH/nsp3_model"
-
-    echo -e "${YELLOW}⚙️  Setting up NetSurfP-3.0 (NSP3) Tier 1 Prediction...${NC}"
-
-    # Clone the repository source code
-    if [ ! -d "$nsp3_dir" ]; then
-        echo -e "${YELLOW}📥 Cloning NetSurfP-3.0 source code...${NC}"
-        git clone "$NSP3_REPO_URL" "$nsp3_dir"
-    fi
-
-    # Check for model URLs file
-    local url_txt="$nsp3_dir/models/url.txt"
-    if [ ! -f "$url_txt" ]; then
-        echo -e "${RED}❌ Error: NSP3 URL list not found at $url_txt. Cannot download model weights.${NC}"
-        return 1
-    fi
-
-    # Download models based on url.txt content
-    mkdir -p "$nsp3_model_dir"
-    echo -e "${YELLOW}⚙️  Downloading NSP3 model weights...${NC}"
-    while IFS= read -r line; do
-        # Assumes format: [NAME]: [URL]
-        local url=$(echo "$line" | awk -F': ' '{print $2}')
-        if [[ "$url" == *".pt"* ]]; then
-            local filename=$(basename "$url")
-            echo "   -> Downloading $filename..."
-            curl -L -o "$nsp3_model_dir/$filename" "$url" --fail
-        fi
-    done < "$url_txt"
-    echo -e "${GREEN}✅ NSP3 Model Weights downloaded to $nsp3_model_dir.${NC}"
-
-    # Install the NSP3 package itself
-    echo -e "${YELLOW}📦 Installing NetSurfP-3.0 package...${NC}"
-    pip install --cache-dir "$PIP_CACHE_DIR" nsp3
-    echo -e "${GREEN}✅ NSP3 package installed.${NC}"
-}
-
-_install_nsp3
-
-# --- 2. ML Reconstruction (cg2all) ---
-echo -e "${YELLOW}📦 Installing ML Package (cg2all) and PyTorch (CPU)...${NC}"
-pip install --cache-dir "$PIP_CACHE_DIR" torch>=2.2 torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install --cache-dir "$PIP_CACHE_DIR" git+http://github.com/huhlim/cg2all
-
-# --- 3. MODELLER Installation (CONDITIONAL) ---
-_install_modeller() {
     if [ -z "$MODELLER_KEY" ] ; then
         echo -e "${YELLOW}ℹ️  MODELLER_KEY is empty. Skipping Modeller installation.${NC}"
         return 0
@@ -161,20 +142,100 @@ EOF
 }
 _install_modeller
 
+# # --- 4. MDtraj ----
+# echo -e "${YELLOW}📦 Installing mdtraj Package ...${NC}"
+# pip install --cache-dir "$PIP_CACHE_DIR" git+https://github.com/mdtraj/mdtraj
+
 # --- 4. CABS-flex Core (Editable Mode) ---
 cd "$CABS_FLEX_LOCAL_PATH"
+echo "{\"cg2all_env_prefix\": \"$CG2ALL_VENV_DIR\"}" > "$CABS_FLEX_LOCAL_PATH/CABS/data/cabs_paths.json"
 echo -e "${YELLOW}📦 Installing CABSflex from local source...${NC}"
-pip install --cache-dir "$PIP_CACHE_DIR" -e .
+pip install --cache-dir "$PIP_CACHE_DIR" .
+deactivate
 
-# --- 5. Final Verification ---
+# --- 5. Reconstruction (cg2all) in isolated environment (separate venv) ---
+if [ -d "$CG2ALL_VENV_DIR" ]; then
+    echo -e "${YELLOW}⚠️  Existing venv found at $CG2ALL_VENV_DIR. Recreating for clean install...${NC}"
+    rm -rf "$CG2ALL_VENV_DIR"
+fi
+
+echo -e "${YELLOW}📦 Creating isolated cg2all environment...${NC}"
+module purge
+module load "$GCC_MODULE" "$PYTHON_MODULE"
+unset PYTHONPATH
+export PYTHONNOUSERSITE=1
+python3 -m venv "$CG2ALL_VENV_DIR"
+source "$CG2ALL_VENV_DIR/bin/activate"
+
+cat >> "$CG2ALL_VENV_DIR/bin/activate" <<EOF
+
+# ---- cg2all runtime safety ----
+export PYTHONNOUSERSITE=1
+export DGL_DISABLE_GRAPHBOLT=1
+
+module purge
+module load $GCC_MODULE
+module load $BZIP2_MODULE
+# --------------------------------
+
+EOF
+
+module purge
+module load "$GCC_MODULE"
+module load "$BZIP2_MODULE"
+pip install --upgrade pip setuptools wheel
+
+echo -e "${YELLOW}📦 Installing dependencies for cg2all package for reconstruction...${NC}"
+
+echo -e "${YELLOW}📦 Installing torch and torchvision ...${NC}"
+pip install --cache-dir "$PIP_CACHE_DIR" torch==2.1.2+cpu torchvision==0.16.2+cpu --index-url https://download.pytorch.org/whl/cpu
+
+# pip install " --no-deps torchdata==0.6.1
+
+echo -e "${YELLOW}📦 Installing dgl ...${NC}"
+pip install --no-deps dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
+
+echo -e "${YELLOW}📦 Installing e3nn ...${NC}"
+pip install --cache-dir "$PIP_CACHE_DIR" --no-binary e3nn e3nn
+
+echo -e "${YELLOW}📦 Installing /huhlim/mdtraj  ...${NC}"
+pip install --cache-dir "$PIP_CACHE_DIR" git+https://github.com/huhlim/mdtraj
+
+
+echo -e "${YELLOW}📦 Installing /huhlim/SE3Transformer  ...${NC}"
+SE3T_SRC="$TEMP_DIR/se3t-src"
+git clone https://github.com/huhlim/SE3Transformer "$SE3T_SRC"
+cd "$SE3T_SRC"
+sed -i 's/python = "[^"]*"/python = ">=3.7"/' pyproject.toml
+sed -i 's/torch = "[^"]*"/torch = "=2.1.2"/' pyproject.toml
+pip install --cache-dir "$PIP_CACHE_DIR" .
+
+echo -e "${YELLOW}📦 Installing cg2all package for reconstruction...${NC}"
+
+CG2ALL_SRC="$TEMP_DIR/cg2all-src"
+git clone https://github.com/huhlim/cg2all.git "$CG2ALL_SRC"
+cd "$CG2ALL_SRC"
+git checkout a789cb5
+sed -i 's/torch = "[^"]*"/torch = "=2.1.2"/' pyproject.toml
+sed -i 's/numpy = "[^"]1"/numpy = ">=1.21"/' pyproject.toml
+pip install --cache-dir "$PIP_CACHE_DIR" --no-binary :all: .
+
+deactivate
+
+# --- 6. Final Verification ---
 echo -e "${YELLOW}🧪 Verifying Environment...${NC}"
+source "$VENV_DIR/bin/activate"
 python3 <<EOF
-import sys, torch, mdtraj, Bio.PDB
-print(f"${GREEN}✅ Core Python dependencies ready.${NC}")
-if hasattr(torch, 'compiler'):
-    print(f"${GREEN}✅ ML Tier (Torch {torch.__version__}) is available.${NC}")
-else:
-    print("${YELLOW}⚠️  ML Tier (Torch) is missing. Structure reconstruction will use CG2ALL/Heuristics.${NC}")
+try:
+    import Bio.PDB
+    print(f"${GREEN}✅ BioPython dependencies ready.${NC}")
+except ImportError:
+    print("${RED}⚠️  BioPython module not found.${NC}")
+try:
+    import mdtraj
+    print(f"${GREEN}✅ Mdtraj dependencies ready.${NC}")
+except ImportError:
+    print("${RED}⚠️  Mdtraj module not found.${NC}")
 
 # Check for Modeller linkage (needs its lib path set)
 try:
@@ -185,6 +246,17 @@ except ImportError:
 
 EOF
 
+deactivate
+
+source "$CG2ALL_VENV_DIR/bin/activate"
+python3 <<EOF
+try:
+    import cg2all
+    print(f"${GREEN}✅ cg2all module is ready.${NC}")
+except ImportError:
+    print("${RED}⚠️  cg2all module not found.${NC}")
+
+EOF
 deactivate
 rm -rf "$TEMP_DIR"
 
