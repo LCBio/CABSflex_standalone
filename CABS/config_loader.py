@@ -315,3 +315,7 @@ def get_nsp3_constants() -> Dict[str, str]:
 def get_config_header() -> str:
     """Get configuration file header template."""
     return get_config_section("cabs_constants", "config_header")
+
+def get_cg2all_env_prefix() -> str:
+    """Reads custom path information saved by the installer script."""
+    return get_config_section("cabs_paths", "cg2all_env_prefix")

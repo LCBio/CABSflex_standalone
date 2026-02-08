@@ -634,6 +634,7 @@ def convert_cg_to_all(
     iter: int = 0,
     reference_pdb: Optional[str] = None,
     renumber_flag: bool = False,
+    env_prefix: Optional[str] = None
 ) -> str:
     """
     Convert coarse-grained model to all-atom
@@ -661,11 +662,25 @@ def convert_cg_to_all(
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(pdb)
     fout = f"model_{iter}.pdb"
-    command = f"convert_cg2all -p {input_pdb} -o {output_dir / fout} --device cpu"
+    # Modify the subprocess call to use the specified environment's python executable
+    if env_prefix:
+        # Use the specific executable from the isolated environment's 'bin' directory
+        executable_path = os.path.join(env_prefix, "bin", "convert_cg2all")
+    else:
+        # Fallback to the default path if no specific env is passed
+        executable_path = "convert_cg2all"
+
+    command_parts = [
+        executable_path,
+        "-p", str(input_pdb),
+        "-o", str(output_dir / fout),
+        "--device", "cpu"
+    ]
+
     try:
         result = subprocess.run(
-            command,
-            shell=True,
+            command_parts,
+            shell=False,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

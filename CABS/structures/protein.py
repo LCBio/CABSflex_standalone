@@ -43,6 +43,7 @@ class Protein(Atoms):
         category: Optional[Dict[str, int]] = None,
         save_initial_pdb: bool = False,
         predict_peptide_structure: bool = False,
+        cg2all_env_prefix: Optional[str] = None,
     ) -> None:
         Atoms.__init__(self)
 
@@ -275,6 +276,7 @@ class Protein(Atoms):
         for key, val in self.exclude.items():
             self.exclude[key] = [self.new_ids[r] for r in val]
 
+        self.cg2all_env_prefix = cg2all_env_prefix
         # setup rmsd_weights
         self.weights = None
         if weights and weights.lower() == "flex":
@@ -600,7 +602,7 @@ class Peptide(Atoms):
     Class for the peptides.
     """
 
-    def __init__(self, source, conformation, location, work_dir=".", pdb_cache=None):
+    def __init__(self, source, conformation, location, work_dir=".", pdb_cache=None, cg2all_env_prefix=None):
         logger.info(
             module_name=_name,
             msg=f"Loading ligand: {source}, conformation - {conformation}, location - {location}",
@@ -617,6 +619,7 @@ class Peptide(Atoms):
         self.conformation = conformation
         self.location = location
         Atoms.__init__(self, atoms)
+        self.cg2all_env_prefix = cg2all_env_prefix
 
 
 class ProteinComplex(Atoms):
@@ -643,6 +646,7 @@ class ProteinComplex(Atoms):
         pdb_cache,
         save_initial_pdb,
         json_output=False,
+        cg2all_env_prefix=None,
         predict_peptide_structure=False,
     ):
         logger.debug(module_name=_name, msg="Preparing the complex")
@@ -661,6 +665,7 @@ class ProteinComplex(Atoms):
             pdb_cache=pdb_cache,
             save_initial_pdb=save_initial_pdb,
             predict_peptide_structure=predict_peptide_structure,
+            cg2all_env_prefix=cg2all_env_prefix,
         )
         self.chain_list = self.protein.list_chains()
         self.protein_chains = "".join(self.chain_list.keys())
@@ -671,7 +676,8 @@ class ProteinComplex(Atoms):
         if peptides:
             taken_chains = self.protein_chains + "X"
             for num, p in enumerate(peptides):
-                peptide = Peptide(*p, work_dir=work_dir, pdb_cache=pdb_cache)
+                peptide = Peptide(*p, work_dir=work_dir, pdb_cache=pdb_cache,
+                                  cg2all_env_prefix=cg2all_env_prefix)
                 if peptide[0].chid in taken_chains:
                     peptide.change_chid(
                         peptide[0].chid, utils.next_letter(taken_chains)

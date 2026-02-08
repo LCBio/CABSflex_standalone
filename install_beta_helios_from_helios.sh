@@ -7,14 +7,14 @@ set -e
 # ==============================================================================
 # --- 1. CONFIGURATION SECTION ---
 # ==============================================================================
-MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
+MODELLER_KEY="MODELIRANJE"   # <<< SET YOUR ACADEMIC LICENSE KEY HERE
 MODELLER_VERSION="10.7"
 MODELLER_ARCH_INDEX="2"      # 2 = x86_64-intel8
 
 INSTALL_NSP3="FALSE"         # <<< SET TO TRUE TO ENABLE FULL ML TIER INSTALLATION
 
-BASE_INSTALL_DIR=""          #Set Base directory of installation path
-VENV_NAME="cabsflex3"        #Set Venv directory name
+BASE_INSTALL_DIR="${PLG_GROUPS_STORAGE}/plggmodel/NC/programs"
+VENV_NAME="cabs_008"
 VENV_DIR="$BASE_INSTALL_DIR/$VENV_NAME"
 TEMP_ROOT="$SCRATCH" # Use scratch for high-I/O operations
 
@@ -118,7 +118,7 @@ _install_nsp3
 
 # --- 2. ML Reconstruction (cg2all) ---
 echo -e "${YELLOW}📦 Installing ML Package (cg2all) and PyTorch (CPU)...${NC}"
-pip install --cache-dir "$PIP_CACHE_DIR" torch>=2.2 torchvision --index-url https://download.pytorch.org/whl/cpu
+# pip install --cache-dir "$PIP_CACHE_DIR" torch torchvision --index-url "$TORCH_URL"
 pip install --cache-dir "$PIP_CACHE_DIR" git+http://github.com/huhlim/cg2all
 
 # --- 3. MODELLER Installation (CONDITIONAL) ---

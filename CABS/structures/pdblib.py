@@ -27,6 +27,7 @@ from CABS.config_loader import get_config_section
 from CABS.constants import AA_NAMES, AA_SUB_NAMES
 from CABS.io import logger
 from CABS.structures.atom import Atom, Atoms
+from CABS.structures.vector3d import Vector3d
 
 _name = "PDB"
 
@@ -170,11 +171,18 @@ class Pdb:
                         continue
 
                     self.atoms.append(Atom(
-                        model=model.id, name=atom.name, resname=resname,
-                        chid=chid, resnum=resnum, icode=icode,
-                        coord=atom.coord, occ=atom.get_occupancy(),
-                        bfac=atom.get_tempfactor(), hetatm=(residue.id[0] != " ")
-                    ))
+                        model=model.id,
+                        name=atom.get_name(),  # Use get_name()
+                        resname=residue.get_resname(),
+                        chid=chid,             # The mapped chain ID
+                        resnum=residue.id[1],  # Residue number from Biopython residue tuple
+                        icode=residue.id[2].strip(), # Insertion code from Biopython residue tuple
+                        coord=Vector3d(atom.get_coord()), # <-- Correct method for coordinates
+                        occ=atom.get_occupancy(), # <-- Correct method for Occupancy
+                        bfac=atom.get_bfactor(),  # <-- CORRECTED to get_bfactor()
+                        hetatm=(residue.id[0] != " ")
+                        )
+                    )
 
     def dssp(self, work_dir: str = "", dssp_from_aa: bool = False) -> Dict[str, str]:
         """
@@ -200,9 +208,11 @@ class Pdb:
             sec = {}
             for i, res in enumerate(traj.topology.residues):
                 # Ensure the key format matches Atom.resid_id(): "resnum[icode]:chid"
-                icode = res.insertion_code if res.insertion_code else ""
+                icode = getattr(res, 'insertion_code', '')
                 key = f"{res.resSeq}{icode}:{res.chain.chain_id}"
                 sec[key] = labels[i]
+
+            logger.debug(_name, "DSSP assignment was performed with MDTraj.")
 
             # If log level is high enough, save the SS string to a file for the user
             if work_dir and logger.output_dssp():

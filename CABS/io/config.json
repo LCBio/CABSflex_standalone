@@ -86,6 +86,7 @@
                 [
                     "aa-rebuild",
                     "aa-method",
+                    "cg2all-env-prefix",
                     "modeller-iterations"
                 ]
             ],
@@ -215,6 +216,7 @@
                 [
                     "aa-rebuild",
                     "aa-method",
+                    "cg2all-env-prefix",
                     "modeller-iterations"
                 ]
             ],
@@ -351,6 +353,11 @@
             ],
             "help": "Set global weights for all C-alpha restraints (including automatically generated restraints for the protein) when distance is shorter than minimum (WEIGHT_MIN) or longer than maximum (WEIGHT_MAX) (default: %(default)s)"
         },
+        "cg2all-env-prefix": {
+            "metavar": "DIR",
+            "default": null,
+            "help": "Path to the isolated environment containing cg2all dependencies. Required if --aa-method cg2all is used."
+            },
         "clustering-iterations": {
             "default": 100,
             "type": "int",
