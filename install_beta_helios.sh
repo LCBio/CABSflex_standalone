@@ -82,8 +82,16 @@ export PYTHONNOUSERSITE=1
 export DGL_DISABLE_GRAPHBOLT=1
 
 module purge
-module load $GCC_MODULE
-module load $BZIP2_MODULE
+EOF
+
+if [ -n "$GCC_MODULE" ]; then
+    echo "module load $GCC_MODULE" >> "$VENV_DIR/bin/activate"
+fi
+if [ -n "$BZIP2_MODULE" ]; then
+    echo "module load $BZIP2_MODULE" >> "$VENV_DIR/bin/activate"
+fi
+
+cat >> "$VENV_DIR/bin/activate" <<EOF
 # --------------------------------
 
 EOF
@@ -146,7 +154,7 @@ _install_modeller
 # echo -e "${YELLOW}📦 Installing mdtraj Package ...${NC}"
 # pip install --cache-dir "$PIP_CACHE_DIR" git+https://github.com/mdtraj/mdtraj
 
-# --- 4. CABS-flex Core (Editable Mode) ---
+# --- 4. CABS-flex Core ---
 cd "$CABS_FLEX_LOCAL_PATH"
 echo "{\"cg2all_env_prefix\": \"$CG2ALL_VENV_DIR\"}" > "$CABS_FLEX_LOCAL_PATH/CABS/data/cabs_paths.json"
 echo -e "${YELLOW}📦 Installing CABSflex from local source...${NC}"
@@ -174,8 +182,16 @@ export PYTHONNOUSERSITE=1
 export DGL_DISABLE_GRAPHBOLT=1
 
 module purge
-module load $GCC_MODULE
-module load $BZIP2_MODULE
+EOF
+
+if [ -n "$GCC_MODULE" ]; then
+    echo "module load $GCC_MODULE" >> "$CG2ALL_VENV_DIR/bin/activate"
+fi
+if [ -n "$BZIP2_MODULE" ]; then
+    echo "module load $BZIP2_MODULE" >> "$CG2ALL_VENV_DIR/bin/activate"
+fi
+
+cat >> "$CG2ALL_VENV_DIR/bin/activate" <<EOF
 # --------------------------------
 
 EOF
@@ -193,7 +209,7 @@ pip install --cache-dir "$PIP_CACHE_DIR" torch==2.1.2+cpu torchvision==0.16.2+cp
 # pip install " --no-deps torchdata==0.6.1
 
 echo -e "${YELLOW}📦 Installing dgl ...${NC}"
-pip install --no-deps dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
+pip install --cache-dir "$PIP_CACHE_DIR" --no-deps dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
 
 echo -e "${YELLOW}📦 Installing e3nn ...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" --no-binary e3nn e3nn

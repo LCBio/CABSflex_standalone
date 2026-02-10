@@ -181,6 +181,7 @@ tmp/
 # Beta release archives
 *.tar.gz
 cabsflex-beta-*/
+beta-distribution
 
 # VS Code settings (optional - remove if you want to commit these)
 .vscode/
