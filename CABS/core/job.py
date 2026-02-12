@@ -34,6 +34,7 @@ from CABS.utils import utils
 from CABS.utils.align import AlignError, align_to, save_csv
 from CABS.utils.filter import Filter
 from CABS.utils.utils import convert_cg_to_all
+from CABS.config_loader import get_config_section, get_cg2all_env_prefix
 
 _name = "JOB"
 
@@ -57,6 +58,7 @@ class CABSTask(metaclass=ABCMeta):
         self.ca_rest_add: Optional[str] = kwargs.get("ca_rest_add")
         self.ca_rest_file: Optional[str] = kwargs.get("ca_rest_file")
         self.ca_rest_weight: Optional[float] = kwargs.get("ca_rest_weight")
+        self.cg2all_env_prefix: Optional[str] = kwargs.get("cg2all_env_prefix")
         self.clustering_iterations: Optional[int] = kwargs.get("clustering_iterations")
         self.clustering_medoids: Optional[int] = kwargs.get("clustering_medoids")
         self.contact_map_colors: Optional[List[ColorHex]] = kwargs.get(
@@ -168,6 +170,17 @@ class CABSTask(metaclass=ABCMeta):
                     _name,
                     f"{self.work_dir} already exists and is not a directory. Choose different name.",
                 )
+
+        if not self.cg2all_env_prefix:
+            try:
+                # Use the new dedicated utility function
+                discovered_path = get_cg2all_env_prefix()
+                if discovered_path:
+                    self.cg2all_env_prefix = discovered_path
+                    logger.info(_name, f"Discovered cg2all environment path: {self.cg2all_env_dir}")
+            except Exception:
+                logger.debug(_name, "Skipping automatic cg2all environment discovery.")
+                pass
 
         if self.dssp_command:
             pdblib.Pdb.DSSP_COMMAND = self.dssp_command
@@ -596,6 +609,16 @@ class CABSTask(metaclass=ABCMeta):
 
     def setup_cabs_run(self):
         logger.info(module_name="CABS", msg="Setting up CABS simulation.")
+
+        # --- Memory Warning Logic ---
+        n_mols = len(self.initial_complex.chain_list)
+        if n_mols > 10:
+            logger.warning(
+                "CABS",
+                f"Large system detected ({n_mols} chains). This simulation may require "
+                "significant RAM per replica. Ensure enough memory is available."
+            )
+
         # Initializing CabsRun instance
         self.cabsrun = cabs.CabsRun(
             protein_complex=self.initial_complex,
@@ -762,6 +785,7 @@ class CABSTask(metaclass=ABCMeta):
                                 iter=i,
                                 reference_pdb=self.input_protein,
                                 renumber_flag=self.renumber,
+                                env_prefix=self.cg2all_env_prefix
                             )
                             if attempt_cyclization:
                                 pth_tmp = os.path.join(

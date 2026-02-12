@@ -181,6 +181,7 @@ tmp/
 # Beta release archives
 *.tar.gz
 cabsflex-beta-*/
+beta-distribution
 
 # VS Code settings (optional - remove if you want to commit these)
 .vscode/
@@ -190,3 +191,6 @@ cabsflex-beta-*/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+
+#Back up files
+CABS/structures/pdblib_old.py

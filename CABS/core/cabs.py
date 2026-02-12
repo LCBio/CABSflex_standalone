@@ -5,6 +5,8 @@ import os
 from random import randint
 import re
 from subprocess import PIPE, Popen
+import subprocess
+import sys
 import tarfile
 from threading import Thread
 from typing import List, Tuple
@@ -353,6 +355,13 @@ class CabsRun(Thread):
             out, err = build_proc.communicate(
                 lines.encode("utf-8")
             )  # changed to encode
+            
+            
+            # On macOS (Darwin), binaries must be ad-hoc signed to execute after being compiled or modified locally. 
+            if sys.platform == "darwin":
+                import subprocess
+                subprocess.run(["codesign", "-s", "-", "-f", run_cmd], check=True)
+
             if err:
                 warning_message = err.decode("utf-8").split("\n")[-2]  # added
                 logger.warning(_name, warning_message)  # inserteds

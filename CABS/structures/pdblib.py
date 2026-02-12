@@ -1,37 +1,48 @@
-"""Module to handle pdb files."""
+"""
+Modernized PDB and mmCIF handler for CABS-flex.
 
-from copy import deepcopy
-import gzip
-import json
+This module provides a pure-Python interface for loading, fetching, and
+analyzing protein structures. It removes dependencies on external DSSP
+binaries by using MDTraj and supports the modern mmCIF format required
+for large structures and AlphaFold models.
+"""
+
 import os
-import re
-from subprocess import PIPE, Popen
-from time import sleep
-from typing import List, Optional, Tuple
-
+import gzip
+import string
 import requests as req
-from requests.exceptions import ConnectionError, HTTPError
+from typing import Dict, List, Optional, Tuple
 
+# Biopython for robust structural parsing
+from Bio.PDB import PDBParser, MMCIFParser
+
+# External dependencies for secondary structure assignment
+try:
+    import mdtraj as md
+except ImportError:
+    md = None
+
+# CABS internal imports
+from CABS.config_loader import get_config_section
 from CABS.constants import AA_NAMES, AA_SUB_NAMES
 from CABS.io import logger
 from CABS.structures.atom import Atom, Atoms
+from CABS.structures.vector3d import Vector3d
 
-_name = "PDB"  # module name for logger
-# PDB_CACHE = os.path.join(os.path.expanduser('~'), '.cabsPDBcache')
-# try:
-#     os.makedirs(PDB_CACHE)
-# except FileExistsError:
-#     pass
+_name = "PDB"
 
 
 class Pdb:
     """
-    Pdb parser.
+    Unified parser and fetcher for PDB and mmCIF structures.
+
+    Attributes:
+        atoms (Atoms): Internal CABS Atoms collection.
+        source_file (str): Path to the local file used for loading.
     """
 
-    DSSP_COMMAND: str = "mkdssp"
-
     class InvalidPdbInput(Exception):
+        """Raised when a structure cannot be retrieved or parsed."""
         pass
 
     def __init__(
@@ -44,472 +55,309 @@ class Pdb:
         remove_water: bool = True,
         remove_hetero: bool = True,
         verify: bool = False,
-        no_exit: bool = False,  # does not exit on error, raises InvalidPdbInput instead
+        no_exit: bool = False,
         create_from_aa: bool = False,
     ) -> None:
+        """
+        Loads a structure from a file path or the RCSB database.
+
+        Args:
+            source: Path to file (e.g., 'prot.cif') or PDB code (e.g., '1abc:A').
+            selection: Atom selection string (e.g., 'name CA').
+            pdb_cache: Directory to store downloaded structures.
+            remove_alternative_locations: Only keep ' ' or 'A' locations.
+            fix_non_standard_aa: Map modified residues to standard AAs.
+            remove_water: Exclude HOH molecules.
+            remove_hetero: Exclude HETATM records.
+            verify: Unused in this version (kept for API compatibility).
+            no_exit: If True, raise Exception instead of calling sys.exit.
+            create_from_aa: Suppress log messages if called during reconstruction.
+        """
         if not create_from_aa:
-            logger.debug(_name, f"Creating Pdb object from {source}")
+            logger.debug(_name, f"Initializing structure from: {source}")
+
         self.atoms = Atoms()
+        self.source_file = ""
 
+        # 1. Parse source string for ID and optional chain selection
         words = source.split(":")
+        identifier = words[0]
+        chains = words[1] if len(words) > 1 else ""
+
+        # 2. Resolve structure path (Local file vs RCSB fetch)
         try:
-            name, rec, pep = words
-            chains = rec + pep
-        except ValueError:
-            try:
-                name, chains = words
-            except ValueError:
-                name = words[0]
-                chains = ""
+            if os.path.exists(identifier):
+                self.source_file = identifier
+            else:
+                self.source_file = self.fetch(identifier, pdb_cache)
+        except Exception as e:
+            if no_exit:
+                raise Pdb.InvalidPdbInput(str(e))
+            logger.exit_program(_name, f"Failed to resolve structure: {identifier}", exc=e)
 
+        # 3. Load coordinates using Biopython
         try:
-            self.body = self.read(name)
-            self.name = os.path.basename(name).split(".")[0]
-        except OSError:
-            try:
-                self.body = self.read(self.fetch(name, pdb_cache))
-                self.name = name
-            except ConnectionError as e:
-                if no_exit:
-                    raise Pdb.InvalidPdbInput(str(e))
-                else:
-                    logger.exit_program(
-                        module_name=_name,
-                        msg="Cannot connect to the PDB database",
-                        exc=e,
-                    )
-            except HTTPError as e:
-                if no_exit:
-                    raise Pdb.InvalidPdbInput(str(e))
-                else:
-                    logger.exit_program(
-                        module_name=_name, msg=f"Invalid PDB code: {name}", exc=e
-                    )
-            except OSError as e:
-                if no_exit:
-                    raise Pdb.InvalidPdbInput(str(e))
-                else:
-                    logger.exit_program(
-                        module_name=_name, msg=f"File {name} not found", exc=e
-                    )
+            is_cif = self.source_file.lower().endswith((".cif", ".cif.gz"))
+            parser = MMCIFParser(QUIET=True) if is_cif else PDBParser(QUIET=True)
 
-        try:
-            if not create_from_aa:
-                logger.debug(_name, f"Processing {name}")
-            current_model = 0
-            # Ensure body is a string (handle both Python 2 and 3 compatibility)
-            if isinstance(self.body, bytes):
-                self.body = self.body.decode("utf-8")
-            new_body = "HEADER" + 74 * " " + "\n"
-            for line in self.body.split("\n"):
-                match = re.match(r"(ATOM|HETATM)", line)
-                if match:
-                    self.atoms.append(Atom(line, current_model))
-                    new_body += line + "\n"
-                else:
-                    match = re.match(r"MODEL\s+(\d+)", line)
-                    if match:
-                        current_model = int(match.group(1))
-                        new_body += line + "\n"
-                    else:
-                        match = re.match(r"(TER|ENDMDL)", line)
-                        if match:
-                            new_body += line + "\n"
-            self.body = new_body
+            if self.source_file.endswith(".gz"):
+                with gzip.open(self.source_file, "rt") as handle:
+                    structure = parser.get_structure("tmp", handle)
+            else:
+                structure = parser.get_structure("tmp", self.source_file)
 
-            if not len(self.atoms):
-                raise Exception(f"{source} contains no atoms")
+            # CABS v3: Always use the first model provided in the file
+            self._load_biopython_model(
+                structure[0],
+                remove_alt=remove_alternative_locations,
+                fix_aa=fix_non_standard_aa,
+                no_water=remove_water,
+                no_hetero=remove_hetero
+            )
 
+            # 4. Handle Selections
             if chains:
-                if not create_from_aa:
-                    logger.debug(_name, f"Selected chains {chains}")
-
-                actual_chains = "".join(self.atoms.list_chains().keys())
-                extra_chains = set(chains) - set(actual_chains)
-
-                if extra_chains:
-                    msg = (
-                        f"The chain ID(s): {' '.extra_chains} are not present in {name}"
-                    )
-                    raise Exception(msg)
-
-                chains_selection = "chain {}".format(",".join(chains))
-                self.atoms = self.atoms.select(chains_selection)
-
-            if remove_alternative_locations:
-                if not create_from_aa:
-                    logger.debug(_name, f"Removing alternative locations from {name}")
-                self.atoms.remove_alternative_locations()
-
-            if remove_water:
-                if not create_from_aa:
-                    logger.debug(_name, f"Removing water molecules from {name}")
-                self.atoms = self.atoms.drop("resname HOH")
-
-            if not len(self.atoms):
-                raise Exception(f"{source} contains no atoms")
-
-            if fix_non_standard_aa:
-                if not create_from_aa:
-                    logger.debug(_name, f"Scanning {name} for non-standard amino acids")
-                aa_names = [AA_NAMES[k] for k in AA_NAMES]
-                for model in self.atoms.models():
-                    for residue in model.residues():
-                        resname = residue[0].resname
-                        if resname not in aa_names:
-                            if resname not in AA_SUB_NAMES:
-                                logger.warning(
-                                    _name,
-                                    f"Unknown residue {resname} at {residue[0].resid_id()} in {name}",
-                                )
-                            else:
-                                sub_name = AA_SUB_NAMES[resname]
-                                for atom in residue:
-                                    atom.resname = sub_name
-                                    atom.hetatm = False
-                                logger.warning(
-                                    _name,
-                                    f"Replacing {resname} -> {sub_name} for {residue[0].resid_id()} in {name}",
-                                )
-
-            if remove_hetero:
-                if not create_from_aa:
-                    logger.debug(_name, f"Removing heteroatoms from {name}")
-                self.atoms = self.atoms.drop("hetero")
-
-            self.all_atoms = deepcopy(self.atoms)
-
+                self.atoms = self.atoms.select(f"chain {','.join(chains)}")
             if selection:
-                if not create_from_aa:
-                    logger.debug(_name, f"Selecting [{selection}] from {name}")
                 self.atoms = self.atoms.select(selection)
 
-            if " " in set([i.chid for i in self.atoms]):
-                raise ValueError(
-                    "Atoms with empty chain ID in selected part of PDB file detected."
-                )
-
             if not len(self.atoms):
-                raise Exception(f"{source} contains no atoms")
-
-            if chains and verify:
-                actual_chains = "".join(self.atoms.list_chains().keys())
-                logger.debug(
-                    module_name=_name,
-                    msg=f"Matching declared [{chains}] with actual [{actual_chains}] chain IDs in {name}.",
-                )
-                if set(chains) != set(actual_chains):
-                    msg = f"Mismatch in chain IDs in {name}: {chains} differs from {actual_chains}"
-                    logger.warning(_name, msg)
-                    raise Exception(msg)
+                raise Exception(f"Zero atoms were loaded from {source} after selection/filtering.")
 
         except Exception as e:
             if no_exit:
                 raise Pdb.InvalidPdbInput(str(e))
-            else:
-                logger.exit_program(module_name=_name, msg=str(e), exc=e)
+            logger.exit_program(_name, f"Parsing error in {self.source_file}: {e}", exc=e)
 
-    @staticmethod
-    def fetch(pdb_code: str, pdb_cache: str, force_download: bool = False) -> str:
-        # Strip .pdb extension if present
-        if pdb_code.lower().endswith(".pdb"):
-            pdb_code = pdb_code[:-4]
+    def _load_biopython_model(self, model, remove_alt, fix_aa, no_water, no_hetero):
+        """
+        Converts Biopython model to CABS Atoms with mmCIF chain mapping.
+        Includes safety check for the 62-chain limit.
+        """
+        # Pool for renaming chains (e.g., 'AA' -> 'A') to maintain Fortran compatibility
+        char_pool = iter(string.ascii_uppercase + string.ascii_lowercase + string.digits)
+        chain_map = {}
 
-        if not re.match(r"[1-9][0-9A-Za-z]{3}", pdb_code):
-            raise OSError
+        # Pre-identify existing single-character chains to avoid collisions
+        existing_ids = {chain.id for chain in model if len(chain.id) == 1}
 
-        PDB_CACHE = os.path.join(os.path.expanduser(pdb_cache), ".cabsPDBcache")
-        try:
-            os.makedirs(PDB_CACHE)
-        except FileExistsError:
-            pass
-        except OSError:
-            PDB_CACHE = os.path.join(os.path.expanduser("~"), ".cabsPDBcache")
-            try:
-                os.makedirs(PDB_CACHE)
-            except FileExistsError:
-                pass
+        for chain in model:
+            chid = chain.id
+            # Map multi-char mmCIF chains to 1-char for Fortran compatibility
+            if len(chid) > 1 or chid == " ":
+                if chid not in chain_map:
+                    try:
+                        new_id = next(char_pool)
+                        while new_id in existing_ids:
+                            new_id = next(char_pool)
+                        chain_map[chid] = new_id
+                        logger.debug(_name, f"Mapping mmCIF chain {chid} -> {new_id}")
+                    except StopIteration:
+                        logger.exit_program(_name, "Structure exceeds 62 chains (CABS limit).")
+                chid = chain_map[chid]
 
-        pdb_low = pdb_code.lower()
-        path = os.path.join(PDB_CACHE, pdb_low[1:3])
-        try:
-            os.makedirs(path)
-        except OSError:
-            pass
+            for residue in chain:
+                resname = residue.get_resname()
+                if no_water and resname == "HOH": continue
+                if no_hetero and residue.id[0] != " ": continue
 
-        filename = os.path.join(path, "%s.pdb.gz" % pdb_low)
+                if fix_aa and resname not in AA_NAMES.values():
+                    resname = AA_SUB_NAMES.get(resname, resname)
 
-        if not os.path.isfile(filename) or force_download:
-            logger.debug(_name, f"Downloading {pdb_low}")
-            url = f"https://files.rcsb.org/download/{pdb_low}.pdb.gz"
-            r = req.get(url)
-            r.raise_for_status()
-            with open(filename, "wb") as f:
-                f.write(r.content)
+                resnum, icode = residue.id[1], residue.id[2].strip()
 
-        return filename
+                for atom in residue:
+                    if remove_alt and atom.get_altloc() not in (" ", "A"):
+                        continue
 
-    @staticmethod
-    def read(filename: str) -> str:
-        try:
-            with gzip.open(filename, "rb") as f:
-                content = f.read()
-        except OSError:
-            with open(filename, "rb") as f:
-                content = f.read()
-        return content.decode("utf-8") if isinstance(content, bytes) else content
-
-    def run_dssp_command(
-        self, command: List[str]
-    ) -> Tuple[Optional[str], Optional[str], int]:
-        """Run a subprocess command and return the output, error, and return code."""
-        try:
-            proc = Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-            stdout, stderr = proc.communicate(input=self.body.encode("utf-8"))
-            out = stdout.decode("utf-8")
-            err = stderr.decode("utf-8")
-            if stderr:
-                if err.find("output-format") == -1:
-                    logger.warning(
-                        module_name=_name, msg="DSSP ERROR: %s" % err.replace("\n", " ")
+                    self.atoms.append(Atom(
+                        model=model.id,
+                        name=atom.get_name(),  # Use get_name()
+                        resname=residue.get_resname(),
+                        chid=chid,             # The mapped chain ID
+                        resnum=residue.id[1],  # Residue number from Biopython residue tuple
+                        icode=residue.id[2].strip(), # Insertion code from Biopython residue tuple
+                        coord=Vector3d(atom.get_coord()), # <-- Correct method for coordinates
+                        occ=atom.get_occupancy(), # <-- Correct method for Occupancy
+                        bfac=atom.get_bfactor(),  # <-- CORRECTED to get_bfactor()
+                        hetatm=(residue.id[0] != " ")
+                        )
                     )
-                return None, None, -1
-            return out, err, proc.returncode
-        except OSError:
-            return None, None, -1
 
-    def dssp(self, work_dir: str = "", dssp_from_aa: bool = False) -> None:
-        """Runs dssp on the read pdb file and returns a dictionary with secondary structure"""
+    def dssp(self, work_dir: str = "", dssp_from_aa: bool = False) -> Dict[str, str]:
+        """
+        Calculates secondary structure assignment using MDTraj (Pure Python).
 
-        commands_to_try = [
-            [self.DSSP_COMMAND, "--output-format", "dssp", "/dev/stdin"],
-            [self.DSSP_COMMAND, "/dev/stdin"],
-            ["mkdssp", "--output-format", "dssp", "/dev/stdin"],
-            ["dssp", "/dev/stdin"],
-        ]
+        This replaces the external mkdssp binary call. It maps residues using
+        the standard CABS format 'resnum[icode]:chid' to ensure compatibility
+        with the rest of the simulation pipeline.
 
-        out, err, return_code = None, None, -1
-        for command in commands_to_try:
-            out, err, return_code = self.run_dssp_command(command)
-            if return_code == 0:
-                if not dssp_from_aa:
-                    logger.debug(_name, "DSSP successful")
-                break
+        Returns:
+            Dict[str, str]: Map of residue IDs (e.g., "123A:A") to SS codes (H, E, C).
+        """
+        if md is None:
+            logger.warning(_name, "MDTraj not found. Defaulting to Coil.")
+            return {}
 
-        if return_code != 0:
-            logger.warning(module_name=_name, msg="DSSP was not ran at all.")
-            return None
+        logger.debug(_name, "Assigning secondary structure via MDTraj...")
+        try:
+            # MDTraj handles PDB, mmCIF, and .gz handles automatically
+            traj = md.load(self.source_file)
+            labels = md.compute_dssp(traj, simplified=True)[0]
 
-        if work_dir and logger.output_dssp():
-            output_dssp = os.path.join(work_dir, "output_data", "DSSP_output.txt")
-            odir = os.path.dirname(output_dssp)
-            if not os.path.isdir(odir):
-                os.makedirs(odir)
-            logger.to_file(
-                filename=output_dssp,
-                content=out,
-                msg="Saving DSSP output to %s" % output_dssp,
-            )
+            sec = {}
+            for i, res in enumerate(traj.topology.residues):
+                # Ensure the key format matches Atom.resid_id(): "resnum[icode]:chid"
+                icode = getattr(res, 'insertion_code', '')
+                key = f"{res.resSeq}{icode}:{res.chain.chain_id}"
+                sec[key] = labels[i]
 
-        sec = {}
-        p = "^([0-9 ]{5}) ([0-9 ]{4}.)([A-Z ]) ([A-Z])  ([HBEGITSP ])(.*)$"
+            logger.debug(_name, "DSSP assignment was performed with MDTraj.")
 
-        for line in out.split("\n"):
-            m = re.match(p, line)
-            if m:
-                key = str(m.group(2).strip() + ":" + m.group(3))
-                if m.group(5) in "HGIP":
-                    val = "H"
-                elif m.group(5) in "BE":
-                    val = "E"
-                elif m.group(5) in "T":
-                    val = "T"
-                else:
-                    val = "C"
-                sec[key] = val
+            # If log level is high enough, save the SS string to a file for the user
+            if work_dir and logger.output_dssp():
+                dssp_out = os.path.join(work_dir, "output_data", "DSSP_output.txt")
+                logger.to_file(dssp_out, "".join(labels), f"Saved SS sequence to {dssp_out}")
 
-        return sec
+            return sec
+        except Exception as e:
+            logger.warning(_name, f"MDTraj-DSSP assignment failed: {e}. Reverting to defaults.")
+            return {}
 
-    def mk_ss_header(self, dssp_from_aa=False):
+    @staticmethod
+    def fetch(identifier: str, pdb_cache: str) -> str:
+        """
+        Fetches structure coordinates using an API-validated mirror strategy.
+
+        All URLs are retrieved from cabs_constants.json. Uses RCSB Data API
+        to determine if a PDB format fallback is available.
+        """
+        # 1. Load Configuration
+        try:
+            remote_cfg = get_config_section("cabs_constants", "remote_services")
+            mirrors = remote_cfg["mirrors"]
+            api_base = remote_cfg["rcsb_api"]
+        except (KeyError, FileNotFoundError):
+            # Fail-safe defaults
+            mirrors = ["https://files.rcsb.org/download/"]
+            api_base = "https://data.rcsb.org/rest/v1/core/entry/"
+
+        entry_id = identifier.lower()
+
+        # 2. Setup Cache
+        cache_dir = os.path.join(os.path.expanduser(pdb_cache), ".cabsPDBcache")
+        os.makedirs(cache_dir, exist_ok=True)
+        cif_path = os.path.join(cache_dir, f"{entry_id}.cif.gz")
+        pdb_path = os.path.join(cache_dir, f"{entry_id}.pdb.gz")
+
+        # 3. Check Local Cache
+        if os.path.exists(cif_path): return cif_path
+        if os.path.exists(pdb_path): return pdb_path
+
+        # 4. API Validation
+        logger.info(_name, f"Querying RCSB API for: {entry_id}")
+        can_use_pdb = False
+        try:
+            api_resp = req.get(f"{api_base}{entry_id}", timeout=10)
+            if api_resp.status_code == 200:
+                metadata = api_resp.json()
+                db_status = metadata.get("pdbx_database_status", {})
+                can_use_pdb = (db_status.get("pdb_format_compatible", "N") == "Y")
+            else:
+                logger.warning(_name, f"Entry {entry_id} not indexed in API. Trying mmCIF only.")
+        except req.RequestException:
+            # Fallback guessing if API is unreachable (CSMs/AlphaFold don't start with digits)
+            can_use_pdb = not entry_id.startswith(("af-", "ma-"))
+
+        # 5. Multi-Mirror Download Strategy
+        for base_url in mirrors:
+            try:
+                # Priority 1: mmCIF (Modern Standard)
+                dl_url = f"{base_url}{entry_id}.cif.gz"
+                r = req.get(dl_url, timeout=15)
+                if r.status_code == 200:
+                    with open(cif_path, "wb") as f: f.write(r.content)
+                    return cif_path
+
+                # Priority 2: PDB (Fallback if compatible)
+                if can_use_pdb:
+                    dl_url = f"{base_url}{entry_id}.pdb.gz"
+                    r = req.get(dl_url, timeout=15)
+                    if r.status_code == 200:
+                        with open(pdb_path, "wb") as f: f.write(r.content)
+                        return pdb_path
+            except req.RequestException:
+                continue # Try next mirror
+
+        raise ConnectionError(
+            f"Failed to fetch {entry_id} from all configured mirrors. "
+            "Check internet connection or ID validity."
+        )
+
+    def mk_ss_header(self, dssp_from_aa: bool = False) -> str:
+        """
+        Generates PDB-compliant HELIX and SHEET records.
+
+        This reconstructs the header information needed by visualization tools
+        based on the secondary structure assigned by MDTraj.
+        """
         dssp_data = self.dssp(dssp_from_aa=dssp_from_aa)
+        if not dssp_data: return ""
 
         def identify_boundaries(ss_type):
-            def is_start(residue_triplet):
-                """Returns 1 if a residue starts an SS sequence of the specified type."""
-                prev, current, _ = residue_triplet
-                if current[1] != ss_type:
-                    return 0
-                if prev[1] != current[1]:
-                    return 1
-                return 0
-
-            def is_end(residue_triplet):
-                """Returns 1 if a residue ends an SS sequence of the specified type."""
-                _, current, next_ = residue_triplet
-                if current[1] != ss_type:
-                    return 0
-                if current[1] != next_[1]:
-                    return 1
-                return 0
-
+            """Closure to find start and end of contiguous blocks."""
+            def is_start(t):
+                prev, curr, _ = t
+                return curr[1] == ss_type and (prev is None or prev[1] != ss_type)
+            def is_end(t):
+                _, curr, next_ = t
+                return curr[1] == ss_type and (next_ is None or next_[1] != ss_type)
             return is_start, is_end
 
-        def sliding_window(sequence):
-            """Creates a triplet sliding window over a sequence."""
-            sequence = [None] + list(sequence) + [None]
-            return zip(sequence, sequence[1:], sequence[2:])
+        def sliding_window(seq):
+            """Creates a window for boundary detection."""
+            s = list(seq)
+            padded = [None] + s + [None]
+            return zip(padded, padded[1:], padded[2:])
 
-        extract_middle_residue = lambda triplet: triplet[1][0]
+        items = list(dssp_data.items())
+        windows = list(sliding_window(items))
+        get_id = lambda t: t[1][0]
 
-        residue_triplets = list(sliding_window(dssp_data.items()))
-
-        # Identify helices (H)
-        helix_start, helix_end = identify_boundaries("H")
-        helix_ranges = list(
-            zip(
-                map(extract_middle_residue, filter(helix_start, residue_triplets)),
-                map(extract_middle_residue, filter(helix_end, residue_triplets)),
-            )
-        )
-
-        # Identify sheets (E)
-        sheet_start, sheet_end = identify_boundaries("E")
-        sheet_ranges = list(
-            zip(
-                map(extract_middle_residue, filter(sheet_start, residue_triplets)),
-                map(extract_middle_residue, filter(sheet_end, residue_triplets)),
-            )
-        )
-
-        output_lines = []
-
-        # Generate HELIX records
-        serial_number = 0
-        helix_id = ""
-        helix_class = 1
-        helix_comment = ""
+        output = []
         ca_atoms = self.atoms.select("NAME CA")
 
-        for start_residue, end_residue in helix_ranges:
-            serial_number += 1
-            start_num, start_chain = start_residue.split(":")
-            start_atom = max(
-                self.atoms.select("RESNUM %s" % start_num)
-                .select("CHAIN %s" % start_chain)
-                .select("NAME CA")
-            )
-            end_num, end_chain = end_residue.split(":")
-            end_atom = max(
-                self.atoms.select("RESNUM %s" % end_num)
-                .select("CHAIN %s" % end_chain)
-                .select("NAME CA")
-            )
-            helix_length = ca_atoms.atoms.index(end_atom) - ca_atoms.atoms.index(
-                start_atom
-            )
-            helix_record = (
-                "HELIX",
-                serial_number,
-                helix_id,
-                start_atom.resname,
-                start_chain,
-                start_atom.resnum,
-                start_atom.icode,
-                end_atom.resname,
-                end_chain,
-                end_atom.resnum,
-                end_atom.icode,
-                helix_class,
-                helix_comment,
-                helix_length,
-            )
-            line = (
-                "%-6s %3i %3s %3s %1s %4i%1s %3s %1s %4i%1s%2i%30s %5i\n" % helix_record
-            )
-            output_lines.append(line)
+        for ss_type, label in [("H", "HELIX"), ("E", "SHEET")]:
+            is_start, is_end = identify_boundaries(ss_type)
+            ranges = list(zip(map(get_id, filter(is_start, windows)),
+                              map(get_id, filter(is_end, windows))))
 
-        # Generate SHEET records
-        serial_number = 0
-        sheet_id = ""
-        num_strands = 1
-        strand_sense = 0
+            for i, (start, end) in enumerate(ranges, 1):
+                try:
+                    s_num, s_ch = start.split(":")
+                    e_num, e_ch = end.split(":")
+                    sa = self.atoms.select(f"RESNUM {s_num} and CHAIN {s_ch} and NAME CA")[0]
+                    ea = self.atoms.select(f"RESNUM {e_num} and CHAIN {e_ch} and NAME CA")[0]
 
-        for start_residue, end_residue in sheet_ranges:
-            serial_number += 1
-            start_num, start_chain = start_residue.split(":")
-            start_atom = max(
-                self.atoms.select("RESNUM %s" % start_num)
-                .select("CHAIN %s" % start_chain)
-                .select("NAME CA")
-            )
-            end_num, end_chain = end_residue.split(":")
-            end_atom = max(
-                self.atoms.select("RESNUM %s" % end_num)
-                .select("CHAIN %s" % end_chain)
-                .select("NAME CA")
-            )
-            sheet_record = (
-                "SHEET",
-                serial_number,
-                sheet_id,
-                num_strands,
-                start_atom.resname,
-                start_chain,
-                start_atom.resnum,
-                start_atom.icode,
-                end_atom.resname,
-                end_chain,
-                end_atom.resnum,
-                end_atom.icode,
-                strand_sense,
-                "",
-            )
-            line = (
-                "%-6s %3i %3s%2i %3s %1s%4i%1s %3s %1s%4i%1s%2i %29s\n" % sheet_record
-            )
-            output_lines.append(line)
+                    if label == "HELIX":
+                        l = ca_atoms.atoms.index(ea) - ca_atoms.atoms.index(sa) + 1
+                        # PDB HELIX Record Format
+                        output.append(f"HELIX  {i:3d} {i:3d} {sa.resname:>3} {s_ch:1} {sa.resnum:4d}{sa.icode:1} {ea.resname:>3} {e_ch:1} {ea.resnum:4d}{ea.icode:1} {1:2d}                               {l:5d}\n")
+                    else:
+                        # PDB SHEET Record Format
+                        output.append(f"SHEET  {i:3d} {i:3d} 1 {sa.resname:>3} {s_ch:1}{sa.resnum:4d}{sa.icode:1} {ea.resname:>3} {e_ch:1}{ea.resnum:4d}{ea.icode:1}  0\n")
+                except (IndexError, ValueError):
+                    continue
 
-        return "".join(output_lines)
+        return "".join(output)
 
-    @staticmethod
-    def xssp(filename, server="https://www3.cmbi.umcn.nl/xssp"):
-        url_api = server + "/api/%s/pdb_file/dssp/"
-
-        files = {"file_": open(filename, "rb")}
-
-        r = req.post(url=url_api % "create", files=files)
-        r.raise_for_status()
-        job_id = json.loads(r.content)["id"]
-        while True:
-            r = req.get(url_api % "status" + job_id)
-            r.raise_for_status()
-            status = json.loads(r.content)["status"]
-
-            if status == "SUCCESS":
-                r = req.get(url_api % "result" + job_id)
-                r.raise_for_status()
-                out = json.loads(r.content)["result"]
-                err = ""
-                break
-            elif status in ["FAILURE", "REVOKED"]:
-                err = json.loads(r.content)["message"]
-                out = ""
-                break
-            else:
-                sleep(1)
-
-        return out, err
-
-    def save_initial_pdb(self, work_dir=""):
+    def save_initial_pdb(self, work_dir: str = "") -> None:
+        """Saves the loaded coordinates as a standard PDB file."""
         if work_dir:
-            initial_pdb = os.path.join(work_dir, "output_pdbs", "start_all.pdb")
-            odir = os.path.dirname(initial_pdb)
-            if not os.path.isdir(odir):
-                os.makedirs(odir)
-            self.all_atoms.save_to_pdb(initial_pdb)
-
-    def __str__(self) -> str:
-        return self.body
+            header = self.mk_ss_header()
+            path = os.path.join(work_dir, "output_pdbs", "start_all.pdb")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            self.atoms.save_to_pdb(path, header=header)
 
     def __repr__(self) -> str:
-        return f"<PDB from {self.name}, {len(self.atoms)} atoms>"
+        return f"<PdbLoader source={self.source_file}>"
