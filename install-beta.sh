@@ -119,19 +119,122 @@ sed -i '/dgl/d' environment.yml
 sed -i '/cg2all/d' environment.yml
 sed -i '/fair-esm/d' environment.yml
 
+# Function to get micromamba for fast solving
+setup_micromamba() {
+    if ! command -v micromamba &> /dev/null; then
+        echo -e "${YELLOW}🚀 Downloading micromamba for faster dependency resolution...${NC}"
+        # Download micromamba binary
+        OS_TYPE=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH_TYPE=$(uname -m)
+        if [ "$ARCH_TYPE" = "x86_64" ]; then ARCH_TYPE="64"; fi
+        if [ "$ARCH_TYPE" = "aarch64" ]; then ARCH_TYPE="aarch64"; fi
+        
+        MAMBA_URL="https://micro.mamba.pm/api/micromamba/${OS_TYPE}-${ARCH_TYPE}/latest"
+        curl -Ls "$MAMBA_URL" | tar -xj -C "$TEMP_DIR" bin/micromamba
+        export MAMBA_EXE="$TEMP_DIR/bin/micromamba"
+        export MAMBA_ROOT_PREFIX="$TEMP_DIR/mamba"
+        echo -e "${GREEN}✅ Micromamba ready${NC}"
+    else
+        export MAMBA_EXE=$(which micromamba)
+        echo -e "${GREEN}✅ Using system micromamba${NC}"
+    fi
+}
+
 # Create environment
 echo -e "${YELLOW}🔧 Creating/Updating conda environment '${ENV_NAME}'...${NC}"
+setup_micromamba
+
+# Isolate Micromamba solve from system Python packages
+echo -e "${BLUE}ℹ️  Isolating installation from system Python...${NC}"
+export PYTHONPATH=""
+export PYTHONHOME=""
+export PYTHONUSERBASE=""
+
+# Use micromamba for the solve and creation - it's much faster
+# We explicitly list channels and packages to be 100% sure they are picked up
 if conda env list | grep -q "^${ENV_NAME} "; then
-    echo -e "${BLUE}ℹ️  Updating existing environment...${NC}"
-    conda env update -f environment.yml -n $ENV_NAME
+    echo -e "${BLUE}ℹ️  Updating existing environment with micromamba...${NC}"
+    "$MAMBA_EXE" install -v -y -n $ENV_NAME -c conda-forge -c bioconda -c salilab python=3.10 pip modeller dssp
 else
-    echo -e "${BLUE}ℹ️  Creating new environment...${NC}"
-    conda env create -f environment.yml -n $ENV_NAME
+    echo -e "${BLUE}ℹ️  Creating new environment with micromamba...${NC}"
+    CONDA_ROOT=$(conda info --base)
+    "$MAMBA_EXE" create -v -y -p "$CONDA_ROOT/envs/$ENV_NAME" -c conda-forge -c bioconda -c salilab python=3.10 pip modeller dssp
+fi
+
+# Function to install Modeller from source as fallback
+install_modeller_source() {
+    echo -e "${YELLOW}📥 Installing Modeller from source (fallback)...${NC}"
+    local mod_version="10.7"
+    local arch_index="2" # x86_64-intel8
+    local install_dir="$CONDA_ROOT/envs/$ENV_NAME/modeller"
+    
+    cd "$TEMP_DIR"
+    curl -L "https://salilab.org/modeller/${mod_version}/modeller-${mod_version}.tar.gz" -o "modeller.tar.gz" --fail
+    tar -xzf "modeller.tar.gz"
+    cd "modeller-${mod_version}"
+
+    echo -e "${YELLOW}🤖 Running Modeller Installer...${NC}"
+    ./Install <<EOF
+$arch_index
+$install_dir
+$MODELLER_KEY
+
+
+EOF
+
+    echo -e "${YELLOW}🔗 Linking Modeller to Python...${NC}"
+    local site_pkgs=$("$CONDA_ROOT/envs/$ENV_NAME/bin/python" -c 'import site; print(site.getsitepackages()[0])')
+    echo "$install_dir/modlib" > "$site_pkgs/modeller.pth"
+    echo "$install_dir/lib/x86_64-intel8/python3.3" >> "$site_pkgs/modeller.pth"
+    
+    # Add to bashrc or just export for now
+    export LD_LIBRARY_PATH="$install_dir/lib/x86_64-intel8:$LD_LIBRARY_PATH"
+    echo -e "${GREEN}✅ Modeller source installation complete${NC}"
+}
+
+# Verify Modeller installation and fallback if needed
+if ! "$MAMBA_EXE" list -p "$CONDA_ROOT/envs/$ENV_NAME" | grep -q "modeller"; then
+    echo -e "${YELLOW}⚠️  Modeller not found via Micromamba. Attempting source installation...${NC}"
+    if [ ! -z "$MODELLER_KEY" ]; then
+        install_modeller_source
+    else
+        echo -e "${RED}❌ Error: Modeller key missing. Cannot install from source.${NC}"
+        exit 1
+    fi
 fi
 
 # Activate environment
 eval "$(conda shell.bash hook)"
 conda activate $ENV_NAME
+
+# EXPLICIT PATH UPDATE: Ensure the environment's bin directory is first in PATH
+# Sometimes 'conda activate' doesn't propagate correctly to sub-shells in scripts
+export PATH="$CONDA_ROOT/envs/$ENV_NAME/bin:$PATH"
+echo -e "${BLUE}ℹ️  PATH updated: $(which python)${NC}"
+
+# Install dependencies via Pip for speed and reliability
+echo -e "${YELLOW}📦 Installing dependencies via Pip...${NC}"
+pip install --no-cache-dir \
+    "numpy>=1.20.0" \
+    "matplotlib>=3.5.0" \
+    "requests>=2.25.0" \
+    "biopandas>=0.4.0" \
+    "tqdm>=4.60.0" \
+    "biopython>=1.78" \
+    "mdtraj>=1.9.0" \
+    "scipy>=1.7.0" \
+    "h5py>=3.1.0" \
+    "netcdf4>=1.5.0" \
+    "pytest>=7.0.0" \
+    "pytest-cov>=4.0.0" \
+    "black>=23.0.0" \
+    "ruff>=0.1.0" \
+    "mypy>=1.0.0" \
+    "pre-commit>=3.0.0" \
+    "pytest-mock>=3.6.0" \
+    "pytest-benchmark>=4.0.0" \
+    "pytest-html>=3.1.0" \
+    "bandit>=1.7.0"
 
 # Install CABSflex
 echo -e "${YELLOW}📦 Installing CABSflex...${NC}"
@@ -147,13 +250,14 @@ fi
 # Configure Modeller if key provided
 if [ ! -z "$MODELLER_KEY" ]; then
     echo -e "${YELLOW}🔧 Configuring Modeller...${NC}"
-    # Conda install of modeller (from salilab channel in env.yml) usually lacks config
-    # We find the config.py and patch it
-    MOD_CONFIG=$(python -c "import modlib.modeller.config as c; print(c.__file__)" 2>/dev/null || echo "")
+    # Try multiple ways to find the config file, including environment-specific paths
+    MOD_CONFIG=$(python -c "import modlib.modeller.config as c; print(c.__file__)" 2>/dev/null || \
+                 find "$CONDA_ROOT/envs/$ENV_NAME" -name "config.py" | grep modeller | head -n 1 || echo "")
+    
     if [ ! -z "$MOD_CONFIG" ]; then
         # Replace license line
         sed -i "s/license = '.*'/license = '${MODELLER_KEY}'/" "$MOD_CONFIG"
-        echo -e "${GREEN}✅ Modeller license configured${NC}"
+        echo -e "${GREEN}✅ Modeller license configured in $MOD_CONFIG${NC}"
     else
         echo -e "${RED}⚠️  Could not find Modeller config file. Please check installation.${NC}"
     fi
@@ -176,6 +280,7 @@ echo -e "${BLUE}Installing PyTorch and DGL for reconstruction...${NC}"
 # Install Torch 2.1.2 (CPU)
 pip install torch==2.1.2+cpu torchvision==0.16.2+cpu --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
 # Install DGL 1.1.3
+pip install psutil>=5.8.0 tqdm --no-cache-dir
 pip install --no-deps dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
 # Install e3nn
 pip install --no-cache-dir --no-binary e3nn e3nn
@@ -228,16 +333,36 @@ echo "{\"cg2all_env_prefix\": \"$CG2ALL_ENV_PATH\"}" > "$DATA_DIR/cabs_paths.jso
 
 # Test installation
 echo -e "${YELLOW}🧪 Testing installation...${NC}"
-if CABSflex --help > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ CABSflex command working!${NC}"
+# Use full path to ensure we test the one in the environment
+TEST_BIN="$CONDA_ROOT/envs/$ENV_NAME/bin/CABSflex"
+if [ -x "$TEST_BIN" ]; then
+    if "$TEST_BIN" --help > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ CABSflex command working!${NC}"
+    else
+        echo -e "${RED}❌ Warning: CABSflex command failed execution${NC}"
+    fi
 else
-    echo -e "${RED}❌ Warning: CABSflex command not working${NC}"
+    # Fallback to path check
+    if command -v CABSflex &> /dev/null; then
+        echo -e "${GREEN}✅ CABSflex found in PATH!${NC}"
+    else
+        echo -e "${RED}❌ Warning: CABSflex command not found${NC}"
+    fi
 fi
 
-if CABSdock --help > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ CABSdock command working!${NC}"
+TEST_DOCK="$CONDA_ROOT/envs/$ENV_NAME/bin/CABSdock"
+if [ -x "$TEST_DOCK" ]; then
+    if "$TEST_DOCK" --help > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ CABSdock command working!${NC}"
+    else
+        echo -e "${RED}❌ Warning: CABSdock command failed execution${NC}"
+    fi
 else
-    echo -e "${RED}❌ Warning: CABSdock command not working${NC}"
+    if command -v CABSdock &> /dev/null; then
+        echo -e "${GREEN}✅ CABSdock found in PATH!${NC}"
+    else
+        echo -e "${RED}❌ Warning: CABSdock command not found${NC}"
+    fi
 fi
 
 # Cleanup
