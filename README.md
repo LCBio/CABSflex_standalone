@@ -1,65 +1,88 @@
-# CABS-flex
+# 🧬 CABS-flex
 
-Welcome to **CABS-flex** - a Python package for coarse-grained protein modeling and simulation!
+[![GitHub](https://img.shields.io/badge/repo-GitHub-brightgreen.svg)](https://github.com/LCBio/cabsflex)
+[![GitLab Mirror](https://img.shields.io/badge/mirror-GitLab-orange.svg)](https://gitlab.com/lcbio1/CABSflex_standalone.git)
+[![Wiki](https://img.shields.io/badge/docs-Wiki-blue.svg)](https://github.com/LCBio/cabsflex/wiki)
 
-CABS-flex provides tools for protein flexibility analysis, docking simulations, and structural predictions using the CABS force field.
+**CABS-flex** is a powerful Python package designed for coarse-grained protein modeling and simulation. It leverages the efficient CABS force field to provide high-resolution insights into protein flexibility and structural dynamics.
 
-> **⚠️ Private Beta**: This is currently a private repository for selected beta testers. The package will be made open source and available on conda-forge in the future.
+---
+
+## 🔬 The CABS Modeling Scheme
+
+CABS-flex combines the efficient **CABS coarse-grained model** with structural clustering and all-atom reconstruction:
+- **Efficiency**: A single amino acid is represented by 4 pseudo-atoms (CA, CB, Side-chain, and peptide bond center), significantly speeding up simulations.
+- **Accuracy**: Default distance restraints and simulation settings are optimized to provide the best possible convergence with consensus MD fluctuations.
+- **Pipeline**: Trajectories are clustered into representative models and subsequently reconstructed into all-atom representations using state-of-the-art tools like `cg2all` or `MODELLER`.
+
+For a detailed explanation of the method, see the **[Modeling Scheme Wiki Page](https://github.com/LCBio/cabsflex/wiki/Modeling-Scheme)**.
+
+---
 
 ## 🚀 Installation
 
-### Prerequisites
-- Conda or Miniconda installed
-- Python 3.8-3.11
+CABS-flex uses a **multi-environment system** to ensure maximum stability and isolation for its dependencies, particularly the all-atom reconstruction tools.
 
-### Setup
+### 1. Standard Installation (Conda)
+Recommended for local machines (Linux, macOS, WSL 2).
 
 ```bash
-# Create environment with all dependencies
-conda env create -f environment.yml
-conda activate cabs
+# Clone the repository
+git clone https://github.com/LCBio/cabsflex.git
+cd cabsflex
 
-# Install CABSflex in development mode
-pip install -e .
-
-# Test installation
-CABSflex --help
-CABSdock --help
+# Run the installer
+bash install.sh
 ```
+
+### 2. HPC / Cluster Installation (Venv)
+Optimized for High-Performance Computing clusters (e.g., Helios) using environment modules.
+
+```bash
+# Clone the repository
+git clone https://github.com/LCBio/cabsflex.git
+cd cabsflex
+
+# Edit the configuration in install-hpc.sh (e.g., BASE_INSTALL_DIR, TEMP_ROOT)
+# Run the HPC installer
+bash install-hpc.sh
+```
+> [!TIP]
+> Always run the installation from a worker node on HPC clusters to avoid login node restrictions.
+
+### 3. Usage
+Once installed, activate the environment as instructed by the installer:
+- **Conda**: `conda activate cabs`
+- **HPC**: `source path/to/your/venv/bin/activate`
+
+---
 
 ## 🧪 Quick Start
 
+### Protein Flexibility (CABS-flex)
+Simulate protein structure flexibility for PDB `1CE1`:
 ```bash
-# CABSflex - protein flexibility simulation
 CABSflex -i 1CE1 -a 10 -y 20 -w output_dir
-
-# CABSdock - peptide-protein docking
-CABSdock -i protein.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
-
-# For more examples see:
-CABSflex --help
-CABSdock --help
 ```
 
-## 🐛 Beta Testing
-
-As a beta tester, please:
-- Report any installation issues
-- Test on your specific use cases
-- Provide feedback on the API and usability
-- Open GitHub issues for bugs or feature requests
-
-See [`BETA_TESTING.md`](BETA_TESTING.md) for detailed testing guidelines.
-
-## 🔮 Future Public Release
-
-Once ready for public release:
+### Protein-Peptide Docking (CABS-dock)
+Flexible docking of a peptide sequence to a receptor structure:
 ```bash
-# Future installation (will be available)
-conda install -c conda-forge -c bioconda cabsflex
+CABSdock -i protein.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
 ```
 
-## 👨‍💻 For Developers
+---
+
+## 🔗 Resources & Documentation
+
+- 📚 **[Full Documentation (Wiki)](https://github.com/LCBio/cabsflex/wiki)**
+- 📖 **[Examples & Tutorials](https://github.com/LCBio/cabsflex/wiki/Examples)**
+- ⚙️ **[Options Reference](https://github.com/LCBio/cabsflex/wiki/Options-Reference)**
+- 🐛 **[Issue Tracker](https://github.com/LCBio/cabsflex/issues)**
+
+---
+
+## 👨‍💻 Development
 
 ```bash
 # Run tests
@@ -71,4 +94,5 @@ black --check CABS tests
 mypy CABS --ignore-missing-imports
 ```
 
-**Contact**: k.wroblewski7@uw.edu.pl
+**Contact**: k.wroblewski7@uw.edu.pl  
+**Laboratory**: Laboratory of Computational Biology, University of Warsaw
