@@ -1,4 +1,5 @@
 # 🧬 CABS-flex
+![CABS-flex logo](images/2430462593-CABS-flex-logo-1401.jpg)
 
 [![GitHub](https://img.shields.io/badge/repo-GitHub-brightgreen.svg)](https://github.com/LCBio/cabsflex)
 [![GitLab Mirror](https://img.shields.io/badge/mirror-GitLab-orange.svg)](https://gitlab.com/lcbio1/CABSflex_standalone.git)
