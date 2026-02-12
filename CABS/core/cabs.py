@@ -352,10 +352,14 @@ class CabsRun(Thread):
         cmd = build_command.split() + ["-o", run_cmd, "-x", "f77", "-"]
         try:
             build_proc = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-            out, err = build_proc.communicate(
-                lines.encode("utf-8")
-            )  # changed to encode
+            out, err = build_proc.communicate(input=lines.encode("utf-8"))
             
+            if build_proc.returncode != 0:
+                stdout_msg = out.decode('utf-8') if out else ""
+                stderr_msg = err.decode('utf-8') if err else ""
+                msg = f"CABS binary compilation failed with return code {build_proc.returncode}.\nSTDOUT: {stdout_msg}\nSTDERR: {stderr_msg}"
+                logger.critical(module_name=_name, msg=msg)
+                raise Exception("CABS binary compilation failed")
             
             # On macOS (Darwin), binaries must be ad-hoc signed to execute after being compiled or modified locally. 
             if sys.platform == "darwin":
@@ -363,12 +367,14 @@ class CabsRun(Thread):
                 subprocess.run(["codesign", "-s", "-", "-f", run_cmd], check=True)
 
             if err:
-                warning_message = err.decode("utf-8").split("\n")[-2]  # added
-                logger.warning(_name, warning_message)  # inserteds
+                decoded_err = err.decode("utf-8")
+                warning_message = decoded_err.split("\n")[-2] if "\n" in decoded_err else decoded_err
+                logger.warning(module_name=_name, msg=warning_message)
         except OSError:
             logger.exit_program(_name, "Missing FORTRAN compiler (%s)." % cmd[0])
         except Exception as e:
-            logger.critical(_name, str(e))
+            logger.critical(module_name=_name, msg=str(e))
+            raise
         return run_cmd
 
     @staticmethod

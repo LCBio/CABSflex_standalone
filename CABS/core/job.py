@@ -22,7 +22,13 @@ from CABS.analysis.cluster import Clustering
 from CABS.analysis.cmap import ContactMap, ContactMapFactory
 from CABS.analysis.plots import drop_csv_file, graph_RMSF, plot_E_RMSD, plot_RMSD_N
 from CABS.analysis.restraints import Restraints
-from CABS.constants import ALLOWED_AA_METHODS, CABS_FILES, DEFAULT_COLORS, ColorHex
+from CABS.constants import (
+    ALLOWED_AA_METHODS,
+    CABS_FILES,
+    CONFIG_HEADER,
+    DEFAULT_COLORS,
+    ColorHex,
+)
 from CABS.core import cabs
 from CABS.core.trajectory import Trajectory
 from CABS.io import logger
@@ -1382,17 +1388,20 @@ class FlexTask(CABSTask):
     def parse_reference(self, ref, pdb_cache):
         try:
             try:
-                dummy, trg_chids = ref.split(":")
-                self.reference = (
-                    pdblib.Pdb(
-                        ref,
-                        pdb_cache=pdb_cache,
-                        selection="name CA",
-                        no_exit=True,
-                        verify=True,
-                    ).atoms,
-                    trg_chids,
-                )
+                if ":" in str(ref):
+                    dummy, trg_chids = ref.split(":")
+                else:
+                    trg_chids = None
+                ref_stc = pdblib.Pdb(
+                    ref,
+                    pdb_cache=pdb_cache,
+                    selection="name CA",
+                    no_exit=True,
+                    verify=True,
+                ).atoms
+                if trg_chids is None:
+                    trg_chids = "".join(sorted(set([i.chid for i in ref_stc])))
+                self.reference = (ref_stc, trg_chids)
                 super(FlexTask, self).parse_reference(ref, pdb_cache)
                 logger.info(_name, f"Reference {ref} loaded.")
             except AttributeError:  # if ref is None it has no split mth

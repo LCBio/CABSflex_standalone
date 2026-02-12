@@ -132,7 +132,9 @@ setup_micromamba() {
         MAMBA_URL="https://micro.mamba.pm/api/micromamba/${OS_TYPE}-${ARCH_TYPE}/latest"
         curl -Ls "$MAMBA_URL" | tar -xj -C "$TEMP_DIR" bin/micromamba
         export MAMBA_EXE="$TEMP_DIR/bin/micromamba"
-        export MAMBA_ROOT_PREFIX="$TEMP_DIR/mamba"
+        # Set MAMBA_ROOT_PREFIX to conda root if possible, or temp dir as fallback
+        CONDA_ROOT=$(conda info --base)
+        export MAMBA_ROOT_PREFIX="${CONDA_ROOT:-$TEMP_DIR/mamba}"
         echo -e "${GREEN}✅ Micromamba ready${NC}"
     else
         export MAMBA_EXE=$(which micromamba)
@@ -154,11 +156,11 @@ export PYTHONUSERBASE=""
 # We explicitly list channels and packages to be 100% sure they are picked up
 if conda env list | grep -q "^${ENV_NAME} "; then
     echo -e "${BLUE}ℹ️  Updating existing environment with micromamba...${NC}"
-    "$MAMBA_EXE" install -v -y -n $ENV_NAME -c conda-forge -c bioconda -c salilab python=3.10 pip modeller dssp
+    "$MAMBA_EXE" install -v -y -n $ENV_NAME -c conda-forge -c bioconda -c salilab python=3.10 pip modeller dssp gfortran binutils openmm
 else
     echo -e "${BLUE}ℹ️  Creating new environment with micromamba...${NC}"
     CONDA_ROOT=$(conda info --base)
-    "$MAMBA_EXE" create -v -y -p "$CONDA_ROOT/envs/$ENV_NAME" -c conda-forge -c bioconda -c salilab python=3.10 pip modeller dssp
+    "$MAMBA_EXE" create -v -y -p "$CONDA_ROOT/envs/$ENV_NAME" -c conda-forge -c bioconda -c salilab python=3.10 pip modeller dssp gfortran binutils openmm
 fi
 
 # Function to install Modeller from source as fallback

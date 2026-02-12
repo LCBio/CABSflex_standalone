@@ -10,3 +10,6 @@ dependencies:
   - pip
   - modeller
   - dssp
+  - gfortran
+  - binutils
+  - openmm

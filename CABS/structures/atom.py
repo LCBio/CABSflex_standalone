@@ -672,6 +672,10 @@ class Atoms:
         :param header: str
         :return: None
         """
+        # Re-number serials if they are 0 or to ensure continuity
+        for i, atom in enumerate(self.atoms):
+            atom.serial = i + 1
+            
         with open(filename, "w") as f:
             f.write(header)
             f.write(self.make_pdb(bar_msg=bar_msg))

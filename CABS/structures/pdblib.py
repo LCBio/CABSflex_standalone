@@ -112,7 +112,8 @@ class Pdb:
                 remove_alt=remove_alternative_locations,
                 fix_aa=fix_non_standard_aa,
                 no_water=remove_water,
-                no_hetero=remove_hetero
+                no_hetero=remove_hetero,
+                chains=chains
             )
 
             # 4. Handle Selections
@@ -129,7 +130,7 @@ class Pdb:
                 raise Pdb.InvalidPdbInput(str(e))
             logger.exit_program(_name, f"Parsing error in {self.source_file}: {e}", exc=e)
 
-    def _load_biopython_model(self, model, remove_alt, fix_aa, no_water, no_hetero):
+    def _load_biopython_model(self, model, remove_alt, fix_aa, no_water, no_hetero, chains=""):
         """
         Converts Biopython model to CABS Atoms with mmCIF chain mapping.
         Includes safety check for the 62-chain limit.
@@ -141,10 +142,14 @@ class Pdb:
         # Pre-identify existing single-character chains to avoid collisions
         existing_ids = {chain.id for chain in model if len(chain.id) == 1}
 
+        # If chains selection is provided, we only load those
+        selected_chains = set(chains) if chains else None
+
         for chain in model:
             chid = chain.id
+            
             # Map multi-char mmCIF chains to 1-char for Fortran compatibility
-            if len(chid) > 1 or chid == " ":
+            if len(chid) > 1 or chid == " " or chid == "":
                 if chid not in chain_map:
                     try:
                         new_id = next(char_pool)
@@ -153,8 +158,19 @@ class Pdb:
                         chain_map[chid] = new_id
                         logger.debug(_name, f"Mapping mmCIF chain {chid} -> {new_id}")
                     except StopIteration:
-                        logger.exit_program(_name, "Structure exceeds 62 chains (CABS limit).")
-                chid = chain_map[chid]
+                        # We only fail if we actually NEEDED this chain and it's over the limit
+                        # But here we don't know yet if it's selected. 
+                        # We'll defer the limit check until we know it's being used.
+                        pass
+                chid = chain_map.get(chid, chid)
+
+            # Check if this chain is in our selection (if any)
+            if selected_chains and chid not in selected_chains and chain.id not in selected_chains:
+                continue
+
+            # If it's selected and still multi-char (and not mapped yet), we have a problem
+            if len(chid) > 1 or chid == " " or chid == "":
+                 logger.exit_program(_name, "Structure exceeds 62 chains (CABS limit) or has invalid chain IDs.")
 
             for residue in chain:
                 resname = residue.get_resname()
@@ -164,25 +180,32 @@ class Pdb:
                 if fix_aa and resname not in AA_NAMES.values():
                     resname = AA_SUB_NAMES.get(resname, resname)
 
-                resnum, icode = residue.id[1], residue.id[2].strip()
-
                 for atom in residue:
                     if remove_alt and atom.get_altloc() not in (" ", "A"):
                         continue
 
                     self.atoms.append(Atom(
                         model=model.id,
-                        name=atom.get_name(),  # Use get_name()
-                        resname=residue.get_resname(),
+                        name=atom.get_name(),
+                        resname=resname,
                         chid=chid,             # The mapped chain ID
-                        resnum=residue.id[1],  # Residue number from Biopython residue tuple
-                        icode=residue.id[2].strip(), # Insertion code from Biopython residue tuple
-                        coord=Vector3d(atom.get_coord()), # <-- Correct method for coordinates
-                        occ=atom.get_occupancy(), # <-- Correct method for Occupancy
-                        bfac=atom.get_bfactor(),  # <-- CORRECTED to get_bfactor()
+                        resnum=residue.id[1],
+                        icode=residue.id[2].strip(),
+                        coord=Vector3d(atom.get_coord()),
+                        occ=atom.get_occupancy(),
+                        bfac=atom.get_bfactor(),
                         hetatm=(residue.id[0] != " ")
                         )
                     )
+
+        # Final check if we have any atoms
+        if not self.atoms:
+            raise self.InvalidPdbInput("No atoms loaded based on selection criteria.")
+
+        # Check if the total number of UNIQUE mapped chains exceeds 62
+        unique_mapped_chains = {a.chid for a in self.atoms}
+        if len(unique_mapped_chains) > 62:
+             logger.exit_program(_name, "Structure exceeds 62 chains (CABS limit).")
 
     def dssp(self, work_dir: str = "", dssp_from_aa: bool = False) -> Dict[str, str]:
         """
@@ -200,19 +223,40 @@ class Pdb:
             return {}
 
         logger.debug(_name, "Assigning secondary structure via MDTraj...")
+        
         try:
-            # MDTraj handles PDB, mmCIF, and .gz handles automatically
-            traj = md.load(self.source_file)
+            # Check if source is a fetched identifier or a non-PDB file
+            is_complex = self.source_file.lower().endswith((".cif", ".cif.gz", ".gz")) or ":" in self.source_file
+            
+            if is_complex:
+                # Generate a temporary PDB for MDTraj to handle complex/compressed formats
+                # We use a temp file to avoid recursion and ensure MDTraj gets a simple PDB
+                temp_dir = work_dir or "."
+                os.makedirs(os.path.join(temp_dir, "output_pdbs"), exist_ok=True)
+                load_file = os.path.join(temp_dir, "output_pdbs", "dssp_topology.pdb")
+                self.atoms.save_to_pdb(load_file)
+                logger.info(_name, f"MDTraj using temporary topology: {load_file}")
+            else:
+                load_file = self.source_file
+
+            logger.info(_name, f"MDTraj loading topology from: {load_file}")
+            traj = md.load(load_file)
             labels = md.compute_dssp(traj, simplified=True)[0]
 
             sec = {}
             for i, res in enumerate(traj.topology.residues):
                 # Ensure the key format matches Atom.resid_id(): "resnum[icode]:chid"
-                icode = getattr(res, 'insertion_code', '')
+                icode = getattr(res, "insertion_code", "") or ""
                 key = f"{res.resSeq}{icode}:{res.chain.chain_id}"
-                sec[key] = labels[i]
+                
+                # MDTraj returns labels as numpy characters; convert to native str
+                # Also map 'NA' or unknowns to 'C' (Coil) to avoid KeyError in CABS
+                label = str(labels[i])
+                if label not in ["H", "E", "T", "C"]:
+                     label = "C"
+                sec[key] = label
 
-            logger.debug(_name, "DSSP assignment was performed with MDTraj.")
+            logger.info(_name, "DSSP assignment was performed with MDTraj.")
 
             # If log level is high enough, save the SS string to a file for the user
             if work_dir and logger.output_dssp():
