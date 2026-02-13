@@ -5,21 +5,37 @@
 
 # --- Configuration ---
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
-# Dynamically read ENV_NAME from install.sh
-if [ -f "install.sh" ]; then
-    ENV_NAME=$(grep '^ENV_NAME=' install.sh | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+# Dynamically read variables from install-hpc.sh
+if [ -f "install-hpc.sh" ]; then
+    ENV_NAME=$(grep '^VENV_NAME=' install-hpc.sh | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    GCC_MOD=$(grep '^GCC_MODULE=' install-hpc.sh | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+    PY_MOD=$(grep '^PYTHON_MODULE=' install-hpc.sh | cut -d'=' -f2 | tr -d '"' | tr -d "'")
 else
-    ENV_NAME="cabs" # Fallback
+    # Fallback defaults
+    ENV_NAME="cabs_021"
+    GCC_MOD="GCCcore/13.2.0"
+    PY_MOD="Python/3.11.5"
 fi
+
 CONDA_BASE=$(conda info --base)
+
+# --- HPC Environment Setup ---
+# Load necessary modules (dynamically from install-hpc.sh)
+if command -v module &> /dev/null; then
+    module purge
+    module load "$GCC_MOD" "$PY_MOD"
+    # Add other modules if needed
+fi
+
+# Activate environment
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 conda activate $ENV_NAME
 
 # Ensure local CABS is used. Package was installed with pip install -e .
 CABS_CMD="CABSflex"
 
-SCENARIO_ROOT="tests/test_cli_options"
-RESULTS_FILE="tests/test_cli_options_results.log"
+SCENARIO_ROOT="tests/test_cli_options_hpc"
+RESULTS_FILE="tests/test_cli_options_hpc_results.log"
 rm -rf "$SCENARIO_ROOT" "$RESULTS_FILE"
 mkdir -p "$SCENARIO_ROOT"
 

@@ -116,7 +116,7 @@ def _load_random_ligand_library() -> npt.NDArray[np.float64]:
         # Trim data to be divisible by 3
         data = data[: len(data) - remainder]
 
-    return data.reshape(-1, 3)
+    return data.reshape(1, -1, 3)
 
 
 RANDOM_LIGAND_LIBRARY: npt.NDArray[np.float64] = _load_random_ligand_library()

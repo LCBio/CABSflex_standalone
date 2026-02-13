@@ -183,7 +183,7 @@ class CABSTask(metaclass=ABCMeta):
                 discovered_path = get_cg2all_env_prefix()
                 if discovered_path:
                     self.cg2all_env_prefix = discovered_path
-                    logger.info(_name, f"Discovered cg2all environment path: {self.cg2all_env_dir}")
+                    logger.info(_name, f"Discovered cg2all environment path: {self.cg2all_env_prefix}")
             except Exception:
                 logger.debug(_name, "Skipping automatic cg2all environment discovery.")
                 pass
@@ -309,11 +309,15 @@ class CABSTask(metaclass=ABCMeta):
                 )
                 self.protein_restraints = ("rigid", gap, min_d, max_d)
             elif (
-                mode.lower == "none"
-                or mode.lower == "unleashed"
-                or mode.lower == "no-protein-restraints"
+                mode.lower() == "none"
+                or mode.lower() == "unleashed"
+                or mode.lower() == "no-protein-restraints"
             ):
                 self.no_protein_restraints = True
+            elif mode.lower() == "all":
+                self.protein_restraints = ("rigid", gap, min_d, max_d)
+            elif mode.lower() == "ss2":
+                self.protein_restraints = ("flexible", gap, min_d, max_d)
             elif mode not in allowed_modes:
                 logger.warning(
                     _name,
@@ -599,7 +603,7 @@ class CABSTask(metaclass=ABCMeta):
     def save_config_file(self):
         if self.save_config:
             with open(os.path.join(self.work_dir, "config.ini"), "w") as configfile:
-                configfile.write(CONFIG_HEADER)   ##Modified as there was error
+                configfile.write(CONFIG_HEADER)   
                 for k in sorted(self.config):
                     value = self.config[k]
                     name = re.sub("_", "-", str(k))
@@ -902,11 +906,11 @@ class CABSTask(metaclass=ABCMeta):
             )
             rmsfs = self.trajectory.rmsf(self.initial_complex.protein_chains)
             rmsf_update_dict = {}
-            i = 0
+            atom_index = 0
             for atom in self.trajectory.template.atoms:
                 if atom.chid in self.initial_complex.protein_chains:
-                    rmsf_update_dict[atom.resid_id()] = rmsfs[i]
-                    i += 1
+                    rmsf_update_dict[atom.resid_id()] = rmsfs[atom_index]
+                    atom_index += 1
             initial_pdb_file.update_bfac(rmsf_update_dict)
             initial_pdb_file.save_to_pdb(os.path.join(pdb_output, "start_rmsf.pdb"))
 
@@ -1015,7 +1019,7 @@ class DockTask(CABSTask):
 
     def calculate_rmsd(self, save=True):
         logger.debug(module_name=_name, msg="RMSD calculations starting...")
-        sfname = None
+        sfname: str = ""
         if save:
             odir = os.path.join(self.work_dir, "output_data")
             try:

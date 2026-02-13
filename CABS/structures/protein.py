@@ -52,7 +52,7 @@ class Protein(Atoms):
         # Only happens if user explicitly wants to predict peptide structure
         if predict_peptide_structure:
             try:
-                self.atoms = randinit.RandomInitialStructure(source).pdb
+                self.atoms = randinit.RandomInitialStructure(source).atoms
             except Exception as e:
                 logger.exit_program(
                     module_name=_name,
@@ -142,39 +142,39 @@ class Protein(Atoms):
             elif plddt.lower() == "file":
                 try:
                     d, de = self.read_plddt(plddt)
-                    self.atoms.update_plddt(d, de)
+                    self.update_plddt(d, de)
                 except Exception as e:
                     try:
                         protein_work_dir = os.path.dirname(source)
                         d, de = self.read_plddt(
                             os.path.join(protein_work_dir, "plddt.config")
                         )
-                        self.atoms.update_plddt(d, de)
+                        self.update_plddt(d, de)
                     except Exception as e:
                         logger.warning(
                             _name, "Using default plddt(1.0) for all residues."
                         )
-                        self.atoms.set_plddt(1.0)
+                        self.set_plddt(1.0)
             else:
                 try:
                     d, de = self.read_plddt(plddt)
-                    self.atoms.update_plddt(d, de)
+                    self.update_plddt(d, de)
                 except OSError:
                     logger.warning(_name, f"Could not read pLDDT file: {plddt}")
                     logger.warning(_name, "Using default plddt(1.0) for all residues.")
-                    self.atoms.set_plddt(1.0)
+                    self.set_plddt(1.0)
                 except Exception as e:
                     logger.warning(_name, f"{e}")
                     logger.warning(_name, "Using default plddt(1.0) for all residues.")
-                    self.atoms.set_plddt(1.0)
+                    self.set_plddt(1.0)
         else:
-            self.atoms.set_plddt(1.0)
+            self.set_plddt(1.0)
 
         # setup flexibility
         if flexibility:
             try:
                 flex = float(flexibility)
-                self.atoms.set_flexibility(flex)
+                self.set_flexibility(flex)
             except ValueError:
                 if flexibility.lower() == "bf":
                     for a in self.atoms:
@@ -196,7 +196,7 @@ class Protein(Atoms):
                 else:
                     try:
                         d, de = self.read_flexibility(flexibility)
-                        self.atoms.update_flexibility(d, de)
+                        self.update_flexibility(d, de)
                     except OSError:
                         logger.warning(
                             _name, f"Could not read flexibility file: {flexibility}"
@@ -204,9 +204,9 @@ class Protein(Atoms):
                         logger.warning(
                             _name, "Using default flexibility(1.0) for all residues."
                         )
-                        self.atoms.set_flexibility(1.0)
+                        self.set_flexibility(1.0)
         else:
-            self.atoms.set_flexibility(1.0)
+            self.set_flexibility(1.0)
 
         # setup excluding
         self.exclude = {}
@@ -228,16 +228,16 @@ class Protein(Atoms):
                     if ":" in word:
                         if "-" in word:
                             beg, end = word.split("-")
-                            self.exclude[k].extend(self.atoms.atom_range(beg, end))
+                            self.exclude[k].extend(self.atom_range(beg, end))
                         else:
                             self.exclude[k].append(word)
                     else:
                         chains = re.sub(r"[^%s]*" % word, "", ascii_uppercase)
                         self.exclude[k].extend(
-                            a.resid_id() for a in self.atoms.select("chain %s" % chains)
+                            a.resid_id() for a in self.select("chain %s" % chains)
                         )
 
-        self.atoms.update_sec(ss)
+        self.update_sec(ss)
 
         if work_dir and logger.output_ss():
             output_ss = os.path.join(work_dir, "output_data", "ss.txt")
@@ -254,18 +254,18 @@ class Protein(Atoms):
         if category:
             try:
                 d, de = self.read_category(category)
-                self.atoms.update_category(d, de)
+                self.update_category(d, de)
             except OSError:
                 logger.warning(_name, f"Could not read category file: {category}")
                 logger.warning(
                     _name,
                     "Using default categories based on pLDDT and SS for all residues.",
                 )
-                self.atoms.determine_category(mode=mode)
+                self.determine_category(mode=mode)
         else:
-            self.atoms.determine_category(mode=mode)
+            self.determine_category(mode=mode)
 
-        self.old_ids = self.atoms.fix_broken_chains()
+        self.old_ids = self.fix_broken_chains()
 
         todrop = [c for c, l in self.list_chains().items() if l < 4]
         if todrop:

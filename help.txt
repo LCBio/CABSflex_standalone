@@ -1,0 +1,508 @@
+usage: CABSflex [OPTIONS]
+
+CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.
+
+BASIC OPTIONS:
+  Basic options needed to run CABS simulation.
+
+  -i INPUT, --input-protein INPUT
+    Load input protein structure.
+    
+    
+    INPUT can be either:
+    
+    
+    [1] PDB code (optionally with chain IDs)
+    i.e. '-P 1CE1:HL' loads chains H and L of 1CE1 protein structure downloaded from the PDB database
+    [2] PDB file (optionally gzipped)
+    
+    
+    Note that only protein chain(s) are extracted from the input file, discarding all non-protein
+    molecules.
+     
+  -c FILE, --config FILE
+    read options from FILE
+     
+
+PROTEIN OPTIONS:
+  Options used to manipulate the protein's flexibility.
+
+  -g ['MODE', 'GAP', 'MIN', 'MAX'] ['MODE', 'GAP', 'MIN', 'MAX'] ['MODE', 'GAP', 'MIN', 'MAX'] ['MODE', 'GAP', 'MIN', 'MAX'], --protein-restraints ['MODE', 'GAP', 'MIN', 'MAX'] ['MODE', 'GAP', 'MIN', 'MAX'] ['MODE', 'GAP', 'MIN', 'MAX'] ['MODE', 'GAP', 'MIN', 'MAX']
+    This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the
+    protein in predefined conformation. (default: ['flexible', 3, 3.8, 11.5])
+    
+    
+    MODE can be either based on plDDT or secondary structure:
+    [1] 'rigid' - Generates restraints for all protein residues.
+    
+    
+    [2] 'plddt' - Generates restraints based on combination of pLDDT and secondary structure
+    (recommended).
+    [3] 'flexible' - Generates restraints only when both restrained residues are assigned regular
+    secondary structure (helix, sheet).
+    GAP specifies minimal gap along the main chain for two residues to be restrained.
+    MIN and MAX are min and max values in Angstroms for two residues to be restrained.
+     
+  -N, --no-protein-restraints
+    Do not automatically generate any protein restraints.
+    This option has precedence over '--protein-restraints' option and will overwrite any settings set
+    bythe latter. With this flag on restraints can still be added with the '--ca-rest-add' or '--ca-
+    rest-file' options.
+     
+  --protein-restraints-retain PERCENTAGE
+    Reduce the number of protein restraints by indicating the PERCENTAGE of restraints to retain, where
+    PERCENTAGE is a number from (0, 100].
+    This option reduces the number of automatically generated restraints for the protein molecule to
+    speed up computation. Restraints are randomly removed so that the final number of restraints N_final
+    = N_all * (PERCENTAGE / 100). PERCENTAGE must be greater than 0 and at most 100.
+     
+  --protein-plddt FLEXIBILITY
+    Read pLLDT values in order to modify flexibility of selected protein's residues:
+    
+    
+    pLLDT can be either:
+    
+    
+    [1] 'pdb' or 'bf' - pLLDT for each residue is read from the beta factor column of the CA atom in the
+    pdb input file.
+    [2] <filename> - pLDDT is read from file <filename> and must be either in '.json' or '.tsv' format.
+     
+  --protein-category FLEXIBILITY
+    Modify category of flexibility for selected protein's residues:
+    
+    
+    category = 0.0 - highly flexible backbone
+    category = 1.0 - medium flexible backbone
+    category = 2.0 - lowly flexible backbone
+    category = 3.0 - rigid backbone
+    
+    
+    Category is read from file <filename> in the following format:
+    
+    
+    default <default category value> (if omitted default will be set according to plddt and secondary
+    structure)
+    resid_ID <category> i.e. 12:A 2.0 OR resid_ID - resid_ID <category> i.e. 12:A - 15:A  1.0
+    
+    
+    Multiple entries can be used.
+     
+  -f FLEXIBILITY, --protein-flexibility FLEXIBILITY
+    Modify flexibility of selected protein's residues:
+    
+    
+    f = 0 - fully flexible backbone
+    f = 1 - almost stiff backbone (default value)
+    
+    
+    FLEXIBILITY can be either:
+    
+    
+    [1] positive real number - all protein residues are assigned the same flexiblity equal that number
+    [2] 'bf' - flexibility for each residue is read from the beta factor column of the CA atom in the
+    pdb input file
+    (Note that standard beta factor in pdb file has opposite meaning to CABS flexibillity, edit pdb
+    accordingly or use FLEXIBILITY = 'bfi')
+    [3] 'bfi' - flexibility is assigned from the inverted beta factors in the input pdb file so that:
+    bf <= 0.0 -> f = 1.0; bf >= 1.0 -> f = 0.0; f = 1 - bf otherwise.
+    [4] 'bfg' - flexibility is assigned from the beta factors in the input pdb file, so that:
+    f = exp(-bf * bf / 2.) and f = 1.0 if bf < 0.0
+    [5] <filename> - flexibility is read from file <filename> in the following format:
+    
+    
+    default <default flexibility value> (if omitted default f = 1.0)
+    resid_ID <flexibility> i.e. 12:A 0.75 OR resid_ID - resid_ID <flexibility> i.e. 12:A - 15:A  0.75
+    
+    
+    Multiple entries can be used.
+     
+  --weighted-fit ARG
+    This option allows to set and customize the way models are structurally aligned, which affects both
+    calculation of the RMSD/RMSF and clustering together with the selectiom of the final models.
+    Models are aligned by the Kabsch optimal fit algorithm. This options assigns weights to all atoms,
+    which specify how 'important' the atom is in the structural fit process. Weights are numbers from
+    [0:1] range with '0' meaning 'irrelevant in fitting process.'
+    
+    
+    ARG can be either:
+    
+    
+    [1] 'gauss' - Weights are generated automatically in the iterative procedure described in 'Biophys
+    J. 2006 Jun 15; 90(12): 4558-4573'
+    The procedure consists of the following steps: (1) Set wi = 1.0 for i = [1,2 ... N], where N is the
+    number of atoms. (2) Align structures using weights wi. (3) Calculate di - displacement of the i-th
+    atom. (4) Update weights according to formula: wi = exp(-0.5 * di * di). Repeat (2) through (4)
+    until convergence.
+    [2] 'flex' - Weights are taken from the flexibility settings. (See help entry for '--protein-
+    flexibility')
+    [3] 'ss' - Weights are taken from the secondary structure assignment. Atoms in helices and sheets
+    are given w = 1.0, while those in loops and coil get w = 0.0
+    [4] <filename> - Weights are read from a file <filename>. The file should follow this format:
+    
+    
+    # Example file
+    # default 1.0 (default value, if omitted w = 1.0 is assumed)
+    # 1:A 0.5
+    # 5:A 0.1
+    # ...
+    # 1:B 0.99
+    # ...
+    # End of file
+    
+    
+    [5] 'off' - Turns off weighted-fit (all weights are 1.0).
+     
+  --gauss-iterations NUM
+    Sets number of iterations of dynamic weighted-fit algorithm used for superposition of structures.
+    This option has no effect when --weighted-fit is set to anything other than 'gauss'.
+    NUM = 100 by default
+     
+  --receptor-ss STR
+    Manually assign secondary structure to the receptor chains.
+    
+    
+    STR should be either:
+    
+    
+    [1] string in the form of: [CHAIN_ID]:[SECONDARY]/[CHAIN_ID]:[SECONDARY]
+    i.e A:CHHHCEEEC+B:CEEEECCCHHHCC
+    
+    
+    [2] filename of the text file - one chain per line as in:
+    A:CHHHCEEEC
+    B:CEEEECCCHHHCC
+     
+  --peptide-structure-prediction
+    Treat input as a string 'SEQUENCE' or 'SEQUENCE:SECONDARY' for peptide structure prediction.
+     
+
+RESTRAINTS OPTIONS:
+  Restraints options allow to set up distance restraints, either between C-alpha atoms (CA) or Side
+  Chains (SC), where SCs are geometric centers of side chains atoms (as defined in the CABS coarse-
+  grained model).
+
+  --ca-rest-add ['RESI', 'RESJ', 'DIST', 'WEIGHT'] ['RESI', 'RESJ', 'DIST', 'WEIGHT'] ['RESI', 'RESJ', 'DIST', 'WEIGHT'] ['RESI', 'RESJ', 'DIST', 'WEIGHT']
+    Add distance restraint between C-alpha (CA) atom in residue RESI and C-alpha atom in residue RESJ.
+    DIST is a distance between these atoms and WEIGHT is restraint's weight (number from [0, 1]).
+    In order to add restraints between the peptide and the protein, or between two peptides, use PEP1,
+    PEP2, ... as chain identifiers of the peptides (even when peptide is read from a pdb file its chain
+    identifier is ignored).
+    i.e. '--ca-rest-add 123:A 5:PEP1 8.7 1.0' adds restraint between the C-alpha atom of the residue
+    number 123 in the chain A of the protein and the C-alpha atom of the 5th residue of the peptide. If
+    you add only one peptide both 'PEP' and 'PEP1' is a valid chain identifier. If you add multiple
+    peptides they will be ordered as follows:
+    
+    
+    [1] from config file added by the 'peptide' option
+    [2] from config file added by the 'add-peptide' option
+    [3] from command line added by the '-p, --peptide' option
+    [4] from command line added by the '--add-peptide' option.
+    
+    
+    Peptides added by the same method preserve the order by which they appear in the config file, or on
+    the command line. Option can be used multiple times to add multiple restraints.
+     
+  --sc-rest-add ['RESI', 'RESJ', 'DIST', 'WEIGHT'] ['RESI', 'RESJ', 'DIST', 'WEIGHT'] ['RESI', 'RESJ', 'DIST', 'WEIGHT'] ['RESI', 'RESJ', 'DIST', 'WEIGHT']
+    Add distance restraint between SC pseudoatom in residue RESI and SC pseudoatom in residue RESJ.
+    For more details see help for '--ca-rest-add'
+     
+  --ca-rest-weight ['WEIGHT_MIN', 'WEIGHT_MAX'] ['WEIGHT_MIN', 'WEIGHT_MAX']
+    Set global weights for all C-alpha restraints (including automatically generated restraints for the
+    protein) when distance is shorter than minimum (WEIGHT_MIN) or longer than maximum (WEIGHT_MAX)
+    (default: [3.5, 0.5])
+     
+  --sc-rest-weight ['WEIGHT_MIN', 'WEIGHT_MAX'] ['WEIGHT_MIN', 'WEIGHT_MAX']
+    Set global weight for all SC restraints when distance is shorter than minimum (WEIGHT_MIN) or longer
+    than maximum (WEIGHT_MAX) (default: [1.0, 1.0])
+     
+  --ca-rest-file FILE
+    Read C-alpha restraints from file (use multiple times to add multiple files)
+     
+  --sc-rest-file FILE
+    Read SC restraints from file (use multiple times to add multiple files)
+     
+  -F ['RESIDE1', 'RESIDUE2'] ['RESIDE1', 'RESIDUE2'], --disulfide-bonds ['RESIDE1', 'RESIDUE2'] ['RESIDE1', 'RESIDUE2']
+    Add disulfide bonds to the structure. This option can be used multiple times to add multiple bonds.
+    
+    
+    Each input should be in the form of exactly one pair: "1:A 14:A".
+    Example: "-F 1:A 14:A -F 3:A 13:A" appends the disulfide bonds (1:A, 14:A) and (3:A, 13:A).
+    NOTE: Ensure that the residues in each pair are valid and appropriate for disulfide bonding.
+     
+  --backbone-cyclization [CHAIN]
+    Indicate if this is a backbone cyclic peptide protein. CABS adds a restraint between the first and
+    last residues of the specified chains. By default, cyclization is added for chain 'A' if no argument
+    is provided.
+    
+    
+    Examples:
+    --backbone-cyclization       # Chain A is cyclic
+    --backbone-cyclization --backbone-cyclization B  # Chains A and B are both cyclic
+    Invalid:
+    --backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-
+    cyclization
+     
+
+SIMULATION OPTIONS:
+  Simulation options allow to modify different parameters of Replica Exchange Monte Carlo simulation
+  procedure.
+
+  -a NUM, --mc-annealing NUM
+    Set number of Monte Carlo temperature annealing cycles to NUM (NUM > 0, default: 20)
+     
+  -y NUM, --mc-cycles NUM
+    Set number of Monte Carlo cycles to NUM (NUM>0, default: 50).
+    Total number of snapshots generated for each replica/trajectory = [mc-annealing] x [mc-cycles],
+    (default: 20 x 50 = 1000)
+     
+  -s NUM, --mc-steps NUM
+    Set number of Monte Carlo cycles between trajectory frames to NUM (NUM > 0, default: 50).
+    NUM = 1 means that every generated conformation will occur in trajectory. This option enables to
+    increase the simulation length (between printed snapshots) and doesn't impact the number of
+    snapshots in trajectories (see also --mc-cycles description).
+     
+  -r NUM, --replicas NUM
+    Set number of replicas to be used in Replica Exchange Monte Carlo. (NUM > 0, default: 1)
+     
+  -D DELTA, --replicas-dtemp DELTA
+    Set temperature increment between replicas. (DELTA > 0, default: 0.5)
+     
+  -t ['TINIT', 'TFINAL'] ['TINIT', 'TFINAL'], --temperature ['TINIT', 'TFINAL'] ['TINIT', 'TFINAL']
+    Set temperature range for simulated annealing.
+    TINIT - initial temperature, TFINAL - final temperature (default: (TINIT, TFINAL) = [1.4, 1.4].
+    CABS uses temperature units, which do not correspond straightforwardly to real temperatures.
+    Temperature around 1.0 roughly corresponds to nearly frozen conformation, folding temperature of a
+    small proteins in the CABS model is usually around 2.0
+     
+  -z SEED, --random-seed SEED
+    Set seed for random number generator.
+     
+  -b FACTOR, --binding-interactions FACTOR
+    This option scales the side chains interactions between protein chains by the FACTOR in relation
+    to the side chains interactions within single protein chain. default=1.0
+    i.e. '-b 2.0' makes inter-chain interactions two times stronger than intra-chain
+     
+  --disable-centro
+    Disable centrosymmetric potential in the simulation (default is 'False')
+     
+
+ALL-ATOM RECONSTRUCTION OPTIONS:
+  All-atom reconstruction options allow to set up details of all-atom reconstruction and refinement
+  procedure, which is performed using MODELLER package.
+
+  -A, --aa-rebuild
+    Rebuild final models to all-atom representation. (default: False)
+     
+  --aa-method ARG
+    Set method for all-atom reconstruction. ARG can be either:
+    
+    
+    [1] 'cg2all' - use cg2all package for all-atom reconstruction (default)
+    [2] 'modeller' - use MODELLER package for all-atom reconstruction
+    
+     
+  --cg2all-env-prefix DIR
+    Path to the isolated environment containing cg2all dependencies. Required if --aa-method cg2all is
+    used.
+     
+  -m NUM, --modeller-iterations NUM
+    Set number of iterations for reconstruction procedure in MODELLER package (default: 3).
+    Bigger numbers may result in more accurate models, but reconstruction takes longer.
+     
+
+ANALYSIS OPTIONS:
+  Analysis options allow to perform comparison analyses (to provided reference complex structure) and
+  for repeated scoring and analysis of CABS trajectories.
+
+  -R REF, --reference-pdb REF
+    Load reference complex structure. This option allows for comparison with the reference complex
+    structure and triggers additional analysis features.
+    
+    
+    REF must be either:
+    
+    
+    [1] [pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...
+    [2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...
+    
+    
+    i.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE
+     
+  -k NUM, --clustering-medoids NUM
+    Set number of medoids in k-medoids clustering algorithm. This option also sets number of final
+    models to be generated. (default: 10)
+     
+  --clustering-iterations NUM
+    Set number of iterations of the k-medoids clustering algorithm. (default: 100)
+     
+  -n NUM, --filtering-count NUM
+    Set number of low-energy models from trajectories to be clustered (default 1000)
+     
+  --filtering-mode MODE
+    Choose the filtering mode to select NUM (set by '--filtering-count') models for clustering.
+    
+    
+    MODE can be either: (default: each)
+    
+    
+    [1] 'each' - models are ordered by protein-peptide(s) binding energy and top n = [NUM / R] (R is the
+    number of replicas) is selected from EACH replica
+    [2] 'all' - models are ordered by protein-peptide(s) binding energy and top NUM is selected from ALL
+    replicas combined
+     
+  -M, --contact-maps
+    Store contact maps matrix plots and histograms of contact frequencies. (default: False)
+     
+  -T DIST, --contact-threshold DIST
+    Set contact distance between side chains pseudoatoms (SC) for contact map plotting. (default:
+    6.5)
+     
+  --contact-threshold-aa DIST
+    Set contact distance between heavy atoms for contact map plotting. (default: 5.5)
+     
+  --contact-map-colors ['CLR1', 'CLR2', '', '...', '', 'CLR6'] ['CLR1', 'CLR2', '', '...', '', 'CLR6'] ['CLR1', 'CLR2', '', '...', '', 'CLR6'] ['CLR1', 'CLR2', '', '...', '', 'CLR6'] ['CLR1', 'CLR2', '', '...', '', 'CLR6'] ['CLR1', 'CLR2', '', '...', '', 'CLR6']
+    Sets 6 colors (hex code, e.g. #00FF00 for green etc.) to be used in contact map color bars.
+    (default: ['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000'])
+     
+  --align METHOD
+    Select the method to be used to align target with reference pdb.
+    
+    
+    Available options are: (default SW)
+    
+    
+    [1] SW - Smith-Waterman
+    [2] blastp - protein BLAST (requires NCBI+ package installed)
+    [3] trivial - simple sequential alignment, used only in case of one-chain input and reference of the
+    same length
+     
+  --align-options KEY=VAL [KEY=VAL ...]
+    Path to alignment with reference structure. If set, the '--align' option is ignored
+     
+
+OUTPUT OPTIONS:
+  Output options.
+
+  -S, --save-cabs-files
+    Save CABS simulation file. The filename will have the following format:
+    %yy%mm%dd%HH%MM%SS%RANDOMSTRING.cbs format. For example:  181116161924knWPtn.cbs
+     
+  -L FILE, --load-cabs-files FILE
+    Load CABS simulation data file for repeated scoring and analysis of CABS trajectories (with new
+    settings, for example using a reference complex structure and --reference option).Both a path to a
+    file or a path to a directory containing a *.cls file are valid inputs.
+     
+  -C, --save-config
+    Save simulation parameters in config file.
+     
+  -o SELECTION, --pdb-output SELECTION
+    Select structures to be saved in the pdb format.
+    
+    
+    Available options are:
+    [1] 'A' - all (default)
+    [2] 'R' - replicas
+    [3] 'F' - filtered
+    [4] 'C' - clusters
+    [5] 'M' - models
+    [6] 'S' - starting
+    [7] 'N' - none
+    
+    
+    i. e. '-o RM' - saves replicas and models
+     
+  --pdb-bfac-output SELECTION
+    Select what values should be saved in beta factors of the initial PDB structure.
+    
+    
+    Available options are:
+    [1] 'A' - all
+    [2] 'B' - original beta factors of CA
+    [3] 'C' - flexibility categories
+    [4] 'P' - pLDDTs
+    [5] 'R' - RMSFs
+    [6] 'S' - secondary structure
+    [7] 'N' - none (default)
+    
+    
+    i. e. '--pdb-bfac-output BP' - saves original beta-factors and pLDDTs
+     
+  --csv-output SELECTION
+    Select what values should be saved in csv format.
+    
+    
+    Available options are:
+    [1] 'A' - all
+    [2] 'B' - original beta factors of CA
+    [3] 'C' - flexibility categories
+    [4] 'P' - pLDDTs
+    [5] 'S' - secondary structure
+    [6] 'N' - none (default)
+    
+    
+    i. e. '--csv-output BP' - saves original beta-factors and pLDDTs
+     
+  --json-output
+    Store atom and chain numeration in json format. (default: False)
+     
+  --dssp-output
+    Store DSSP output as a file (default is 'False')
+     
+  --ss-output
+    Store secondary structure assignment as a file (default is 'False')
+     
+  --restraints-output
+    Store restraints as a file (default is 'False')
+     
+  --renumber-residues-to-original
+    Renumber residues to original numbering in the input pdb file.
+     
+
+MISCELLANEOUS OPTIONS:
+  Miscellaneous options.
+
+  -w DIR, --work-dir DIR
+    Set working directory to DIR. (default: '.')
+     
+  --dssp-command PATH
+    Provide path to dssp binary (default is 'mkdssp')
+     
+  --fortran-command PATH
+    Provide path to fortran compiler binary (default is 'gfortran -O2')
+     
+  --image-file-format FMT
+    Save all of the image files in given format. (default: svg)
+     
+  --nsp3-model-path PATH
+    Path to the NetSurfP-3.0 model weights. Providing this path allows CABS-flex to predict the
+    secondary structure of peptides when it is not included in the input. Ensure that NetSurfP-3.0 is
+    installed and provide the path to its model weights file here. If NetSurfP-3.0 is not installed or
+    the path is not provided, peptides will default to a secondary structure consisting only of coil
+    (C).
+     
+  --pdb-cache-dir DIR
+    Set the directory where a subdirectory .cabsPDBcache will be created
+    to store downloaded PDB files (default: ~)
+     
+  -v LEVEL, --verbose LEVEL
+    Set verbosity LEVEL: (default: 2)
+    0 - silent mode      (only CRITICAL messages)
+    1 - WARNINGS
+    2 - INFO
+    3 - LOG FILES        (log files are generated)
+    4 - DEBUG            (all messages)
+     
+  --log
+    Automatically redirects output to a CABS.log file created in the working directory and stops
+    progress bar from showing on higher verbosity levels and turns off log coloring. Piping standard
+    error will not work with this option. If a log file already exists it will be appended to.
+     
+  --version
+    print version and exit program
+     
+  -h, --help
+    Print help and exit program
+     
+
+CABSflex repository: https://bitbucket.org/lcbio/cabsflex
+

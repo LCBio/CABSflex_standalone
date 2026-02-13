@@ -195,3 +195,4 @@ beta-distribution
 
 #Back up files
 CABS/structures/pdblib_old.py
+CABS/data/cabs_paths.json

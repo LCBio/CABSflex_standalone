@@ -111,7 +111,7 @@ def ca2all(
 
         pir = prefix + ".pir"
         with open(pir, "w") as f:
-            f.write(_PIR_TEMPLATE.format(prefix, seq, pdb))
+            f.write(_PIR_TEMPLATE % (prefix, seq, pdb))
 
         env = Environ()
         env.patch_default = False
