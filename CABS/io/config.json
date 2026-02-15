@@ -619,7 +619,7 @@
                 "MIN",
                 "MAX"
             ],
-            "help": "This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the protein in predefined conformation. (default: %(default)s)\n\nMODE can be either based on plDDT or secondary structure:\n[1] 'rigid' - Generates restraints for all protein residues.\n\n[2] 'plddt' - Generates restraints based on combination of pLDDT and secondary structure (recommended).\n[3] 'flexible' - Generates restraints only when both restrained residues are assigned regular secondary structure (helix, sheet).\nGAP specifies minimal gap along the main chain for two residues to be restrained.\nMIN and MAX are min and max values in Angstroms for two residues to be restrained."
+            "help": "This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the protein in predefined conformation. (default: %(default)s)\n\nMODE can be either based on plDDT or secondary structure:\n[1] 'rigid' - Generates restraints for all protein residues.\n\n[2] 'plddt' - Generates restraints based on combination of pLDDT and secondary structure (recommended).\n[3] 'flexible' - Generates restraints only when both restrained residues are assigned regular secondary structure (helix, sheet).\n[4] 'none' or 'unleashed' - No restraints are generated.\nGAP specifies minimal gap along the main chain for two residues to be restrained.\nMIN and MAX are min and max values in Angstroms for two residues to be restrained."
         },
         "protein-restraints-retain": {
             "metavar": "PERCENTAGE",

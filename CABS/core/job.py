@@ -294,7 +294,7 @@ class CABSTask(metaclass=ABCMeta):
         if self.gauss and self.gauss_iterations:
             utils.GAUSS_MAX_ITER = self.gauss_iterations
 
-        allowed_modes = ["rigid", "plddt", "manual", "flexible"]
+        allowed_modes = ["rigid", "plddt", "manual", "flexible", "none", "unleashed", "no-protein-restraints"]
         if not self.no_protein_restraints:
             mode, gap, min_d, max_d = self.protein_restraints
             if mode in ["manual", "plddt"] and not (
