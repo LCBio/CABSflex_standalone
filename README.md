@@ -23,8 +23,8 @@ For a detailed explanation of the method, see the **[Modeling Scheme Wiki Page](
 
 CABS-flex uses a **multi-environment system** to ensure maximum stability and isolation for its dependencies, particularly the all-atom reconstruction tools.
 
-### 1. Standard Installation (Conda)
-Recommended for local machines (Linux, macOS, WSL 2).
+### 1. Standard Installation (Micromamba / Conda)
+Recommended for local machines (Linux, macOS, WSL 2). The installer automatically bootstraps **Micromamba** if no environment manager is found.
 
 ```bash
 # Clone the repository
@@ -34,6 +34,10 @@ cd cabsflex
 # Run the installer
 bash install.sh
 ```
+
+> [!TIP]
+> **Remote Install**: You can also install directly via curl:
+> `curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install.sh | bash -s YOUR_BETA_TOKEN`
 
 ### 2. HPC / Cluster Installation (Venv)
 Optimized for High-Performance Computing clusters (e.g., Helios) using environment modules.

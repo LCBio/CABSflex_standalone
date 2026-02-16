@@ -4,11 +4,18 @@
 
 set -e
 
+# ---------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------
+# Power user configuration
 BETA_TOKEN=$1
 REPO_URL="https://github.com/LCBio/cabsflex"
 ENV_NAME="cabs"
 INSTALL_SRC=$(pwd)
 IS_LOCAL=false
+INSTALL_MODELLER="TRUE"
+MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
+
 
 # Colors for output
 RED='\033[0;31m'
@@ -121,13 +128,6 @@ setup_micromamba() {
 setup_micromamba
 
 echo -e "${GREEN}✅ Micromamba ready${NC}"
-
-# ---------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------
-# Power user configuration
-INSTALL_MODELLER="TRUE"
-MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
 
 # Ask for Modeller Key if we want to install it
 if [ "$INSTALL_MODELLER" = "TRUE" ] && [ -z "$MODELLER_KEY" ]; then
