@@ -196,3 +196,6 @@ beta-distribution
 #Back up files
 CABS/structures/pdblib_old.py
 CABS/data/cabs_paths.json
+install.sh.16.02.25.bak
+install-changed.sh.bak
+tests/test_cli_options
