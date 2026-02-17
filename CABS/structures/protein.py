@@ -281,11 +281,11 @@ class Protein(Atoms):
         self.weights = None
         if weights and weights.lower() == "flex":
             self.weights = [a.flexibility for a in self.atoms]
-        if weights and weights.lower() == "ss":
+        elif weights and weights.lower() == "ss":
             self.weights = [(a.occ + 1.0) % 2 for a in self.atoms]
-        if weights and (weights.lower() == "off" or weights.lower() == "gauss"):
+        elif weights and (weights.lower() == "off" or weights.lower() == "gauss"):
             self.weights = [1.0] * len(self.atoms)
-        else:
+        elif weights:
             try:
                 default = 1.0
                 self.weights = []
@@ -307,6 +307,8 @@ class Protein(Atoms):
                 logger.warning(_name, f"Could not read weights file: {weights}")
                 logger.warning(_name, "Using default weights(1.0) for all atoms.")
                 self.weights = [1.0] * len(self.atoms)
+        else:
+             self.weights = [1.0] * len(self.atoms)
 
         self.center = self.cent_of_mass()
         self.dimension = self.max_dimension()

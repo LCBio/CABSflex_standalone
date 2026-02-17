@@ -133,7 +133,7 @@
                     "pdb-cache-dir",
                     "verbose",
                     "log",
-                    "no-progress",
+                    "no-progress-bar",
                     "version",
                     "help"
                 ]
@@ -264,7 +264,7 @@
                     "pdb-cache-dir",
                     "verbose",
                     "log",
-                    "no-progress",
+                    "no-progress-bar",
                     "version",
                     "help"
                 ]
