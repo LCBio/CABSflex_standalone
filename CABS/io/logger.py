@@ -71,6 +71,7 @@ _prefix = color_prefix
 _save_dssp = False
 _save_ss = False
 _save_restraints = False
+_progress_bar = True
 
 
 def setup(
@@ -80,6 +81,7 @@ def setup(
     save_dssp: bool = False,
     save_ss: bool = False,
     save_restraints: bool = False,
+    progress_bar: bool = True,
 ) -> None:
     """
     Initialize the logging system with specified parameters.
@@ -91,8 +93,9 @@ def setup(
         save_dssp: Whether to save DSSP output
         save_ss: Whether to save secondary structure output
         save_restraints: Whether to save restraints output
+        progress_bar: Whether to show progress bar
     """
-    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_dssp, _save_ss, _save_restraints
+    global _log_level, _color, _stream, _remote, _line_break, _prefix, _save_dssp, _save_ss, _save_restraints, _progress_bar
     global _line_format, _middle_line_format, _first_line_format, _last_line_format
 
     _remote = remote
@@ -131,6 +134,7 @@ def setup(
     _save_dssp = save_dssp
     _save_ss = save_ss
     _save_restraints = save_restraints
+    _progress_bar = progress_bar
 
 
 def close_log() -> None:
@@ -358,7 +362,7 @@ class ProgressBar:
             delay: Initial delay before starting
             start_msg: Message to display at start
         """
-        if _log_level >= LogLevel.INFO.value and not _remote:
+        if _log_level >= LogLevel.INFO.value and not _remote and _progress_bar:
             self.stream = out
         else:
             self.stream = open(os.devnull, "w")

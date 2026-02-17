@@ -112,6 +112,7 @@ class CABSTask(metaclass=ABCMeta):
             "protein_restraints_retain"
         )
         self.no_protein_restraints: Optional[bool] = kwargs.get("no_protein_restraints")
+        self.no_progress_bar: Optional[bool] = kwargs.get("no_progress_bar")
         self.random_seed: Optional[int] = kwargs.get("random_seed")
         self.receptor_ss: Optional[str] = kwargs.get("receptor_ss")
         self.reference_pdb: Optional[str] = kwargs.get("reference_pdb")
@@ -163,6 +164,7 @@ class CABSTask(metaclass=ABCMeta):
                 save_dssp=self.dssp_output,
                 save_ss=self.ss_output,
                 save_restraints=self.restraints_output,
+                progress_bar=not self.no_progress_bar,
             )
             os.makedirs(self.work_dir)
         except OSError:

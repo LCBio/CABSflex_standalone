@@ -608,6 +608,15 @@ class Peptide(Atoms):
             msg=f"Loading ligand: {source}, conformation - {conformation}, location - {location}",
         )
         try:
+            # OPTIMIZATION: Heuristic to detect sequences vs PDBs/files
+            # If not a file, not 4-char ID, and no special chars commonly used in IDs/files, treat as sequence.
+            identifier = source.split(":")[0]
+            if (not os.path.exists(identifier) and 
+                len(identifier) != 4 and 
+                "_" not in identifier and 
+                "." not in identifier):
+                raise Pdb.InvalidPdbInput("Input looks like a sequence (no file/ID match)")
+
             pdb = Pdb(
                 source=source, selection="name CA", pdb_cache=pdb_cache, no_exit=True
             )

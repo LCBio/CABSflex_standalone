@@ -100,21 +100,15 @@ def _load_random_ligand_library() -> npt.NDArray[np.float64]:
     try:
         # Try modern importlib.resources first
         try:
-            with as_file(files("CABS") / "data" / "data0.dat") as data_file:
-                data = np.fromfile(str(data_file), dtype=float)
+            with as_file(files("CABS") / "data" / "data2.dat") as data_file:
+                data = np.loadtxt(str(data_file))
         except (ImportError, AttributeError, NameError):
             # Fallback to pkg_resources
-            data_path = resource_filename("CABS", "data/data0.dat")
-            data = np.fromfile(data_path, dtype=float)
+            data_path = resource_filename("CABS", "data/data2.dat")
+            data = np.loadtxt(data_path)
     except Exception:
         # Return empty array if data file cannot be loaded
         return np.array([], dtype=float).reshape(-1, 3)
-
-    # Ensure the data can be reshaped to have 3 columns
-    remainder = len(data) % 3
-    if remainder != 0:
-        # Trim data to be divisible by 3
-        data = data[: len(data) - remainder]
 
     return data.reshape(1, -1, 3)
 

@@ -133,6 +133,7 @@
                     "pdb-cache-dir",
                     "verbose",
                     "log",
+                    "no-progress",
                     "version",
                     "help"
                 ]
@@ -263,6 +264,7 @@
                     "pdb-cache-dir",
                     "verbose",
                     "log",
+                    "no-progress",
                     "version",
                     "help"
                 ]
@@ -555,6 +557,10 @@
             "flag": "-N",
             "action": "store_true",
             "help": "Do not automatically generate any protein restraints.\nThis option has precedence over '--protein-restraints' option and will overwrite any settings set bythe latter. With this flag on restraints can still be added with the '--ca-rest-add' or '--ca-rest-file' options."
+        },
+        "no-progress-bar": {
+            "action": "store_true",
+            "help": "Disable progress bar."
         },
         "nsp3-model-path": {
             "metavar": "PATH",
