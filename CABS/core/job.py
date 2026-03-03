@@ -379,7 +379,7 @@ class CABSTask(metaclass=ABCMeta):
             try:
                 self.calculate_rmsd()
             except (ValueError, AlignError) as e:
-                logger.critical(module_name=_name, msg=e.message)
+                logger.critical(module_name=_name, msg=str(e))
         self.save_config_file()
         self.load_all_atom_tops()
         self.draw_plots(colors=self.colors)
@@ -481,7 +481,7 @@ class CABSTask(metaclass=ABCMeta):
         mtx_p = mtx_p.to_numpy()
         mtx_q = mtx_q.to_numpy()
         dummy_rmsd, rot, t_com, q_com = utils.dynamic_kabsch(mtx_p, mtx_q)
-        self.reference[0].from_np(
+        self.reference[0].from_numpy(
             np.dot(self.reference[0].to_numpy() - q_com, rot) + t_com
         )
 
@@ -986,7 +986,7 @@ class DockTask(CABSTask):
     """Class representing single CABS job."""
 
     def setup_job(self):
-        if not self.peptides:
+        if not self.peptides and not self.load_cabs_files:
             raise ValueError("No peptide given")
         self.initial_complex = ProteinComplex(
             protein=self.input_protein,

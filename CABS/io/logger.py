@@ -376,10 +376,9 @@ class ProgressBar:
         if start_msg:
             self.stream.write(coloring(msg=start_msg) + "\n")
         if self.job_name:
-            log(
+            info(
                 module_name=self.module_name,
                 msg=f"{self.job_name} running...",
-                out=self.stream,
             )
         self.start_time = time()
         self.update()
@@ -436,10 +435,9 @@ class ProgressBar:
             self.stream.write(" " * 80 + "\r")
             if show_time:
                 t = gmtime(time() - self.start_time)
-                log(
+                info(
                     module_name=self.module_name,
                     msg=f"{self.job_name} done in {strftime('%H:%M:%S', t)}",
-                    out=self.stream,
                 )
             self.stream.flush()
             self.is_done = True

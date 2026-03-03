@@ -46,9 +46,7 @@ PDB_2BZ6="tests/inputs/2BZ6.pdb"
 PDB_1A2K="tests/inputs/1A2K.pdb"
 REST_FILE="tests/inputs/restraints_short.txt" # Using existing file if appropriate or creating new one
 # Creating a dummy restraints file if not exists
-if [ ! -f "$REST_FILE" ]; then
-    echo "atom CA 1:L CA 2:L 3.8 1.0" > "$REST_FILE"
-fi
+echo "90:L 91:L 3.8 1.0" > "$REST_FILE"
 
 # Concurrency limiting logic
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -153,9 +151,9 @@ run_exhaustive_test "--log" "$CMD_1JBU --log" & limit_jobs
 
 # --- 2. Protein Options ---
 # Using 1JBU for most protein options
-run_exhaustive_test "-e" "$CMD_1JBU -e 10:H" & limit_jobs
-run_exhaustive_test "--exclude" "$CMD_1JBU --exclude 10:H+11:H" & limit_jobs
-run_exhaustive_test "--excluding-distance" "$CMD_1JBU -e 10:H --excluding-distance 4.0" & limit_jobs
+run_exhaustive_test "-e" "$CMD_1JBU -e 20:H" & limit_jobs
+run_exhaustive_test "--exclude" "$CMD_1JBU --exclude 20:H+21:H" & limit_jobs
+run_exhaustive_test "--excluding-distance" "$CMD_1JBU -e 20:H --excluding-distance 4.0" & limit_jobs
 # -g / --protein-restraints
 run_exhaustive_test "-g" "$CMD_1JBU -g flexible 3 3.8 11.5" & limit_jobs
 run_exhaustive_test "-N" "$CMD_1JBU -N" & limit_jobs
@@ -164,7 +162,7 @@ run_exhaustive_test "--protein-flexibility" "$CMD_1JBU -f 0.5" & limit_jobs
 run_exhaustive_test "--weighted-fit-ss" "$CMD_1JBU --weighted-fit ss" & limit_jobs
 run_exhaustive_test "--gauss-iterations" "$CMD_1JBU --weighted-fit gauss --gauss-iterations 50" & limit_jobs
 # --receptor-ss
-run_exhaustive_test "--receptor-ss" "$CMD_1JBU --receptor-ss L:CCCCCHHHHHCCCCC:H:CCCCCHHHHHCCCCC" & limit_jobs
+run_exhaustive_test "--receptor-ss" "$CMD_1JBU --receptor-ss L:CCCCCHHHHHCCCCC+H:CCCCCHHHHHCCCCC" & limit_jobs
 
 # --- 3. Peptide Options ---
 # Using 1A2K (multi-peptide) for some, 1JBU for others
@@ -180,8 +178,8 @@ echo "1:PEP1 1.0 1.0" > tests/inputs/pairmod.txt
 run_exhaustive_test "--pairmod" "$CMD_1JBU --pairmod tests/inputs/pairmod.txt" & limit_jobs
 
 # --- 4. Restraints Options ---
-run_exhaustive_test "--ca-rest-add" "$CMD_1JBU --ca-rest-add 1:L 1:H 5.0 1.0" & limit_jobs
-run_exhaustive_test "--sc-rest-add" "$CMD_1JBU --sc-rest-add 1:L 1:H 5.0 1.0" & limit_jobs
+run_exhaustive_test "--ca-rest-add" "$CMD_1JBU --ca-rest-add 90:L 20:H 5.0 1.0" & limit_jobs
+run_exhaustive_test "--sc-rest-add" "$CMD_1JBU --sc-rest-add 90:L 20:H 5.0 1.0" & limit_jobs
 run_exhaustive_test "--ca-rest-weight" "$CMD_1JBU --ca-rest-weight 0.5 2.0" & limit_jobs
 run_exhaustive_test "--sc-rest-weight" "$CMD_1JBU --sc-rest-weight 0.5 2.0" & limit_jobs
 run_exhaustive_test "--ca-rest-file" "$CMD_1JBU --ca-rest-file $REST_FILE" & limit_jobs
@@ -189,7 +187,10 @@ run_exhaustive_test "--sc-rest-file" "$CMD_1JBU --sc-rest-file $REST_FILE" & lim
 
 # --- 5. Simulation Options ---
 # Shortening simulation for speed
-CMD_SHORT="$CMD_1JBU -a 2 -y 2 -s 2 -r 2"
+CMD_SHORT="$CMD_1JBU -a 2 -y 2 -s 2 -r 2 -k 4"
+# 9. Previously Missing Options (User Requested)
+run_exhaustive_test "-L" "$CABS_CMD -i $PDB_1JBU:LH -p EEWEVLCWTWETCER:CCCEEEECCCTTCCC -k 2 -L tests/inputs/Test_dock.cbs" & limit_jobs
+run_exhaustive_test "--load-cabs-files" "$CABS_CMD -i $PDB_1JBU:LH -p EEWEVLCWTWETCER:CCCEEEECCCTTCCC -k 2 --load-cabs-files tests/inputs/Test_dock.cbs" & limit_jobs
 run_exhaustive_test "-a" "$CABS_CMD -i $PDB_1JBU:LH -p EEWEVLCWTWETCER:CCCEEEECCCTTCCC -a 5" & limit_jobs
 run_exhaustive_test "-y" "$CABS_CMD -i $PDB_1JBU:LH -p EEWEVLCWTWETCER:CCCEEEECCCTTCCC -y 5" & limit_jobs
 run_exhaustive_test "-s" "$CABS_CMD -i $PDB_1JBU:LH -p EEWEVLCWTWETCER:CCCEEEECCCTTCCC -s 5" & limit_jobs
@@ -242,13 +243,13 @@ run_exhaustive_test "-w" "$CMD_SHORT -w tests/test_cabsdock_options/workdir_test
 run_exhaustive_test "--dssp-command" "$CMD_SHORT --dssp-command mkdssp" & limit_jobs
 run_exhaustive_test "--fortran-command" "$CMD_SHORT --fortran-command gfortran" & limit_jobs
 run_exhaustive_test "--image-file-format" "$CMD_2BZ6 -M --image-file-format png" & limit_jobs
-run_exhaustive_test "--pdb-cache-dir" "$CMD_SHORT --pdb-cache-dir ." & limit_jobs
+    run_exhaustive_test "--nsp3-model-path" "$CABS_CMD -i $PDB_1JBU:LH -p EEWE:CCCC -v 4 --nsp3-model-path dummy_weights" & limit_jobs
+    run_exhaustive_test "--pdb-cache-dir" "$CABS_CMD -i 1JBU:LH -p EEWE:CCCC -v 4 --pdb-cache-dir .cabsPDBcache" & limit_jobs
 run_exhaustive_test "--nsp3-model-path" "$CMD_SHORT --nsp3-model-path dummy_weights" & limit_jobs
 # Load options
 # Need a saved file first. -S option was tested, can we depend on it?
 # We can create a dummy .cabs file or just test that it *starts* to load.
 # Actually, -L loads a previous run. 
-# We'll skip complex dependency tests to keep it simple, or point to an input if exists.
 if [ -f "tests/inputs/Test.cbs" ]; then
     run_exhaustive_test "-L" "$CABS_CMD -i $PDB_1JBU -L tests/inputs/Test.cbs" & limit_jobs
 fi

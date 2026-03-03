@@ -268,6 +268,8 @@ class SmithWaterman(AbstractAlignMethod):
     methodname = "SW"
 
     def execute(self, atoms1, atoms2, ident_threshold=0.5, **kwargs):
+        if len(atoms1) == 0 or len(atoms2) == 0:
+            raise AlignError("Empty alignment.")
         # filling matrix
         mtx = np.zeros((len(atoms1) + 1, len(atoms2) + 1), dtype=int)
         for i, r1 in enumerate([aa_to_short(k.resname) for k in atoms1], 1):
@@ -277,6 +279,8 @@ class SmithWaterman(AbstractAlignMethod):
                 rght = mtx[i, j - 1] + BLOSUM62[B62h[r1], B62h["null"]]
                 mtx[i, j] = max((dgn, dwn, rght, 0))
         # finding path
+        if mtx.max() <= 0:
+            raise AlignError("No sequential similarity.")
         i, j = np.unravel_index(np.argmax(mtx), mtx.shape)
         pickup = lambda ind1, ind2: (atoms1[ind1 - 1], atoms2[ind2 - 1])
         alg = [pickup(i, j)]

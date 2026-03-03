@@ -44,7 +44,8 @@ touch "$DEBUG_LOG"
 # Total steps = 25,000 per simulation.
 BASE_PDB="tests/inputs/Helix_short.pdb"
 DS_PDB="tests/inputs/3BCI_ds.pdb"
-REST_FILE="tests/inputs/restraints_short.txt"
+REST_FILE="tests/inputs/restraints_flex.txt"
+echo "44:A 50:A 7.0 1.0" > "$REST_FILE"
 MOD_CMD="mod10.8"
 
 # Concurrency limiting logic

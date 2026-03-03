@@ -131,6 +131,7 @@
                     "fortran-command",
                     "image-file-format",
                     "pdb-cache-dir",
+                    "nsp3-model-path",
                     "verbose",
                     "log",
                     "no-progress-bar",

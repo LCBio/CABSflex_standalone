@@ -198,7 +198,10 @@ CABS/structures/pdblib_old.py
 CABS/data/cabs_paths.json
 install.sh.16.02.25.bak
 install-changed.sh.bak
+.cabsPDBcache
 
 #Test directories
 tests/test_cli_options
 test_cabsdock_options
+tests/filter_failed.py
+tests/run_failed.sh
