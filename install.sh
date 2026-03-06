@@ -366,8 +366,8 @@ if [[ "$OSTYPE" != "darwin"* ]]; then
         --no-cache-dir
 else
     run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
-        torch==2.2.0+cpu \
-        torchvision==0.17.0+cpu \
+        torch==2.2.0 \
+        torchvision==0.17.0 \
         --index-url https://download.pytorch.org/whl/cpu \
         --no-cache-dir
 fi
