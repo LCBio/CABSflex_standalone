@@ -368,6 +368,14 @@ class CABSTask(metaclass=ABCMeta):
         self.load_output(file_traf, file_seq)
         if self.reference_pdb:
             self.parse_reference(self.reference_pdb, self.pdb_cache)
+        num_available = self.trajectory.coordinates.shape[0] * self.trajectory.coordinates.shape[1]
+        if self.clustering_medoids > num_available:
+            logger.warning(
+                _name,
+                f"The number of medoids {self.clustering_medoids} exceeds the number of structures to be clustered {num_available}. Reducing medoids count to {num_available}.",
+            )
+            self.clustering_medoids = num_available
+
         self.score_results(
             n_filtered=self.filtering_count,
             number_of_medoids=self.clustering_medoids,
@@ -489,7 +497,7 @@ class CABSTask(metaclass=ABCMeta):
         if self.aa_rebuild:
             pth = os.path.join(self.work_dir, "output_pdbs", "model_%i.pdb")
             med_traj = np.array(
-                [Pdb(pth % i, create_from_aa=True).atoms.to_numpy() for i in range(10)]
+                [Pdb(pth % i, create_from_aa=True).atoms.to_numpy() for i in range(self.clustering_medoids)]
             )
             med_traj = np.expand_dims(med_traj, axis=1)
             mod0 = Pdb(

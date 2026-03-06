@@ -201,7 +201,11 @@ install-changed.sh.bak
 .cabsPDBcache
 
 #Test directories
-tests/test_cli_options
+tests/test_*
+tests/verify_*
+tests/scenarios
 test_cabsdock_options
 tests/filter_failed.py
 tests/run_failed.sh
+output_pdbs
+install_old.sh

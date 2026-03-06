@@ -115,7 +115,7 @@ setup_micromamba() {
 
         # Initialize shell
         eval "$($MAMBA_EXE shell hook -s bash)"
-        echo -e "${GREEN}✅ Micromamba bootstrapped (No bzip2 required)${NC}"
+        echo -e "${GREEN}✅ Micromamba bootstrapped${NC}"
     else
         export MAMBA_EXE=$(which micromamba)
         echo -e "${GREEN}✅ Using existing micromamba${NC}"
@@ -210,7 +210,7 @@ fi
 install_modeller_source() {
     echo -e "${YELLOW}📥 Installing Modeller from source (fallback)...${NC}"
     local mod_version="10.7"
-    local arch_index="2" # x86_64
+    local arch_index="2"
     [ "$(uname -m)" = "arm64" ] || [ "$(uname -m)" = "aarch64" ] && arch_index="10"
 
     local env_path=$($MAMBA_EXE info --envs | grep "^${ENV_NAME} " | awk '{print $NF}')
@@ -249,86 +249,98 @@ if ! "$MAMBA_EXE" list -n $ENV_NAME | grep -q "modeller"; then
     fi
 fi
 
+# Retry function for pip/git
+run_with_retry() {
+    local n=1
+    local max=5
+    local delay=5
+    while true; do
+        "$@" && break
+        if [[ $n -lt $max ]]; then
+            ((n++))
+            echo -e "${YELLOW}⚠️  Command failed. Attempt $n/$max. Retrying in $delay seconds...${NC}"
+            sleep $delay
+        else
+            echo -e "${RED}❌ Command failed after $max attempts.${NC}"
+            exit 1
+        fi
+    done
+}
+
+micromamba config append channels conda-forge
+micromamba config remove channels defaults
+
 # Activate environment
 micromamba activate $ENV_NAME
 echo -e "${BLUE}ℹ️  Using Python: $(which python)${NC}"
 
-# 🚀 PRE-INSTALL CONFIGURATION
 CG2ALL_ENV_NAME="${ENV_NAME}_reconstruct"
-# Predict path based on MAMBA_ROOT_PREFIX (default micromamba behavior)
 CG2ALL_ENV_PATH="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}/envs/$CG2ALL_ENV_NAME"
 
 if [ "$IS_LOCAL" = false ]; then
-    # For remote installs, prepare a temporary clone to inject configuration
     echo -e "${YELLOW}📥 Cloning repository for configuration injection...${NC}"
     INSTALL_SRC="$TEMP_DIR/cabs_src"
     [ -d "$INSTALL_SRC" ] || git clone https://$BETA_TOKEN@github.com/LCBio/cabsflex.git "$INSTALL_SRC"
 fi
 
 DATA_DIR="$INSTALL_SRC/CABS/data"
-
-# Echo commands follow the if/else loop
 echo -e "${YELLOW}📝 Preparing CABS configuration in $DATA_DIR...${NC}"
 mkdir -p "$DATA_DIR"
 echo "{\"cg2all_env_prefix\": \"$CG2ALL_ENV_PATH\"}" > "$DATA_DIR/cabs_paths.json"
 echo -e "${GREEN}✅ Created cabs_paths.json configuration.${NC}"
 
-# 🧹 CLEANUP TEST/BUILD ARTIFACTS (Prevent setuptools discovery errors)
 echo -e "${YELLOW}🧹 Cleaning up build artifacts from $INSTALL_SRC...${NC}"
 rm -rf "$INSTALL_SRC/tests/test_cli_options" "$INSTALL_SRC/build" "$INSTALL_SRC/dist" "$INSTALL_SRC"/*.egg-info
 
 # ---------------------------------------------------------
-# Dependency Installation via Pip
+# Dependency Installation via micromamba (No solver bounds)
 # ---------------------------------------------------------
-echo -e "${YELLOW}📦 Installing dependencies via Pip...${NC}"
-pip install --no-cache-dir \
-    "numpy>=1.20.0" \
-    "matplotlib>=3.5.0" \
-    "requests>=2.25.0" \
-    "biopandas>=0.4.0" \
-    "tqdm>=4.60.0" \
-    "biopython>=1.78" \
-    "mdtraj>=1.9.0" \
-    "scipy>=1.7.0" \
-    "h5py>=3.1.0" \
-    "netcdf4>=1.5.0" \
-    "pytest>=7.0.0" \
-    "pytest-cov>=4.0.0" \
-    "black>=23.0.0" \
-    "ruff>=0.1.0" \
-    "mypy>=1.0.0" \
-    "pre-commit>=3.0.0" \
-    "pytest-mock>=3.6.0" \
-    "pytest-benchmark>=4.0.0" \
-    "pytest-html>=3.1.0" \
-    "bandit>=1.7.0"
+
+echo -e "${YELLOW}📦 Installing dependencies via micromamba...${NC}"
+echo -e "${YELLOW}📦 Installing core libraries...${NC}"
+micromamba install -n $ENV_NAME -y -c conda-forge --override-channels \
+    python=3.10 numpy matplotlib requests tqdm scipy h5py netcdf4
+
+# echo -e "${YELLOW}📦 Installing dev tools...${NC}"
+# micromamba install -n $ENV_NAME -y -c conda-forge --override-channels \
+#     biopandas biopython mdtraj pytest pytest-cov black ruff mypy pre-commit \
+#     pytest-mock pytest-benchmark pytest-html bandit
+
+echo -e "${YELLOW}📦 Installing biopandas and biopython...${NC}"
+micromamba install -n $ENV_NAME -y -c conda-forge --override-channels \
+    biopandas biopython
+
+echo -e "${YELLOW}📦 Installing CI/CD & Linting Tools...${NC}"
+micromamba install -n $ENV_NAME -y -c conda-forge --override-channels \
+    pytest pytest-cov black ruff mypy pre-commit \
+    pytest-mock pytest-benchmark pytest-html bandit
+
+echo -e "${YELLOW}📦 Installing mdtraj...${NC}"
+run_with_retry micromamba run -n $ENV_NAME pip install --no-cache-dir mdtraj
+
+
+
 
 # Install CABSflex from source (Local or the Temp Clone)
 echo -e "${YELLOW}📦 Installing CABSflex from $INSTALL_SRC...${NC}"
-pip install --upgrade "$INSTALL_SRC"
+micromamba run -n $ENV_NAME pip install --upgrade "$INSTALL_SRC"
 
-# RESTORED: Modeller Config Logic
+# Modeller Config Logic
 if [ ! -z "$MODELLER_KEY" ]; then
     echo -e "${YELLOW}🔧 Configuring Modeller for environment '$ENV_NAME'...${NC}"
-    
-    # Try finding config via the environment's python first
     MOD_CONFIG=$("$MAMBA_EXE" run -n "$ENV_NAME" python -c "import modlib.modeller.config as c; print(c.__file__)" 2>/dev/null || echo "")
-    
-    # Fallback 1: via modeller module
+
     if [ -z "$MOD_CONFIG" ]; then
         MOD_CONFIG=$("$MAMBA_EXE" run -n "$ENV_NAME" python -c "import modeller; import os; print(os.path.join(os.path.dirname(modeller.__file__), 'config.py'))" 2>/dev/null || echo "")
     fi
-    
-    # Fallback 2: Manual search in the env path
+
     if [ -z "$MOD_CONFIG" ] || [ ! -f "$MOD_CONFIG" ]; then
         ENV_PATH=$("$MAMBA_EXE" info --envs | awk -v env="$ENV_NAME" '$1 == env {print $NF}')
         [ -z "$ENV_PATH" ] && ENV_PATH="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}/envs/$ENV_NAME"
-        echo -e "${BLUE}ℹ️  Searching for Modeller config in $ENV_PATH...${NC}"
         MOD_CONFIG=$(find "$ENV_PATH" -name "config.py" | grep "/modeller/" | head -n 1 || echo "")
     fi
-                 
+
     if [ ! -z "$MOD_CONFIG" ] && [ -f "$MOD_CONFIG" ]; then
-        # Use regex that handles both with and without 'r' prefix and any quote type
         sedi "s/license = .*/license = r'${MODELLER_KEY}'/" "$MOD_CONFIG"
         echo -e "${GREEN}✅ Modeller license configured in $MOD_CONFIG${NC}"
     else
@@ -341,32 +353,50 @@ fi
 # ---------------------------------------------------------
 echo -e "${YELLOW}🔧 Setting up Reconstruction Environment (cg2all)...${NC}"
 
-# FIX: Added c-compiler, cxx-compiler, and make to provide g++ for mdtraj
-"$MAMBA_EXE" create -y -n $CG2ALL_ENV_NAME -c conda-forge --override-channels python=3.9 pip c-compiler cxx-compiler make
+"$MAMBA_EXE" create -n $CG2ALL_ENV_NAME -y -c conda-forge --override-channels python=3.9 pip c-compiler cxx-compiler make
 
-micromamba activate $CG2ALL_ENV_NAME
+echo -e "${BLUE}Installing PyTorch, TorchVision, DGL, E3NN dependencies...${NC}"
 
-echo -e "${BLUE}Installing PyTorch and DGL for reconstruction...${NC}"
-# Use pip for specific versions as per Helios script
-# Install Torch 2.1.2 (CPU)
-pip install torch==2.2.0+cpu torchvision==0.17.0+cpu --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
-# Install DGL 1.1.3
-pip install psutil>=5.8.0 tqdm --no-cache-dir
-pip install --no-deps dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
-# Install e3nn
-pip install --no-cache-dir --no-binary e3nn e3nn
-# Install custom mdtraj
-pip install git+https://github.com/huhlim/mdtraj --no-cache-dir
+# Dynamic check to force CPU on non-Mac, but allow Mac to resolve natively
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
+        torch==2.2.0+cpu \
+        torchvision==0.17.0+cpu \
+        --index-url https://download.pytorch.org/whl/cpu \
+        --no-cache-dir
+else
+    run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
+        torch==2.2.0+cpu \
+        torchvision==0.17.0+cpu \
+        --index-url https://download.pytorch.org/whl/cpu \
+        --no-cache-dir
+fi
+
+# Install psutil and tqdm
+run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
+    psutil>=5.8.0 \
+    tqdm \
+    --no-cache-dir
+
+# Install dgl
+run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
+    --no-deps \
+    dgl==1.1.3 \
+    -f https://data.dgl.ai/wheels/repo.html
+
+# Istall e3nn
+run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
+    --no-cache-dir \
+    --no-binary e3nn e3nn
 
 # SE3Transformer
 echo -e "${BLUE}Installing SE3Transformer...${NC}"
 SE3T_SRC="$TEMP_DIR/se3t-src"
-git clone https://github.com/huhlim/SE3Transformer "$SE3T_SRC"
+run_with_retry git clone https://github.com/huhlim/SE3Transformer "$SE3T_SRC"
 pushd "$SE3T_SRC"
-# Patch dependencies to match what we have
 sedi 's/python = "[^"]*"/python = ">=3.7"/' pyproject.toml
 sedi 's/torch = "[^"]*"/torch = ">=2.1.0"/' pyproject.toml
-pip install . --no-cache-dir
+micromamba run -n $CG2ALL_ENV_NAME pip install . --no-cache-dir
 popd
 
 # Install cg2all
@@ -379,10 +409,9 @@ git checkout a789cb5
 # Patch dependencies
 sedi 's/torch = "[^"]*"/torch = ">=2.1.0"/' pyproject.toml
 sedi 's/numpy = "[^"]1"/numpy = ">=1.21"/' pyproject.toml
-pip install . --no-cache-dir
+micromamba run -n $CG2ALL_ENV_NAME pip install . --no-cache-dir
 popd
 
-# Switch back to main env
 micromamba activate $ENV_NAME
 
 # ---------------------------------------------------------
@@ -398,27 +427,19 @@ case "$DETECTED_SHELL" in
     *)    PROFILE_FILE="$HOME/.profile" ;;
 esac
 
-# 1. Add binary folder to PATH (if not already there)
-# Use 'setenv' for csh/tcsh, 'export' for the rest
 if [[ "$DETECTED_SHELL" == *"csh"* ]]; then
     if ! grep -q "setenv PATH.*$HOME/.local/bin" "$PROFILE_FILE"; then
         echo 'setenv PATH "$HOME/.local/bin:$PATH"' >> "$PROFILE_FILE"
         echo -e "${GREEN}✅ Added ~/.local/bin to $PROFILE_FILE${NC}"
-    else
-        echo -e "${BLUE}ℹ️  ~/.local/bin already in $PROFILE_FILE${NC}"
     fi
 else
     if ! grep -q "export PATH.*$HOME/.local/bin" "$PROFILE_FILE"; then
         echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$PROFILE_FILE"
         echo -e "${GREEN}✅ Added ~/.local/bin to $PROFILE_FILE${NC}"
-    else
-        echo -e "${BLUE}ℹ️  ~/.local/bin already in $PROFILE_FILE${NC}"
     fi
 fi
 
-# 2. Run Micromamba's official shell initialization
 "$MAMBA_EXE" shell init -s "$DETECTED_SHELL" --root-prefix="$HOME/micromamba"
-
 echo -e "${GREEN}✅ Shell configured in $PROFILE_FILE${NC}"
 
 # ---------------------------------------------------------
@@ -426,15 +447,11 @@ echo -e "${GREEN}✅ Shell configured in $PROFILE_FILE${NC}"
 # ---------------------------------------------------------
 echo -e "${YELLOW}🧪 Testing installation for $DETECTED_SHELL...${NC}"
 
-# Find the main environment path
 MAIN_PREFIX=$($MAMBA_EXE info --envs | awk -v env="$ENV_NAME" '$1 == env {print $NF}')
 MAIN_BIN_DIR="$MAIN_PREFIX/bin"
-
-# Find the reconstruction environment path
 RECON_PREFIX=$($MAMBA_EXE info --envs | awk -v env="$CG2ALL_ENV_NAME" '$1 == env {print $NF}')
 RECON_BIN_DIR="$RECON_PREFIX/bin"
 
-# Binary Verification Function
 test_binary() {
     local bin_path="$1"
     local bin_name=$(basename "$bin_path")
@@ -456,20 +473,6 @@ test_binary "$MAIN_BIN_DIR/CABSdock"
 echo -e "${BLUE}Checking Reconstruction Environment binaries:${NC}"
 test_binary "$RECON_BIN_DIR/convert_cg2all"
 
-# Final Success Message
-echo ""
-echo -e "${GREEN}🎉 CABS-flex Beta installation complete!${NC}"
-echo "================================="
-echo -e "${BLUE}To start using CABS-flex in your current session:${NC}"
-echo "  source $PROFILE_FILE"
-echo "  micromamba activate $ENV_NAME"
-
-echo ""
-echo -e "${YELLOW}Note: convert_cg2all is managed internally by CABS-flex via the environment at:${NC}"
-echo "  $RECON_PREFIX"
-
-
-# Cleanup
 rm -rf $TEMP_DIR
 
 echo ""
@@ -477,6 +480,7 @@ echo -e "${GREEN}🎉 CABS-flex Beta installation complete!${NC}"
 echo "================================="
 echo ""
 echo -e "${BLUE}To use CABS-flex:${NC}"
+echo "  source $PROFILE_FILE"
 echo "  micromamba activate $ENV_NAME"
 echo "  CABSflex --help"
 echo "  CABSdock --help"

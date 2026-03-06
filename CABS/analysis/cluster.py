@@ -38,9 +38,12 @@ class Clustering:
         distance_matrix = self.distance_matrix
         m, n = distance_matrix.shape
         if k > n:
-            raise Exception(
-                f"The number of medoids {k} exceeds the number of structures to be clustered {n}"
+            from CABS.io import logger
+            logger.warning(
+                "Clustering",
+                f"The number of medoids {k} exceeds the number of structures to be clustered {n}. Reducing medoids count to {n}.",
             )
+            k = n
         medoid_ndx = np.arange(n)
         np.random.shuffle(medoid_ndx)
         medoid_ndx = np.sort(medoid_ndx[:k])
@@ -61,10 +64,12 @@ class Clustering:
             filtered_targets = [
                 target for target in medoid_ndx if target not in to_remove
             ]
-            if k > len(filtered_targets):
-                raise Exception(
-                    f"The number of unique structures {len(filtered_targets)} is less than the number of medoids {k}"
-                )
+            from CABS.io import logger
+            logger.warning(
+                "Clustering",
+                f"The number of unique structures {len(filtered_targets)} is less than the number of medoids {k}. Reducing medoids count to {len(filtered_targets)}.",
+            )
+            k = len(filtered_targets)
             np.random.shuffle(filtered_targets)
             medoid_ndx = np.sort(filtered_targets[:k])
 
