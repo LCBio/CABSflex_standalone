@@ -127,7 +127,6 @@
                 "MISCELLANEOUS OPTIONS",
                 [
                     "work-dir",
-                    "dssp-command",
                     "fortran-command",
                     "image-file-format",
                     "pdb-cache-dir",
@@ -258,7 +257,6 @@
                 "MISCELLANEOUS OPTIONS",
                 [
                     "work-dir",
-                    "dssp-command",
                     "fortran-command",
                     "image-file-format",
                     "nsp3-model-path",
@@ -432,11 +430,6 @@
                 "RESIDUE2"
             ],
             "help": "Add disulfide bonds to the structure. This option can be used multiple times to add multiple bonds.\n\nEach input should be in the form of exactly one pair: \"1:A 14:A\".\nExample: \"-F 1:A 14:A -F 3:A 13:A\" appends the disulfide bonds (1:A, 14:A) and (3:A, 13:A).\nNOTE: Ensure that the residues in each pair are valid and appropriate for disulfide bonding."
-        },
-        "dssp-command": {
-            "default": "mkdssp",
-            "metavar": "PATH",
-            "help": "Provide path to dssp binary (default is '%(default)s')"
         },
         "dssp-output": {
             "action": "store_true",
@@ -619,13 +612,8 @@
                 5.0,
                 15.0
             ],
-            "nargs": 4,
-            "metavar": [
-                "MODE",
-                "GAP",
-                "MIN",
-                "MAX"
-            ],
+            "nargs": "+",
+            "metavar": "MODE GAP MIN MAX",
             "help": "This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the protein in predefined conformation. (default: %(default)s)\n\nMODE can be either based on plDDT or secondary structure:\n[1] 'rigid' - Generates restraints for all protein residues.\n\n[2] 'plddt' - Generates restraints based on combination of pLDDT and secondary structure (recommended).\n[3] 'flexible' - Generates restraints only when both restrained residues are assigned regular secondary structure (helix, sheet).\n[4] 'none' or 'unleashed' - No restraints are generated.\nGAP specifies minimal gap along the main chain for two residues to be restrained.\nMIN and MAX are min and max values in Angstroms for two residues to be restrained."
         },
         "protein-restraints-retain": {

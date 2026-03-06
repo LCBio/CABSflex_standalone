@@ -261,6 +261,7 @@ class Pdb:
             # If log level is high enough, save the SS string to a file for the user
             if work_dir and logger.output_dssp():
                 dssp_out = os.path.join(work_dir, "output_data", "DSSP_output.txt")
+                os.makedirs(os.path.dirname(dssp_out), exist_ok=True)
                 logger.to_file(dssp_out, "".join(labels), f"Saved SS sequence to {dssp_out}")
 
             return sec

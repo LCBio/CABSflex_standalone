@@ -209,3 +209,4 @@ tests/filter_failed.py
 tests/run_failed.sh
 output_pdbs
 install_old.sh
+tests/1A2K/

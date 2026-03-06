@@ -464,9 +464,6 @@ MISCELLANEOUS OPTIONS:
   -w DIR, --work-dir DIR
     Set working directory to DIR. (default: '.')
      
-  --dssp-command PATH
-    Provide path to dssp binary (default is 'mkdssp')
-     
   --fortran-command PATH
     Provide path to fortran compiler binary (default is 'gfortran -O2')
      

@@ -77,7 +77,6 @@ class CABSTask(metaclass=ABCMeta):
         self.cyclization: Optional[bool] = kwargs.get("backbone_cyclization")
         self.disable_centro: Optional[bool] = kwargs.get("disable_centro")
         self.disulfide_bonds: Optional[bool] = kwargs.get("disulfide_bonds")
-        self.dssp_command: Optional[str] = kwargs.get("dssp_command")
         self.dssp_output: Optional[bool] = kwargs.get("dssp_output")
         self.exclude: Optional[Union[str, List[str]]] = kwargs.get("exclude")
         self.excluding_distance: Optional[float] = kwargs.get("excluding_distance")
@@ -189,10 +188,6 @@ class CABSTask(metaclass=ABCMeta):
             except Exception:
                 logger.debug(_name, "Skipping automatic cg2all environment discovery.")
                 pass
-
-        if self.dssp_command:
-            pdblib.Pdb.DSSP_COMMAND = self.dssp_command
-
         if self.fortran_command:
             cabs.CabsRun.FORTRAN_COMMAND = self.fortran_command
 
@@ -298,7 +293,31 @@ class CABSTask(metaclass=ABCMeta):
 
         allowed_modes = ["rigid", "plddt", "manual", "flexible", "none", "unleashed", "no-protein-restraints"]
         if not self.no_protein_restraints:
-            mode, gap, min_d, max_d = self.protein_restraints
+            args = self.protein_restraints
+            if isinstance(args, str):
+                args = [args]
+                
+            mode = args[0]
+            if len(args) == 4:
+                mode, gap, min_d, max_d = args
+                gap = int(gap)
+                min_d = float(min_d)
+                max_d = float(max_d)
+            elif len(args) == 1:
+                # Provide application specific defaults based on child class name
+                if self.__class__.__name__ == "DockTask":
+                    gap, min_d, max_d = 5, 5.0, 15.0
+                else:  # FlexTask
+                    if mode.lower() == "flexible":
+                        gap, min_d, max_d = 3, 3.8, 11.5
+                    elif mode.lower() == "rigid":
+                        gap, min_d, max_d = 5, 5.0, 15.0
+                    else: 
+                        gap, min_d, max_d = 5, 5.0, 15.0
+            else:
+                logger.exit_program(_name, "Invalid number of arguments for --protein-restraints. Expected 1 or 4 arguments.")
+
+            self.protein_restraints = (mode, gap, min_d, max_d)
             if mode in ["manual", "plddt"] and not (
                 self.protein_plddt or self.protein_category
             ):

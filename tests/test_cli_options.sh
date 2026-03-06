@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# Comprehensive Parallel Test Suite for CABSflex - True User Simulation (v8)
+#           Comprehensive Parallel Test Suite for CABSflex 
 # ==============================================================================
 
 # --- Configuration ---
@@ -126,7 +126,7 @@ run_exhaustive_test() {
     echo "DEBUG: FINISHED $alias_tested" >> "$DEBUG_LOG"
 }
 
-echo -e "${BLUE}🚀 Starting CABSflex Exhaustive CLI Tests (v8) - True Simulation${NC}"
+echo -e "${BLUE}🚀 Starting CABSflex Exhaustive CLI Tests.${NC}"
 echo -e "${YELLOW}Warning: This will take several minutes as it uses default simulation lengths.${NC}"
 
 # 1. Basic & Misc (Individual)
@@ -230,7 +230,6 @@ run_exhaustive_test "--renumber-residues-to-original" "$CABS_CMD -i $BASE_PDB --
 # 8. Misc
 run_exhaustive_test "-w" "$CABS_CMD -i $BASE_PDB -w tests/scenarios_exhaustive/w_test" & limit_jobs
 run_exhaustive_test "--work-dir" "$CABS_CMD -i $BASE_PDB --work-dir tests/scenarios_exhaustive/workdir_test" & limit_jobs
-run_exhaustive_test "--dssp-command" "$CABS_CMD -i $BASE_PDB --dssp-command mkdssp" & limit_jobs
 run_exhaustive_test "--fortran-command" "$CABS_CMD -i $BASE_PDB --fortran-command gfortran" & limit_jobs
 run_exhaustive_test "--image-file-format" "$CABS_CMD -i $BASE_PDB -M --image-file-format png" & limit_jobs
 run_exhaustive_test "--pdb-cache-dir" "$CABS_CMD -i $BASE_PDB --pdb-cache-dir ." & limit_jobs
