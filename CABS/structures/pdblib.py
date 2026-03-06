@@ -174,11 +174,16 @@ class Pdb:
 
             for residue in chain:
                 resname = residue.get_resname()
-                if no_water and resname == "HOH": continue
-                if no_hetero and residue.id[0] != " ": continue
-
+                
+                # Rescuing non-standard AAs (which are often marked as HETATMs)
                 if fix_aa and resname not in AA_NAMES.values():
                     resname = AA_SUB_NAMES.get(resname, resname)
+
+                if no_water and resname == "HOH": continue
+                
+                # Drop heteroatoms unless they were recognized and translated into standard AAs
+                if no_hetero and residue.id[0] != " " and resname not in AA_NAMES.values():
+                    continue
 
                 for atom in residue:
                     if remove_alt and atom.get_altloc() not in (" ", "A"):
@@ -225,29 +230,30 @@ class Pdb:
         logger.debug(_name, "Assigning secondary structure via MDTraj...")
         
         try:
-            # Check if source is a fetched identifier or a non-PDB file
-            is_complex = self.source_file.lower().endswith((".cif", ".cif.gz", ".gz")) or ":" in self.source_file
+            # Generate a temporary PDB for MDTraj to ensure it only sees the protein atoms
+            # that CABS has already filtered (removing waters, DNA, etc.)
+            temp_dir = work_dir or "."
+            os.makedirs(os.path.join(temp_dir, "output_pdbs"), exist_ok=True)
+            load_file = os.path.join(temp_dir, "output_pdbs", "dssp_topology.pdb")
+            self.atoms.save_to_pdb(load_file)
             
-            if is_complex:
-                # Generate a temporary PDB for MDTraj to handle complex/compressed formats
-                # We use a temp file to avoid recursion and ensure MDTraj gets a simple PDB
-                temp_dir = work_dir or "."
-                os.makedirs(os.path.join(temp_dir, "output_pdbs"), exist_ok=True)
-                load_file = os.path.join(temp_dir, "output_pdbs", "dssp_topology.pdb")
-                self.atoms.save_to_pdb(load_file)
-                logger.info(_name, f"MDTraj using temporary topology: {load_file}")
-            else:
-                load_file = self.source_file
-
-            logger.info(_name, f"MDTraj loading topology from: {load_file}")
+            logger.info(_name, f"MDTraj loading filtered topology from: {load_file}")
             traj = md.load(load_file)
             labels = md.compute_dssp(traj, simplified=True)[0]
 
             sec = {}
+            assigned_ss = ""
+            last_chain = None
             for i, res in enumerate(traj.topology.residues):
+                # Track chains to insert '+' separator for multi-chain output
+                current_chain = res.chain.chain_id
+                if last_chain is not None and current_chain != last_chain:
+                    assigned_ss += "+"
+                last_chain = current_chain
+
                 # Ensure the key format matches Atom.resid_id(): "resnum[icode]:chid"
                 icode = getattr(res, "insertion_code", "") or ""
-                key = f"{res.resSeq}{icode}:{res.chain.chain_id}"
+                key = f"{res.resSeq}{icode}:{current_chain}"
                 
                 # MDTraj returns labels as numpy characters; convert to native str
                 # Also map 'NA' or unknowns to 'C' (Coil) to avoid KeyError in CABS
@@ -255,6 +261,7 @@ class Pdb:
                 if label not in ["H", "E", "T", "C"]:
                      label = "C"
                 sec[key] = label
+                assigned_ss += label
 
             logger.info(_name, "DSSP assignment was performed with MDTraj.")
 
@@ -262,7 +269,7 @@ class Pdb:
             if work_dir and logger.output_dssp():
                 dssp_out = os.path.join(work_dir, "output_data", "DSSP_output.txt")
                 os.makedirs(os.path.dirname(dssp_out), exist_ok=True)
-                logger.to_file(dssp_out, "".join(labels), f"Saved SS sequence to {dssp_out}")
+                logger.to_file(dssp_out, assigned_ss, f"Saved SS sequence to {dssp_out}")
 
             return sec
         except Exception as e:

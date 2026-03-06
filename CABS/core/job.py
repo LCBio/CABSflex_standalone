@@ -40,6 +40,7 @@ from CABS.utils import utils
 from CABS.utils.align import AlignError, align_to, save_csv
 from CABS.utils.filter import Filter
 from CABS.utils.utils import convert_cg_to_all
+from CABS.utils import pymol as pymol_utils
 from CABS.config_loader import get_config_section, get_cg2all_env_prefix
 
 _name = "JOB"
@@ -84,6 +85,9 @@ class CABSTask(metaclass=ABCMeta):
         self.filtering_mode: Optional[str] = kwargs.get("filtering_mode")
         self.fortran_command: Optional[str] = kwargs.get("fortran_command")
         self.gauss_iterations: Optional[int] = kwargs.get("gauss_iterations")
+        self.generate_pymol_visualizations: Optional[bool] = kwargs.get(
+            "generate_pymol_visualizations"
+        )
         self.image_file_format: Optional[str] = kwargs.get("image_file_format")
         self.input_protein: Optional[str] = kwargs.get("input_protein")
         self.insertion_attempts: Optional[int] = kwargs.get("insertion_attempts")
@@ -97,10 +101,10 @@ class CABSTask(metaclass=ABCMeta):
         self.nsp3_model_path: Optional[str] = kwargs.get("nsp3_model_path")
         self.pairmod: Optional[str] = kwargs.get("pairmod")
         self.pdb_cache: Optional[str] = kwargs.get("pdb_cache_dir")
-        self.pdb_bfac_output: Optional[bool] = kwargs.get("pdb_bfac_output")
-        self.pdb_output: Optional[bool] = kwargs.get("pdb_output")
+        self.pdb_bfac_output: Optional[str] = kwargs.get("pdb_bfac_output")
+        self.pdb_output: Optional[str] = kwargs.get("pdb_output")
         self.peptide: Optional[str] = kwargs.get("peptide")
-        self.peptide_structure_prediction: Optional[bool] = kwargs.get(
+        self.peptide_structure_prediction: Optional[str] = kwargs.get(
             "peptide_structure_prediction"
         )
         self.protein_category: Optional[str] = kwargs.get("protein_category")
@@ -130,7 +134,7 @@ class CABSTask(metaclass=ABCMeta):
         self.temperature: Optional[float] = kwargs.get("temperature")
         self.verbose: Optional[int] = kwargs.get("verbose")
         self.work_dir: Optional[str] = kwargs.get("work_dir")
-        self.weighted_fit: Optional[bool] = kwargs.get("weighted_fit")
+        self.weighted_fit: Optional[str] = kwargs.get("weighted_fit")
 
         # Job attributes collected.
         self.config: Dict[str, Any] = kwargs
@@ -223,14 +227,15 @@ class CABSTask(metaclass=ABCMeta):
         valid_letters = set("RFCMSAN")
 
         try:
-            if not all(letter in valid_letters for letter in self.pdb_output):
-                raise ValueError("Contains letters outside of 'RFCMSAN'.")
+            if self.pdb_output:
+                if not all(letter in valid_letters for letter in self.pdb_output):
+                    raise ValueError("Contains letters outside of 'RFCMSAN'.")
 
-            # Process 'A' or 'N' in pdb_output
-            if "A" in self.pdb_output:
-                self.pdb_output = "RFCMS"
-            elif "N" in self.pdb_output:
-                self.pdb_output = ""
+                # Process 'A' or 'N' in pdb_output
+                if "A" in self.pdb_output:
+                    self.pdb_output = "RFCMS"
+                elif "N" in self.pdb_output:
+                    self.pdb_output = ""
 
         except ValueError as e:
             logger.exit_program(
@@ -242,16 +247,16 @@ class CABSTask(metaclass=ABCMeta):
         valid_bfac_letters = set("ABCPRSN")
 
         try:
-            if not all(letter in valid_bfac_letters for letter in self.pdb_bfac_output):
-                raise ValueError("Contains letters outside of 'ABCPRSN'.")
-
-            # Process 'A' or 'N' in pdb_bfac_output
-            if "A" in self.pdb_bfac_output:
-                self.pdb_bfac_output = "BCPRS"
-            elif "N" in self.pdb_bfac_output:
-                self.pdb_bfac_output = ""
-
             if self.pdb_bfac_output:
+                if not all(letter in valid_bfac_letters for letter in self.pdb_bfac_output):
+                    raise ValueError("Contains letters outside of 'ABCPRSN'.")
+
+                if "A" in self.pdb_bfac_output:
+                    self.pdb_bfac_output = "BCPRS"
+                elif "N" in self.pdb_bfac_output:
+                    self.pdb_bfac_output = ""
+
+            if self.pdb_bfac_output or "S" in self.pdb_output:
                 self.save_initial_pdb = True
             else:
                 self.save_initial_pdb = False
@@ -376,6 +381,15 @@ class CABSTask(metaclass=ABCMeta):
     def run(self):
         file_traf = self.file_TRAF
         file_seq = self.file_SEQ
+        
+        # Override output flags if we need to generate PyMOL visualizations
+        if self.generate_pymol_visualizations:
+            self.pdb_output = "A"
+            self.pdb_bfac_output = "A"
+            self.restraints_output = True
+            self.contact_maps = True
+            self.ss_output = True
+            
         self.setup_job()
         with_cabs = None in (file_traf, file_seq)
 
@@ -414,6 +428,24 @@ class CABSTask(metaclass=ABCMeta):
             self.save_bfac_models()
         if self.csv_output:
             self.save_csv_files()
+            
+        if self.generate_pymol_visualizations:
+            logger.info(module_name=_name, msg="Generating PyMOL visualization scripts...")
+            start_pdb_path = os.path.join(self.work_dir, "output_pdbs", "start.pdb")
+            model_pdbs = []
+            for i in range(self.clustering_medoids):
+                model_pdbs.append(os.path.join(self.work_dir, "output_pdbs", f"model_{i}.pdb"))
+            restraints_file = os.path.join(self.work_dir, "output_data", "restraints.txt")
+            try:
+                pymol_utils.generate_pymol_scripts(
+                    work_dir=self.work_dir,
+                    start_pdb_path=start_pdb_path,
+                    models_pdbs=model_pdbs,
+                    restraints_file=restraints_file
+                )
+            except Exception as e:
+                logger.warning(_name, f"Failed to generate PyMOL scripts: {e}")
+
         if self.load_cabs_files:
             for _file in CABS_FILES:
                 try:
@@ -762,7 +794,7 @@ class CABSTask(metaclass=ABCMeta):
                 if self.aa_method in ALLOWED_AA_METHODS:
                     logger.log_file(
                         module_name=_name,
-                        msg="Saving final models (in AA representation).",
+                        msg=f"Saving final models (in AA representation) using {self.aa_method}.",
                     )
                     if self.aa_method == "modeller":
                         try:
@@ -774,7 +806,7 @@ class CABSTask(metaclass=ABCMeta):
                         else:
                             logger.log_file(
                                 module_name=_name,
-                                msg="Running Modeller to rebuild models.",
+                                msg=f"Running Modeller to rebuild models (iterations: {self.modeller_iterations}).",
                             )
                             pdb_medoids = self.medoids.to_pdb()
                             for i, fname in enumerate(pdb_medoids):
@@ -802,7 +834,8 @@ class CABSTask(metaclass=ABCMeta):
                             save_to_ca = False
                     elif self.aa_method == "cg2all":
                         logger.log_file(
-                            module_name=_name, msg="Running cg2all to rebuild models."
+                            module_name=_name,
+                            msg=f"Running cg2all to rebuild models (env_prefix: {self.cg2all_env_prefix}).",
                         )
                         attempt_cyclization = False
                         if self.cyclization or self.disulfide_bonds:
@@ -1033,6 +1066,7 @@ class DockTask(CABSTask):
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
             json_output=self.json_output,
+            predict_peptide_structure=self.peptide_structure_prediction,
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -1156,7 +1190,7 @@ class DockTask(CABSTask):
         )
 
         # RMSD-based graphs
-        if self.reference_pdb:
+        if self.reference:
             logger.log_file(module_name=_name, msg="Saving RMSD plots")
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD(
@@ -1304,13 +1338,13 @@ class FlexTask(CABSTask):
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
             json_output=self.json_output,
-            predict_peptide_structure=self.peptide_structure_prediction,
         )
 
-        if self.reference_pdb is None:
-            self.reference_pdb = True
+        # score results logic
+        self.score_results_dict = dict()
 
-        self.pdb_output = self.pdb_output.replace("F", "")
+        if isinstance(self.pdb_output, str):
+            self.pdb_output = self.pdb_output.replace("F", "")
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory
@@ -1471,7 +1505,7 @@ class FlexTask(CABSTask):
         )
 
         # RMSD-based graphs
-        if self.reference_pdb:
+        if self.reference:
             for k, rmslst in self.rmslst.items():
                 plot_E_RMSD(
                     [self.trajectory],

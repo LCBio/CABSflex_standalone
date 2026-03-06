@@ -99,7 +99,11 @@ class ContactMapFactory:
         nmtx = np.zeros((len(self.res1), len(self.res2)))
         for i, (r1, inds1) in enumerate(self.res1):
             for j, (r2, inds2) in enumerate(self.res2):
-                nmtx[i, j] = np.max(mtx[inds1[0] : inds1[1], inds2[0] : inds2[1]])
+                mtx_slice = mtx[inds1[0] : inds1[1], inds2[0] : inds2[1]]
+                if mtx_slice.size > 0:
+                    nmtx[i, j] = np.max(mtx_slice)
+                else:
+                    nmtx[i, j] = 0.0
         return nmtx
 
     def mk_dmtx(self, vec):
@@ -168,7 +172,7 @@ class ContactMap:
             1,
             height_ratios=([len(self.s2) for i in chunks] + [len(self.s2) * 0.25]),
         )
-        vmax = self.n if norm_n else np.max(self.cmtx)
+        vmax = self.n if norm_n else (np.max(self.cmtx) if self.cmtx.size > 0 else 0)
         if vmax < 5:
             vmax = 1 if norm_n else 5
 

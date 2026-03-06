@@ -120,12 +120,16 @@ class Protein(Atoms):
                 CABS_SS = "CHTE"
                 ss = dict((a.resid_id(), CABS_SS[int(a.occ) - 1]) for a in self.atoms)
 
-            except:
-                pdb = Pdb(source=source, selection="name CA", pdb_cache=pdb_cache)
-                self.atoms = pdb.atoms.models()[0]
+            except Exception as e:
+                logger.debug(module_name=_name, msg=f"RandomInitialStructure failed or bypassed. Loading via Pdb class. Error: {e}")
+                pdb = Pdb(source=source, pdb_cache=pdb_cache)
                 ss = pdb.dssp(work_dir=work_dir)
+                logger.debug(module_name=_name, msg=f"save_initial_pdb flag: {save_initial_pdb}")
                 if save_initial_pdb:
+                    logger.debug(module_name=_name, msg=f"Calling pdb.save_initial_pdb(work_dir={work_dir})")
                     pdb.save_initial_pdb(work_dir=work_dir)
+                pdb.atoms = pdb.atoms.select("name CA")
+                self.atoms = pdb.atoms.models()[0]
 
         if receptor_ss:
             logger.info("Running manual assignment of receptor's II structure.")

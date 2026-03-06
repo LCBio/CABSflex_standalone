@@ -640,7 +640,8 @@ def convert_cg_to_all(
 
         atoms = []
         pattern = re.compile("ATOM.{9}CA .([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*")
-        with closing(filename) as f:
+        f_in = open(filename, "r") if isinstance(filename, str) else closing(filename)
+        with f_in as f:
             for line in f:
                 if line.startswith("ENDMDL"):
                     break
@@ -656,20 +657,35 @@ def convert_cg_to_all(
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(pdb)
     fout = f"model_{iter}.pdb"
-    # Modify the subprocess call to use the specified environment's python executable
+    # Modify the subprocess call to use micromamba run if an environment prefix is provided.
+    # This ensures all environment variables and dependencies (like torch, dgl) are correctly set up.
     if env_prefix:
-        # Use the specific executable from the isolated environment's 'bin' directory
-        executable_path = os.path.join(env_prefix, "bin", "convert_cg2all")
+        # Try to find micromamba executable
+        mamba_exe = os.environ.get("MAMBA_EXE") or os.path.expanduser("~/.local/bin/micromamba")
+        if not os.path.exists(mamba_exe):
+            mamba_exe = "micromamba"  # Fallback to PATH
+
+        command_parts = [
+            mamba_exe, "run", "-p", env_prefix,
+            "convert_cg2all",
+            "-p", str(input_pdb),
+            "-o", str(output_dir / fout),
+            "--device", "cpu"
+        ]
     else:
         # Fallback to the default path if no specific env is passed
-        executable_path = "convert_cg2all"
+        command_parts = [
+            "convert_cg2all",
+            "-p", str(input_pdb),
+            "-o", str(output_dir / fout),
+            "--device", "cpu"
+        ]
 
-    command_parts = [
-        executable_path,
-        "-p", str(input_pdb),
-        "-o", str(output_dir / fout),
-        "--device", "cpu"
-    ]
+    # Prepare a clean environment for micromamba run
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.pop("PYTHONHOME", None)
+    env.pop("PYTHONUSERBASE", None)
 
     try:
         result = subprocess.run(
@@ -679,6 +695,7 @@ def convert_cg_to_all(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env=env,
         )
         return result.stdout
     except subprocess.CalledProcessError as e:

@@ -154,7 +154,7 @@ run_exhaustive_test "--protein-flexibility" "$CABS_CMD -i $BASE_PDB --protein-fl
 run_exhaustive_test "--weighted-fit" "$CABS_CMD -i $BASE_PDB --weighted-fit ss" & limit_jobs
 run_exhaustive_test "--gauss-iterations" "$CABS_CMD -i $BASE_PDB --weighted-fit gauss --gauss-iterations 5" & limit_jobs
 run_exhaustive_test "--receptor-ss" "$CABS_CMD -i $BASE_PDB --receptor-ss A:CCCHHHHHHHHHHHCCC" & limit_jobs
-run_exhaustive_test "--peptide-structure-prediction" "$CABS_CMD -i HKILHRLLQD --peptide-structure-prediction -k 1" & limit_jobs
+# run_exhaustive_test "--peptide-structure-prediction" "$CABS_CMD -i HKILHRLLQD --peptide-structure-prediction -k 1" & limit_jobs
 
 # 3. Restraints Options
 run_exhaustive_test "--ca-rest-add" "$CABS_CMD -i $BASE_PDB --ca-rest-add 44:A 50:A 7.0 1.0" & limit_jobs
@@ -187,8 +187,8 @@ run_exhaustive_test "--binding-interactions" "$CABS_CMD -i $BASE_PDB --binding-i
 run_exhaustive_test "--disable-centro" "$CABS_CMD -i $BASE_PDB --disable-centro" & limit_jobs
 
 # 5. AA Reconstruction
-run_exhaustive_test "-A" "$CABS_CMD -i $BASE_PDB -A --aa-method cg2all" & limit_jobs
-run_exhaustive_test "--aa-rebuild" "$CABS_CMD -i $BASE_PDB --aa-rebuild --aa-method cg2all" & limit_jobs
+run_exhaustive_test "-A" "$CABS_CMD -i $BASE_PDB -A " & limit_jobs
+run_exhaustive_test "--aa-rebuild" "$CABS_CMD -i $BASE_PDB --aa-rebuild " & limit_jobs
 run_exhaustive_test "--aa-method" "$CABS_CMD -i $BASE_PDB -A --aa-method cg2all" & limit_jobs
 run_exhaustive_test "-m" "$CABS_CMD -i $BASE_PDB -A --aa-method modeller -m 1" & limit_jobs
 run_exhaustive_test "--modeller-iterations" "$CABS_CMD -i $BASE_PDB -A --aa-method modeller --modeller-iterations 1" & limit_jobs
@@ -242,6 +242,9 @@ run_exhaustive_test "--load-cabs-files" "$CABS_CMD -i $BASE_PDB --load-cabs-file
 # Dynamically find cg2all path for testing the CLI override option
 TEST_CG2ALL_PATH=$(python3 -c "from CABS.config_loader import get_cg2all_env_prefix; print(get_cg2all_env_prefix() or '/dummy/path')" 2>/dev/null || echo "/dummy/path")
 run_exhaustive_test "--cg2all-env-prefix" "$CABS_CMD -i $BASE_PDB -A --aa-method cg2all --cg2all-env-prefix $TEST_CG2ALL_PATH" & limit_jobs
+
+# 10. CABSdock specific (Verify move)
+#run_exhaustive_test "CABSdock --peptide-structure-prediction help" "CABSdock --help | grep peptide-structure-prediction" & limit_jobs
 
 # NOTE: Options like -p, -P, -e, -d, --pairmod are CABSdock specific and not valid for CABSflex.
 

@@ -53,7 +53,8 @@
                     "separation",
                     "insertion-clash",
                     "insertion-attempts",
-                    "pairmod"
+                    "pairmod",
+                    "peptide-structure-prediction"
                 ]
             ],
             [
@@ -113,6 +114,7 @@
                     "save-cabs-files",
                     "load-cabs-files",
                     "save-config",
+                    "generate-pymol-visualizations",
                     "pdb-output",
                     "pdb-bfac-output",
                     "csv-output",
@@ -181,8 +183,7 @@
                     "protein-flexibility",
                     "weighted-fit",
                     "gauss-iterations",
-                    "receptor-ss",
-                    "peptide-structure-prediction"
+                    "receptor-ss"
                 ]
             ],
             [
@@ -243,6 +244,7 @@
                     "save-cabs-files",
                     "load-cabs-files",
                     "save-config",
+                    "generate-pymol-visualizations",
                     "pdb-output",
                     "pdb-bfac-output",
                     "csv-output",
@@ -477,6 +479,10 @@
             "metavar": "NUM",
             "type": "int",
             "help": "Sets number of iterations of dynamic weighted-fit algorithm used for superposition of structures.\nThis option has no effect when --weighted-fit is set to anything other than 'gauss'.\nNUM = %(default)s by default"
+        },
+        "generate-pymol-visualizations": {
+            "action": "store_true",
+            "help": "Force-enable output flags needed to visualize the results, and generate PyMOL script files (.pml) to easily view simulations, models, and contact maps."
         },
         "help": {
             "flag": "-h",
