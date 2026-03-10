@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 import shutil
 from pathlib import Path
@@ -11,7 +12,9 @@ import markdown
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WIKI_ROOT = ROOT.parent / "CABSflex_standalone.wiki"
+WIKI_ROOT = Path(
+    os.environ.get("CABSFLEX_WIKI_ROOT", ROOT.parent / "CABSflex_standalone.wiki")
+).resolve()
 OUTPUT_ROOT = ROOT / "docs"
 ASSETS_ROOT = OUTPUT_ROOT / "assets"
 SITE_CSS = "assets/site.css"

@@ -16,6 +16,8 @@ The generator expects the legacy wiki repository to exist as a sibling checkout 
 ../CABSflex_standalone.wiki
 ```
 
+Alternatively, set `CABSFLEX_WIKI_ROOT` to point at a different wiki checkout path before running the generator.
+
 After generation, check `docs/migration-report.txt`. It lists legacy Bitbucket-linked resources that were referenced by the old wiki but were not present in the local wiki repo.
 
 ## Hosting recommendation
@@ -40,7 +42,9 @@ or a poster thumbnail link:
 [![Simulation movie](images/example-poster.jpg)](videos/example.mp4)
 ```
 
-The generator copies `videos/` into `docs/videos/` and emits an HTML5 `<video>` player.
+The generator copies `videos/` into `docs/videos/` at build time and emits an HTML5 `<video>` player.
+
+`docs/videos/` is generated deploy output and is intentionally ignored in the main repository.
 
 For future pages, you can either:
 
