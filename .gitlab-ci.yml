@@ -1,0 +1,11 @@
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp -r docs/* public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main

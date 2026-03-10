@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quick Start | CABS-flex Docs</title>
+    <link rel="stylesheet" href="assets/site.css">
+    <script defer src="assets/site.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="index.html">CABS-flex Docs</a>
+        <nav class="sidebar-nav" aria-label="Documentation"><section><h2>Core Guide</h2><ul><li><a class="is-current" href="index.html">Overview</a></li><li><a href="installation.html">Installation</a></li><li><a href="modeling-scheme.html">Modeling Scheme</a></li><li><a href="options.html">Key Options</a></li><li><a href="options-reference.html">Options Reference</a></li><li><a href="examples.html">Examples</a></li><li><a href="flexibility-modes.html">Flexibility Modes</a></li><li><a href="output-analysis.html">Output Analysis</a></li><li><a href="case-studies.html">Case Studies</a></li></ul></section><section><h2>CABSdock</h2><ul><li><a href="cabsdock.html">CABSdock</a></li><li><a href="cabsdock-options.html">CABSdock Options</a></li><li><a href="cabsdock-examples.html">CABSdock Examples</a></li><li><a href="cabsdock-output-analysis.html">CABSdock Output</a></li><li><a href="cabsdock-advanced-data.html">CABSdock Data</a></li></ul></section></nav>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">Menu</button>
+        </header>
+        <div class="content-grid">
+          <article class="doc-content">
+            <figure class="page-banner"><img alt="CABS-flex logo" src="images/2430462593-CABS-flex-logo-1401.jpg"></figure>
+<p>Welcome to the CABS-flex and CABS-dock wiki! This documentation covers the standalone packages for protein flexibility analysis and peptide-protein docking.</p>
+<h1 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h1>
+<p><strong>CABS-flex</strong> is an efficient tool for fast simulation of protein structure flexibility, using a coarse-grained protein model to explore the conformational space of globular proteins. <strong>CABS-dock</strong> extends this simulation engine to enable flexible peptide-protein docking without prior knowledge of the binding site, allowing for significant structural rearrangements during the docking process.</p>
+<p>Installation instructions and method outlines are provided on the <strong><a href="installation.html">Installation</a></strong> page.</p>
+<p>CABS-flex has been successfully applied to a diverse range of biological problems, demonstrating its utility beyond standard flexibility simulations. The method provides essential validation for structural models (e.g., AlphaFold2, NMR) against experimental data and characterizes dynamic protein-protein interfaces, such as those in the SARS-CoV-2 Spike protein. By mapping conformational landscapes, it identifies allosteric communication pathways invisible in static structures and enhances the prediction of aggregation-prone regions. Additionally, CABS-flex facilitates the <em>de novo</em> structure prediction of linear and cyclic peptides, offering a rigorous, physics-based complement to deep learning approaches. For detailed protocols and results, see <strong><a href="case-studies.html">Applications &amp; Case Studies</a></strong>.</p>
+<hr>
+<h2 id="standard-use-case">Standard Use Case<a class="headerlink" href="#standard-use-case" title="Permanent link">&para;</a></h2>
+<p>To run a standard simulation (reproducing the behavior of the CABS-flex web server), simply provide your PDB file:</p>
+<pre><code class="language-bash">CABSflex -i 1hpw.pdb
+</code></pre>
+<p>Or use a PDB code to download it automatically:</p>
+<pre><code class="language-bash">CABSflex -i 1hpw
+</code></pre>
+<p>This will:
+1.  Run the simulation using default settings (optimized for globular proteins).
+2.  Generate a trajectory and 10 representative models.
+3.  Save user-friendly output in your working directory.</p>
+<hr>
+<h2 id="flexibility-modes-g">Flexibility Modes (<code>-g</code>)<a class="headerlink" href="#flexibility-modes-g" title="Permanent link">&para;</a></h2>
+<p>The most important option is <code>-g</code> (or <code>--protein-restraints</code>), which defines the protein flexibility model.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Mode</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong><code>flexible</code></strong> (Default)</td>
+<td style="text-align: left;">Restraints only on secondary structure (helices/sheets). Loops are free.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong><code>rigid</code></strong></td>
+<td style="text-align: left;">Restraints on all residues.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong><code>plddt</code></strong></td>
+<td style="text-align: left;">Uses AlphaFold confidence scores (pLDDT) to assign rigidity.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong><code>unleashed</code></strong></td>
+<td style="text-align: left;">No restraints generated.</td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-bash">CABSflex -i 1hpw.pdb -g rigid  # Run a rigid simulation
+</code></pre>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+**Coming Soon (Ayo)**: A short summary and link to example section with each case.
+</div>
+<hr>
+<ul>
+<li>
+<p>Flexible mode applies distance restraints only to residues forming secondary structure elements, allowing greater flexibility in loops and unstructured regions. Previously referred to as ‘SS2’ in earlier versions of CABS-flex 2.0 (<a href="https://doi.org/10.1093/nar/gky356">Nucleic Acids Res 2018</a>) and standalone application (<a href="https://doi.org/10.1093/bioinformatics/bty685">Bioinformatics 2019</a>), it provides a balanced representation of protein dynamics. This mode has been validated against crystallographic B-factors and atomistic MD simulations using various force fields (<a href="https://pubs.acs.org/doi/10.1021/ct300854w">J Chem Theory Comput 2013</a>), NMR ensembles (<a href="https://doi.org/10.1093/bioinformatics/btu184">Bioinformatics 2014</a>), as well as in numerous structure–flexibility-function studies supported by experimental evidence, including Cryo-EM–derived conformational variability and functional analyses related to aggregation propensity and S-nitrosylation sensitivity (<a href="https://doi.org/10.1002/pro.5090">Protein Sci 2024</a>). Importantly, the ability of the CABS model to predict loop structures ab initio has been demonstrated across various protein systems [<a href="https://link.springer.com/article/10.1186/1472-6807-10-5">BMC Struct Biol 2010</a>, <a href="https://doi.org/10.1016/j.bpj.2014.04.022">Biophys J 2014</a>], including in the context of peptide interactions (<a href="https://doi.org/10.1016/j.ymeth.2015.07.004">Methods 2016</a>), highlighting its suitability for modeling local structural variability.</p>
+<p>Specific example and outputs for simulation in flexible mode is provided on the <strong><a href="flexibility-modes.html">Flexibility Modes</a></strong> page.</p>
+</li>
+</ul>
+<hr>
+<ul>
+<li>
+<p>Rigid mode imposes uniform restraints on all residues, minimizing fluctuations throughout the structure. Equivalent to the ‘All’ mode described previously [<a href="https://doi.org/10.1093/nar/gky356">Nucleic Acids Res 2018</a>, <a href="https://doi.org/10.1093/bioinformatics/bty685">Bioinformatics 2019</a>], it effectively preserves native-like conformational constraints. Benchmarking with CHARMM36m-based ATLAS MD simulations showed high correlation with MD-derived fluctuation profiles, particularly in structured, globular proteins (<a href="https://doi.org/10.1016/j.csbj.2024.11.047">Comput Struct Biotechnol J 2024</a>). It is worth noting that the selection criteria of the ATLAS dataset favor well-folded, high-resolution monomeric proteins, which may bias the dataset toward more structurally stable and less flexible systems. However, some degree of intrinsic flexibility is still likely present in the selected structures.</p>
+<p>Specific example and outputs for simulation in rigid mode is provided on the <strong><a href="flexibility-modes.html">Flexibility Modes</a></strong> page.</p>
+</li>
+</ul>
+<hr>
+<ul>
+<li>
+<p>pLDDT mode improves flexibility predictions by integrating structural confidence into the simulation process. In this mode, restraint strength is modulated according to per-residue pLDDT scores and secondary structure classification, as introduced in our recent work (<a href="https://doi.org/10.1016/j.csbj.2024.11.047">Comput Struct Biotechnol J 2024</a>). It is applicable when pLDDT scores are available, as in AlphaFold-predicted structures. Users may supply pLDDT values either through the B-factor field in the PDB file or via an external .json or .tsv file. Based on general observations, the overall level of flexibility generated by this mode tends to be closer to Rigid than Flexible, which is reflected in the naming convention, and the mode has been validated using ATLAS MD simulation data (<a href="https://doi.org/10.1016/j.csbj.2024.11.047">Comput Struct Biotechnol J 2024</a>). </p>
+<p>Specific example and outputs for simulation in pLDDT mode is provided on the <strong><a href="flexibility-modes.html">Flexibility Modes</a></strong> page.</p>
+</li>
+</ul>
+<hr>
+<ul>
+<li>Unleashed mode applies no restraints, allowing for fully unrestricted conformational sampling. The resulting ensemble is governed solely by the intrinsic properties of the CABS coarse-grained force field. This mode is designed as an advanced option, recommended primarily for exploratory simulations where it is important to observe the behavior of a system in the complete absence of restraints. While this mode typically shows lower agreement with MD-derived fluctuation profiles and may produce exaggerated motions, it is valuable for modeling folding/unfolding processes or large-scale transitions in disordered or flexible systems. In such cases, meaningful results may require careful tuning of additional simulation parameters, such as temperature and number of cycles. The applicability of CABS-based simulations to disordered and unfolded protein systems has been reviewed in our previous work (<a href="https://doi.org/10.3390/ijms20030606">Int J Mol Sci 2019</a>), which discusses several case studies involving disordered binding partners and unstructured regions.</li>
+</ul>
+<hr>
+<h2 id="running-in-notebooks">Running in Notebooks<a class="headerlink" href="#running-in-notebooks" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+**Coming Soon (Piotr)**: A short summary and link to Jupyter Notebooks for interactive analysis.
+</div>
+
+<hr>
+<h1 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong><a href="modeling-scheme.html">1. Modeling Scheme</a></strong><ul>
+<li>Understanding how CABS-flex works.</li>
+</ul>
+</li>
+<li><strong><a href="options.html">2. Key Options Guide</a></strong><ul>
+<li>Learn about the most important parameters: Input, Restraints, and Simulation settings.</li>
+<li><a href="options-reference.html"><strong>Full Options Reference</strong></a></li>
+</ul>
+</li>
+<li><strong><a href="examples.html">3. Examples</a></strong><ul>
+<li>Ready-to-use examples for common scenarios.</li>
+</ul>
+</li>
+<li><strong><a href="output-analysis.html">4. Output Analysis &amp; Visualization</a></strong><ul>
+<li>How to analyze results and visualize them in Mol*, PyMOL, and Chimera.</li>
+</ul>
+</li>
+<li><strong><a href="cabsdock.html">5. CABSdock (Peptide Docking)</a></strong><ul>
+<li>Protocol for peptide-protein docking.</li>
+</ul>
+</li>
+<li><strong><a href="case-studies.html">6. Applications &amp; Case Studies</a></strong><ul>
+<li>Real-world applications and case studies.</li>
+</ul>
+</li>
+<li><strong><a href="installation.html">Installation Instructions</a></strong></li>
+</ul>
+<hr>
+<p><strong><a href="modeling-scheme.html">Next: Modeling Scheme →</a></strong></p>
+          </article>
+          <aside class="doc-toc">
+            <div class="toc-card">
+              <h2>On this page</h2>
+              <div class="toc">
+<ul>
+<li><a href="#quick-start">Quick Start</a><ul>
+<li><a href="#standard-use-case">Standard Use Case</a></li>
+<li><a href="#flexibility-modes-g">Flexibility Modes (-g)</a></li>
+<li><a href="#running-in-notebooks">Running in Notebooks</a></li>
+</ul>
+</li>
+<li><a href="#documentation">Documentation</a></li>
+</ul>
+</div>
+
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

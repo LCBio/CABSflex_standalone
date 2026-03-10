@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Options Reference | CABS-flex Docs</title>
+    <link rel="stylesheet" href="assets/site.css">
+    <script defer src="assets/site.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="index.html">CABS-flex Docs</a>
+        <nav class="sidebar-nav" aria-label="Documentation"><section><h2>Core Guide</h2><ul><li><a href="index.html">Overview</a></li><li><a href="installation.html">Installation</a></li><li><a href="modeling-scheme.html">Modeling Scheme</a></li><li><a href="options.html">Key Options</a></li><li><a class="is-current" href="options-reference.html">Options Reference</a></li><li><a href="examples.html">Examples</a></li><li><a href="flexibility-modes.html">Flexibility Modes</a></li><li><a href="output-analysis.html">Output Analysis</a></li><li><a href="case-studies.html">Case Studies</a></li></ul></section><section><h2>CABSdock</h2><ul><li><a href="cabsdock.html">CABSdock</a></li><li><a href="cabsdock-options.html">CABSdock Options</a></li><li><a href="cabsdock-examples.html">CABSdock Examples</a></li><li><a href="cabsdock-output-analysis.html">CABSdock Output</a></li><li><a href="cabsdock-advanced-data.html">CABSdock Data</a></li></ul></section></nav>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">Menu</button>
+        </header>
+        <div class="content-grid">
+          <article class="doc-content">
+            <p><a href="index.html"><strong>← Home</strong></a> | <a href="options.html"><strong>CABSflex Options</strong></a> | <a href="cabsdock-options.html"><strong>CABSdock Options</strong></a></p>
+<h1 id="options-reference">Options Reference<a class="headerlink" href="#options-reference" title="Permanent link">&para;</a></h1>
+<p>This page lists all available command-line options for <strong>CABSflex</strong> and <strong>CABSdock</strong>, grouped by their function.</p>
+<h2 id="1-input-initial-structure">1. Input &amp; Initial Structure<a class="headerlink" href="#1-input-initial-structure" title="Permanent link">&para;</a></h2>
+<h3 id="-i-input-protein-input"><code>-i</code>, <code>--input-protein</code> <code>INPUT</code><a class="headerlink" href="#-i-input-protein-input" title="Permanent link">&para;</a></h3>
+<p>Load input protein structure.</p>
+<p>INPUT can be either:</p>
+<ul>
+<li>PDB code (optionally with chain IDs) i.e. <code>-i 1CE1:HL</code> loads chains H and L of 1CE1 protein structure downloaded from the PDB database</li>
+<li>PDB file (optionally gzipped)</li>
+</ul>
+<p>Note that only protein chain(s) are extracted from the input file, discarding all non-protein molecules.</p>
+<hr>
+<h3 id="-c-config-file"><code>-c</code>, <code>--config</code> <code>FILE</code><a class="headerlink" href="#-c-config-file" title="Permanent link">&para;</a></h3>
+<p>Read options from FILE.</p>
+<hr>
+<h3 id="-l-load-cabs-files-file"><code>-L</code>, <code>--load-cabs-files</code> <code>FILE</code><a class="headerlink" href="#-l-load-cabs-files-file" title="Permanent link">&para;</a></h3>
+<p>Load CABS simulation data file for repeated scoring and analysis of CABS trajectories (with new settings, for example using a reference complex structure and --reference option). Both a path to a file or a path to a directory containing a *.cls file are valid inputs.</p>
+<hr>
+<h3 id="-pdb-cache-dir-dir"><code>--pdb-cache-dir</code> <code>DIR</code><a class="headerlink" href="#-pdb-cache-dir-dir" title="Permanent link">&para;</a></h3>
+<p>Set the directory where a subdirectory .cabsPDBcache will be created to store downloaded PDB files (default: <code>~</code>).</p>
+<hr>
+<h3 id="-receptor-ss-str"><code>--receptor-ss</code> <code>STR</code><a class="headerlink" href="#-receptor-ss-str" title="Permanent link">&para;</a></h3>
+<p>Manually assign secondary structure to the receptor chains.</p>
+<p>STR should be either:</p>
+<ul>
+<li>string in the form of: <code>[CHAIN_ID]:[SECONDARY]/[CHAIN_ID]:[SECONDARY]</code> i.e <code>A:CHHHCEEEC+B:CEEEECCCHHHCC</code></li>
+<li>filename of the text file — one chain per line as in:</li>
+</ul>
+<pre><code class="language-text">A:CHHHCEEEC
+B:CEEEECCCHHHCC
+</code></pre>
+<hr>
+<h3 id="-f-disulfide-bonds-residue1-residue2"><code>-F</code>, <code>--disulfide-bonds</code> <code>RESIDUE1</code> <code>RESIDUE2</code><a class="headerlink" href="#-f-disulfide-bonds-residue1-residue2" title="Permanent link">&para;</a></h3>
+<p>Add disulfide bonds to the structure. This option can be used multiple times to add multiple bonds.</p>
+<p>Each input should be in the form of exactly one pair: <code>1:A 14:A</code>. Example: <code>-F 1:A 14:A -F 3:A 13:A</code> appends the disulfide bonds (1:A, 14:A) and (3:A, 13:A). NOTE: Ensure that the residues in each pair are valid and appropriate for disulfide bonding.</p>
+<hr>
+<h3 id="-backbone-cyclization-chain"><code>--backbone-cyclization</code> <code>CHAIN</code><a class="headerlink" href="#-backbone-cyclization-chain" title="Permanent link">&para;</a></h3>
+<p>Indicate if this is a backbone cyclic peptide protein. CABS adds a restraint between the first and last residues of the specified chains. By default, cyclization is added for chain 'A' if no argument is provided.</p>
+<p>Examples:</p>
+<pre><code class="language-bash">--backbone-cyclization       # Chain A is cyclic
+--backbone-cyclization --backbone-cyclization B  # Chains A and B are both cyclic
+</code></pre>
+<p>Invalid:</p>
+<pre><code class="language-bash">--backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-cyclization
+</code></pre>
+<h2 id="2-the-protein-model-flexibility-restraints">2. The Protein Model (Flexibility &amp; Restraints)<a class="headerlink" href="#2-the-protein-model-flexibility-restraints" title="Permanent link">&para;</a></h2>
+<h3 id="global-restraints-base-model">Global Restraints (Base Model)<a class="headerlink" href="#global-restraints-base-model" title="Permanent link">&para;</a></h3>
+<h3 id="-g-protein-restraints-mode-gap-min-max"><code>-g</code>, <code>--protein-restraints</code> <code>MODE</code> <code>[GAP MIN MAX]</code><a class="headerlink" href="#-g-protein-restraints-mode-gap-min-max" title="Permanent link">&para;</a></h3>
+<p>This options allows to generate a set of binary distance restraints for C-alpha atoms, that keep the protein in predefined conformation.</p>
+<blockquote>
+<p><strong>Note:</strong> Default differs between CABSflex (<code>['flexible', 3, 3.8, 11.5]</code>) and CABSdock (<code>['rigid', 5, 5.0, 15.0]</code>).
+You can provide either a single keyword (the <code>MODE</code>), in which case default parameters associated with that mode and the application will be used, or you can provide all 4 arguments (<code>MODE</code>, <code>GAP</code>, <code>MIN</code>, <code>MAX</code>).</p>
+</blockquote>
+<p>MODE can be either based on plDDT or secondary structure:</p>
+<ul>
+<li><code>rigid</code> — Generates restraints for all protein residues. (Replaces old <code>all</code> option)</li>
+<li><code>plddt</code> — Generates restraints based on combination of pLDDT and secondary structure (recommended).</li>
+<li><code>flexible</code> — Generates restraints only when both restrained residues are assigned regular secondary structure (helix, sheet). (Replaces old <code>ss2</code> option)</li>
+<li><code>none</code>, <code>unleashed</code>, or <code>no-protein-restraints</code> — No restraints are generated.</li>
+</ul>
+<p>GAP specifies minimal gap along the main chain for two residues to be restrained. MIN and MAX are min and max values in Angstroms for two residues to be restrained.</p>
+<hr>
+<h3 id="global-overrides-modifiers">Global Overrides &amp; Modifiers<a class="headerlink" href="#global-overrides-modifiers" title="Permanent link">&para;</a></h3>
+<h3 id="-n-no-protein-restraints"><code>-N</code>, <code>--no-protein-restraints</code><a class="headerlink" href="#-n-no-protein-restraints" title="Permanent link">&para;</a></h3>
+<p>Do not automatically generate any protein restraints. This option has precedence over '--protein-restraints' option and will overwrite any settings set by the latter. With this flag on restraints can still be added with the '--ca-rest-add' or '--ca-rest-file' options.</p>
+<hr>
+<h3 id="-protein-restraints-retain-percentage"><code>--protein-restraints-retain</code> <code>PERCENTAGE</code><a class="headerlink" href="#-protein-restraints-retain-percentage" title="Permanent link">&para;</a></h3>
+<p>Reduce the number of protein restraints by indicating the PERCENTAGE of restraints to retain, where PERCENTAGE is a number from (0, 100]. This option reduces the number of automatically generated restraints for the protein molecule to speed up computation. Restraints are randomly removed so that the final number of restraints <code>N_final = N_all * (PERCENTAGE / 100)</code>. PERCENTAGE must be greater than 0 and at most 100.</p>
+<hr>
+<h3 id="-ca-rest-weight-weight_min-weight_max"><code>--ca-rest-weight</code> <code>WEIGHT_MIN</code> <code>WEIGHT_MAX</code><a class="headerlink" href="#-ca-rest-weight-weight_min-weight_max" title="Permanent link">&para;</a></h3>
+<p>Set global weights for all C-alpha restraints (including automatically generated restraints for the protein) when distance is shorter than minimum (WEIGHT_MIN) or longer than maximum (WEIGHT_MAX).</p>
+<blockquote>
+<p><strong>Note:</strong> Default differs between CABSflex (<code>[3.5, 0.5]</code>) and CABSdock (<code>[1.0, 1.0]</code>).</p>
+</blockquote>
+<hr>
+<h3 id="-sc-rest-weight-weight_min-weight_max"><code>--sc-rest-weight</code> <code>WEIGHT_MIN</code> <code>WEIGHT_MAX</code><a class="headerlink" href="#-sc-rest-weight-weight_min-weight_max" title="Permanent link">&para;</a></h3>
+<p>Set global weight for all SC restraints when distance is shorter than minimum (WEIGHT_MIN) or longer than maximum (WEIGHT_MAX) (default: <code>[1.0, 1.0]</code>).</p>
+<hr>
+<h3 id="-b-binding-interactions-factor"><code>-b</code>, <code>--binding-interactions</code> <code>FACTOR</code><a class="headerlink" href="#-b-binding-interactions-factor" title="Permanent link">&para;</a></h3>
+<p>This option scales the side chains interactions between protein chains by the FACTOR in relation to the side chains interactions within single protein chain. (default: 1.0) i.e. <code>-b 2.0</code> makes inter-chain interactions two times stronger than intra-chain.</p>
+<hr>
+<h3 id="flexibility-per-residue-definition">Flexibility (Per-Residue Definition)<a class="headerlink" href="#flexibility-per-residue-definition" title="Permanent link">&para;</a></h3>
+<h3 id="-f-protein-flexibility-flexibility"><code>-f</code>, <code>--protein-flexibility</code> <code>FLEXIBILITY</code><a class="headerlink" href="#-f-protein-flexibility-flexibility" title="Permanent link">&para;</a></h3>
+<p>Modify flexibility of selected protein's residues:</p>
+<ul>
+<li><code>f = 0</code> — fully flexible backbone</li>
+<li><code>f = 1</code> — almost stiff backbone (default value)</li>
+<li><code>&gt;1</code> — increased stiffness</li>
+</ul>
+<p>FLEXIBILITY can be either:</p>
+<ul>
+<li>positive real number — all protein residues are assigned the same flexiblity equal that number</li>
+<li><code>bf</code> — flexibility for each residue is read from the beta factor column of the CA atom in the pdb input file (Note that standard beta factor in pdb file has opposite meaning to CABS flexibillity, edit pdb accordingly or use FLEXIBILITY = 'bfi')</li>
+<li><code>bfi</code> — flexibility is assigned from the inverted beta factors in the input pdb file so that: <code>bf &lt;= 0.0 -&gt; f = 1.0</code>; <code>bf &gt;= 1.0 -&gt; f = 0.0</code>; <code>f = 1 - bf</code> otherwise.</li>
+<li><code>bfg</code> — flexibility is assigned from the beta factors in the input pdb file, so that: <code>f = exp(-bf * bf / 2.)</code> and <code>f = 1.0</code> if <code>bf &lt; 0.0</code></li>
+<li><code>&lt;filename&gt;</code> — flexibility is read from file <code>&lt;filename&gt;</code> in the following format:</li>
+</ul>
+<pre><code class="language-text">default &lt;default flexibility value&gt; (if omitted default f = 1.0)
+resid_ID &lt;flexibility&gt; i.e. 12:A 0.75 OR resid_ID - resid_ID &lt;flexibility&gt; i.e. 12:A - 15:A  0.75
+</code></pre>
+<p>Multiple entries can be used.</p>
+<hr>
+<h3 id="-protein-plddt-flexibility"><code>--protein-plddt</code> <code>FLEXIBILITY</code><a class="headerlink" href="#-protein-plddt-flexibility" title="Permanent link">&para;</a></h3>
+<p>Read pLLDT values in order to modify flexibility of selected protein's residues:</p>
+<p>pLLDT can be either:</p>
+<ul>
+<li><code>pdb</code> or <code>bf</code> — pLLDT for each residue is read from the beta factor column of the CA atom in the pdb input file.</li>
+<li><code>&lt;filename&gt;</code> — pLDDT is read from file <code>&lt;filename&gt;</code> and must be either in <code>.json</code> or <code>.tsv</code> format.</li>
+</ul>
+<hr>
+<h3 id="-protein-category-flexibility"><code>--protein-category</code> <code>FLEXIBILITY</code><a class="headerlink" href="#-protein-category-flexibility" title="Permanent link">&para;</a></h3>
+<p>Modify category of flexibility for selected protein's residues:</p>
+<ul>
+<li>category = 0.0 — highly flexible backbone</li>
+<li>category = 1.0 — medium flexible backbone</li>
+<li>category = 2.0 — lowly flexible backbone</li>
+<li>category = 3.0 — rigid backbone</li>
+</ul>
+<p>Category is read from file <code>&lt;filename&gt;</code> in the following format:</p>
+<pre><code class="language-text">default &lt;default category value&gt; (if omitted default will be set according to plddt and secondary structure)
+resid_ID &lt;category&gt; i.e. 12:A 2.0 OR resid_ID - resid_ID &lt;category&gt; i.e. 12:A - 15:A  1.0
+</code></pre>
+<p>Multiple entries can be used.</p>
+<hr>
+<h3 id="manual-restraints-additiveper-residue">Manual Restraints (Additive/Per-Residue)<a class="headerlink" href="#manual-restraints-additiveper-residue" title="Permanent link">&para;</a></h3>
+<h3 id="-ca-rest-add-resi-resj-dist-weight"><code>--ca-rest-add</code> <code>RESI</code> <code>RESJ</code> <code>DIST</code> <code>WEIGHT</code><a class="headerlink" href="#-ca-rest-add-resi-resj-dist-weight" title="Permanent link">&para;</a></h3>
+<p>Add distance restraint between C-alpha (CA) atom in residue RESI and C-alpha atom in residue RESJ. DIST is a distance between these atoms and WEIGHT is restraint's weight (number from [0, 1]). In order to add restraints between the peptide and the protein, or between two peptides, use PEP1, PEP2, ... as chain identifiers of the peptides (even when peptide is read from a pdb file its chain identifier is ignored). i.e. <code>--ca-rest-add 123:A 5:PEP1 8.7 1.0</code> adds restraint between the C-alpha atom of the residue number 123 in the chain A of the protein and the C-alpha atom of the 5th residue of the peptide. If you add only one peptide both 'PEP' and 'PEP1' is a valid chain identifier. If you add multiple peptides they will be ordered as follows:</p>
+<ol>
+<li>from config file added by the 'peptide' option</li>
+<li>from config file added by the 'add-peptide' option</li>
+<li>from command line added by the '-p, --peptide' option</li>
+<li>from command line added by the '--add-peptide' option.</li>
+</ol>
+<p>Peptides added by the same method preserve the order by which they appear in the config file, or on the command line. Option can be used multiple times to add multiple restraints.</p>
+<p>A chain identifier is required even for single-chain proteins.</p>
+<p>Command example:</p>
+<pre><code>CABSflex -i 4PTI -a 10 -y 20 --ca-rest-add 5:A 15:A 8.7 1.0
+</code></pre>
+<hr>
+<h3 id="-ca-rest-file-file"><code>--ca-rest-file</code> <code>FILE</code><a class="headerlink" href="#-ca-rest-file-file" title="Permanent link">&para;</a></h3>
+<p>Read C-alpha restraints from file (use multiple times to add multiple files).</p>
+<hr>
+<h3 id="-sc-rest-add-resi-resj-dist-weight"><code>--sc-rest-add</code> <code>RESI</code> <code>RESJ</code> <code>DIST</code> <code>WEIGHT</code><a class="headerlink" href="#-sc-rest-add-resi-resj-dist-weight" title="Permanent link">&para;</a></h3>
+<p>Add distance restraint between SC pseudoatom in residue RESI and SC pseudoatom in residue RESJ. For more details see help for <code>--ca-rest-add</code></p>
+<hr>
+<h3 id="-sc-rest-file-file"><code>--sc-rest-file</code> <code>FILE</code><a class="headerlink" href="#-sc-rest-file-file" title="Permanent link">&para;</a></h3>
+<p>Read SC restraints from file (use multiple times to add multiple files).</p>
+<h2 id="3-simulation-parameters">3. Simulation Parameters<a class="headerlink" href="#3-simulation-parameters" title="Permanent link">&para;</a></h2>
+<h3 id="temperature">Temperature<a class="headerlink" href="#temperature" title="Permanent link">&para;</a></h3>
+<h3 id="-t-temperature-tinit-tfinal"><code>-t</code>, <code>--temperature</code> <code>TINIT</code> <code>TFINAL</code><a class="headerlink" href="#-t-temperature-tinit-tfinal" title="Permanent link">&para;</a></h3>
+<p>Set temperature range for simulated annealing. <code>TINIT</code> — initial temperature, <code>TFINAL</code> — final temperature. CABS uses temperature units, which do not correspond straightforwardly to real temperatures. Temperature around 1.0 roughly corresponds to nearly frozen conformation, folding temperature of a small proteins in the CABS model is usually around 2.0.</p>
+<blockquote>
+<p><strong>Note:</strong> Default differs between CABSflex (<code>[1.4, 1.4]</code>) and CABSdock (<code>[2.0, 1.0]</code>).</p>
+</blockquote>
+<hr>
+<h3 id="sampling-control">Sampling Control<a class="headerlink" href="#sampling-control" title="Permanent link">&para;</a></h3>
+<h3 id="-y-mc-cycles-num"><code>-y</code>, <code>--mc-cycles</code> <code>NUM</code><a class="headerlink" href="#-y-mc-cycles-num" title="Permanent link">&para;</a></h3>
+<p>Set number of Monte Carlo cycles to NUM (NUM&gt;0, default: 50). Total number of snapshots generated for each replica/trajectory = [mc-annealing] x [mc-cycles], (default: 20 x 50 = 1000).</p>
+<hr>
+<h3 id="-s-mc-steps-num"><code>-s</code>, <code>--mc-steps</code> <code>NUM</code><a class="headerlink" href="#-s-mc-steps-num" title="Permanent link">&para;</a></h3>
+<p>Set number of Monte Carlo cycles between trajectory frames to NUM (NUM &gt; 0, default: 50). NUM = 1 means that every generated conformation will occur in trajectory. This option enables to increase the simulation length (between printed snapshots) and doesn't impact the number of snapshots in trajectories (see also <code>--mc-cycles</code> description).</p>
+<hr>
+<h3 id="-a-mc-annealing-num"><code>-a</code>, <code>--mc-annealing</code> <code>NUM</code><a class="headerlink" href="#-a-mc-annealing-num" title="Permanent link">&para;</a></h3>
+<p>Set number of Monte Carlo temperature annealing cycles to NUM (NUM &gt; 0, default: 20).</p>
+<hr>
+<h3 id="-disable-centro"><code>--disable-centro</code><a class="headerlink" href="#-disable-centro" title="Permanent link">&para;</a></h3>
+<p>Disable centrosymmetric potential in the simulation (default is False).</p>
+<hr>
+<h3 id="-z-random-seed-seed"><code>-z</code>, <code>--random-seed</code> <code>SEED</code><a class="headerlink" href="#-z-random-seed-seed" title="Permanent link">&para;</a></h3>
+<p>Set seed for random number generator.</p>
+<hr>
+<h3 id="replica-exchange">Replica Exchange<a class="headerlink" href="#replica-exchange" title="Permanent link">&para;</a></h3>
+<h3 id="-r-replicas-num"><code>-r</code>, <code>--replicas</code> <code>NUM</code><a class="headerlink" href="#-r-replicas-num" title="Permanent link">&para;</a></h3>
+<p>Set number of replicas to be used in Replica Exchange Monte Carlo.</p>
+<blockquote>
+<p><strong>Note:</strong> Default differs between CABSflex (<code>1</code>) and CABSdock (<code>10</code>).</p>
+</blockquote>
+<hr>
+<h3 id="-d-replicas-dtemp-delta"><code>-D</code>, <code>--replicas-dtemp</code> <code>DELTA</code><a class="headerlink" href="#-d-replicas-dtemp-delta" title="Permanent link">&para;</a></h3>
+<p>Set temperature increment between replicas. (DELTA &gt; 0, default: 0.5).</p>
+<h2 id="4-cabsdock-peptide-docking">4. CABSdock (Peptide Docking)<a class="headerlink" href="#4-cabsdock-peptide-docking" title="Permanent link">&para;</a></h2>
+<h3 id="peptide-input">Peptide Input<a class="headerlink" href="#peptide-input" title="Permanent link">&para;</a></h3>
+<h3 id="-p-peptide-peptide"><code>-p</code>, <code>--peptide</code> <code>PEPTIDE</code><a class="headerlink" href="#-p-peptide-peptide" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> Load peptide sequence and optionally peptide secondary structure in one-letter code. Can be used multiple times to add multiple peptides.</p>
+<p>PEPTIDE can be either:</p>
+<ul>
+<li>amino acid sequence in one-letter code (optionally annotated with secondary structure: H — helix, E — sheet, C — coil) i.e. <code>-p HKILHRLLQD:CHHHHHHHHC</code> loads HKILHRLLQD peptide with secondary structure CHHHHHHHHC</li>
+<li>PDB code (optionally with chain ID) i.e. <code>-p 1CE1:P</code> loads the sequence of chain P from 1CE1</li>
+<li>PDB file with peptide's coordinates — loads only peptide sequence from the PDB file</li>
+</ul>
+<blockquote>
+<p><strong>Hint:</strong> If possible, it is always recommended to use secondary structure information/prediction. For residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than the regular (H — helix or E — extended) type of structure.</p>
+</blockquote>
+<p><code>--peptide PEPTIDE</code> is an alias for <code>--add-peptide PEPTIDE random random</code>.</p>
+<hr>
+<h3 id="-p-add-peptide-peptide-conformation-location"><code>-P</code>, <code>--add-peptide</code> <code>PEPTIDE</code> <code>CONFORMATION</code> <code>LOCATION</code><a class="headerlink" href="#-p-add-peptide-peptide-conformation-location" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> Add peptide to the complex. This option can be used multiple times to add multiple peptides.</p>
+<p><strong>PEPTIDE</strong> must be either:</p>
+<ul>
+<li>amino acid sequence in one-letter code (optionally annotated with secondary structure: H — helix, E — sheet, C — coil) i.e. <code>-P HKILHRLLQD:CHHHHHHHHC random random</code> loads HKILHRLLQD peptide with secondary structure CHHHHHHHHC</li>
+<li>PDB file (may be gzipped)</li>
+<li>PDB code (optionally with chain_id i.e. <code>1abc:D</code>)</li>
+</ul>
+<blockquote>
+<p><strong>Hint:</strong> If possible, it is always recommended to use secondary structure information/prediction. For residues with ambiguous secondary structure prediction assignment it is better to assign coil (C) than the regular (H — helix or E — extended) type of structure.</p>
+</blockquote>
+<p><strong>CONFORMATION</strong> sets initial conformation of the peptide:</p>
+<ul>
+<li><code>random</code> — random conformation is generated</li>
+<li><code>keep</code> — preserve conformation from file (no effect if PEPTIDE=SEQUENCE)</li>
+</ul>
+<p><strong>LOCATION</strong> sets initial location for the peptide:</p>
+<ul>
+<li><code>random</code> — peptide is placed in a random location on the surface of a sphere centered at the protein's geometrical center at distance defined by <code>--separation</code> from the surface of the protein</li>
+<li><code>keep</code> — preserve location from file (no effect if PEPTIDE=SEQUENCE)</li>
+<li><code>PATCH</code> — list of protein's residues (i.e <code>123:A+125:A+17:B</code>). Peptide will be placed above the geometrical center of listed residues at distance defined by <code>--separation</code> from the surface of the protein</li>
+</ul>
+<blockquote>
+<p><strong>Warning:</strong> Residues listed in PATCH should be on the surface of the protein and close to each other.</p>
+</blockquote>
+<hr>
+<h3 id="-peptide-structure-prediction"><code>--peptide-structure-prediction</code><a class="headerlink" href="#-peptide-structure-prediction" title="Permanent link">&para;</a></h3>
+<p>Treat input as a string 'SEQUENCE' or 'SEQUENCE:SECONDARY' for peptide structure prediction.</p>
+<hr>
+<h3 id="-nsp3-model-path-path"><code>--nsp3-model-path</code> <code>PATH</code><a class="headerlink" href="#-nsp3-model-path-path" title="Permanent link">&para;</a></h3>
+<p>Path to the NetSurfP-3.0 model weights. Providing this path allows CABS to predict the secondary structure of peptides when it is not included in the input. Ensure that NetSurfP-3.0 is installed and provide the path to its model weights file here. If NetSurfP-3.0 is not installed or the path is not provided, peptides will default to a secondary structure consisting only of coil (C).</p>
+<hr>
+<h3 id="-align-peptide-options-keyval"><code>--align-peptide-options</code> <code>KEY=VAL</code><a class="headerlink" href="#-align-peptide-options-keyval" title="Permanent link">&para;</a></h3>
+<p>Path to alignment with reference structure. If set, the '--align' option is ignored.</p>
+<hr>
+<h3 id="docking-search">Docking Search<a class="headerlink" href="#docking-search" title="Permanent link">&para;</a></h3>
+<h3 id="-d-separation-distance"><code>-d</code>, <code>--separation</code> <code>DISTANCE</code><a class="headerlink" href="#-d-separation-distance" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> This option enables advanced settings of building starting conformations of modelled complexes. The option sets separation distance in Angstroms between the peptide and the surface of the protein. (default: 20.0 Angstroms)</p>
+<hr>
+<h3 id="-insertion-attempts-num"><code>--insertion-attempts</code> <code>NUM</code><a class="headerlink" href="#-insertion-attempts-num" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> This option enables advanced settings of building starting conformations of modelled complexes. The option sets number of attempts to insert peptide while building initial complex (default: 1000).</p>
+<hr>
+<h3 id="-insertion-clash-dist"><code>--insertion-clash</code> <code>DIST</code><a class="headerlink" href="#-insertion-clash-dist" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> This option enables advanced settings of building starting conformations of modelled complexes. The option sets distance in Angstroms between any two atoms (of different modeled chains) at which a clash occurs while building initial complex (default: 1.0 Angstrom).</p>
+<hr>
+<h3 id="-pairmod-filename"><code>--pairmod</code> <code>FILENAME</code><a class="headerlink" href="#-pairmod-filename" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> Read from file weights and shifts for pairwise potential between the receptor and selected peptide residues.</p>
+<p>One line per one peptide residue in the following format:</p>
+<pre><code class="language-text">res_id weight shift
+</code></pre>
+<p>Example:</p>
+<pre><code class="language-text">3:PEP1 1.25 0.75
+5:PEP1 1.50 0.50
+</code></pre>
+<hr>
+<h3 id="-e-exclude-residues"><code>-e</code>, <code>--exclude</code> <code>RESIDUES</code><a class="headerlink" href="#-e-exclude-residues" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> Exclude protein residues listed in RESIDUES from the docking search. This enforces more effective search in other areas of the protein surface. For example, it may be known that some parts of the protein are not accessible to the peptide (due to binding to other proteins) and therefore it could be useful to exclude these regions from the search procedure.</p>
+<p>RESIDUES must be a single string of characters (no whitespaces) consisting of residue identifiers (i.e. <code>123:A</code>) or chain identifiers (i.e. <code>A</code>) joined with the <code>+</code> sign. <code>-</code> is also allowed to specify a continuous range of residues or chains.</p>
+<p>Examples:</p>
+<pre><code class="language-bash">-e 123:A              # excludes residue 123 from chain A
+-e 123:A+125:A        # residues 123 and 125 from chain A
+-e 123:A-125:A        # residues 123, 124 and 125 from chain A
+-e A                  # whole chain A
+-e A+C                # chains A and C
+-e A-C                # chains A, B and C
+</code></pre>
+<p>Adding <code>@PEP&lt;N&gt;</code> at the end of the string limits the excluding to only the N-th peptide. i.e. <code>-e 123:A@PEP1</code> will exclude residue 123 in chain A for binding with the first peptide only. If <code>@PEP&lt;N&gt;</code> is omitted the exclusion list affects all peptides.</p>
+<p>This option can be used multiple times to add multiple sets of excluded residues.</p>
+<hr>
+<h3 id="-excluding-distance-dist"><code>--excluding-distance</code> <code>DIST</code><a class="headerlink" href="#-excluding-distance-dist" title="Permanent link">&para;</a></h3>
+<p><em>(CABSdock only)</em> Set minimum distance between side chain atoms of peptide(s) and protein residues marked as 'excluded'. (default: 5.0)</p>
+<h2 id="5-analysis-alignment">5. Analysis &amp; Alignment<a class="headerlink" href="#5-analysis-alignment" title="Permanent link">&para;</a></h2>
+<h3 id="reference-alignment">Reference &amp; Alignment<a class="headerlink" href="#reference-alignment" title="Permanent link">&para;</a></h3>
+<h3 id="-r-reference-pdb-ref"><code>-R</code>, <code>--reference-pdb</code> <code>REF</code><a class="headerlink" href="#-r-reference-pdb-ref" title="Permanent link">&para;</a></h3>
+<p>Load reference complex structure. This option allows for comparison with the reference complex structure and triggers additional analysis features.</p>
+<p>REF must be either:</p>
+<ul>
+<li><code>[pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...</code></li>
+<li><code>[pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...</code></li>
+</ul>
+<p>i.e <code>1abc:AB:C</code>, <code>1abc:AB:CD</code>, <code>myfile.pdb:AB:C</code>, <code>myfile.pdb.gz:AB:CDE</code></p>
+<hr>
+<h3 id="-align-method"><code>--align</code> <code>METHOD</code><a class="headerlink" href="#-align-method" title="Permanent link">&para;</a></h3>
+<p>Select the method to be used to align target with reference pdb.</p>
+<p>Available options are: (default SW)</p>
+<ul>
+<li><code>SW</code> — Smith-Waterman</li>
+<li><code>blastp</code> — protein BLAST (requires NCBI+ package installed)</li>
+<li><code>trivial</code> — simple sequential alignment, useful only to speed up run (by omitting Smith-Waterman algorithm) in case of obvious one-chain input and reference of the same length (e.g. when input and reference are the same file).</li>
+<li><code>CSV</code> — loads alignment from given file (passed as alignment setting called <code>fname</code>) in format described by <a href="http://onlinelibrary.wiley.com/doi/10.1002/pro.213/full">Berbalk et. al. in 2009</a>.</li>
+</ul>
+<hr>
+<h3 id="-align-options-keyval"><code>--align-options</code> <code>KEY=VAL</code><a class="headerlink" href="#-align-options-keyval" title="Permanent link">&para;</a></h3>
+<p>Path to alignment with reference structure. If set, the '--align' option is ignored. Example:</p>
+<pre><code class="language-bash">--align blastp --align-options task=short-task
+</code></pre>
+<hr>
+<h3 id="-weighted-fit-arg"><code>--weighted-fit</code> <code>ARG</code><a class="headerlink" href="#-weighted-fit-arg" title="Permanent link">&para;</a></h3>
+<p>This option allows to set and customize the way models are structurally aligned, which affects both calculation of the RMSD/RMSF and clustering together with the selectiom of the final models. Models are aligned by the Kabsch optimal fit algorithm. This options assigns weights to all atoms, which specify how 'important' the atom is in the structural fit process. Weights are numbers from [0:1] range with '0' meaning 'irrelevant in fitting process.'</p>
+<p>ARG can be either:</p>
+<ul>
+<li><code>gauss</code> — Weights are generated automatically in the iterative procedure described in <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1471868/">Biophys J. 2006 Jun 15; 90(12): 4558-4573</a>. The procedure consists of the following steps: (1) Set wi = 1.0 for i = [1,2 ... N], where N is the number of atoms. (2) Align structures using weights wi. (3) Calculate di - displacement of the i-th atom. (4) Update weights according to formula: wi = exp(-0.5 * di * di). Repeat (2) through (4) until convergence.</li>
+<li><code>flex</code> — Weights are taken from the flexibility settings. (See help entry for <code>--protein-flexibility</code>)</li>
+<li><code>ss</code> — Weights are taken from the secondary structure assignment. Atoms in helices and sheets are given w = 1.0, while those in loops and coil get w = 0.0</li>
+<li><code>&lt;filename&gt;</code> — Weights are read from a file <code>&lt;filename&gt;</code>. The file should follow this format:</li>
+</ul>
+<pre><code class="language-text"># Example file
+# default 1.0 (default value, if omitted w = 1.0 is assumed)
+# 1:A 0.5
+# 5:A 0.1
+# ...
+# 1:B 0.99
+# ...
+# End of file
+</code></pre>
+<ul>
+<li><code>off</code> — Turns off weighted-fit (all weights are 1.0).</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> Default differs between CABSflex (<code>gauss</code>) and CABSdock (<code>off</code>).</p>
+</blockquote>
+<hr>
+<h3 id="-gauss-iterations-num"><code>--gauss-iterations</code> <code>NUM</code><a class="headerlink" href="#-gauss-iterations-num" title="Permanent link">&para;</a></h3>
+<p>Sets number of iterations of dynamic weighted-fit algorithm used for superposition of structures. This option has no effect when <code>--weighted-fit</code> is set to anything other than 'gauss'. NUM = 100 by default.</p>
+<hr>
+<h3 id="clustering-filtering">Clustering &amp; Filtering<a class="headerlink" href="#clustering-filtering" title="Permanent link">&para;</a></h3>
+<h3 id="-k-clustering-medoids-num"><code>-k</code>, <code>--clustering-medoids</code> <code>NUM</code><a class="headerlink" href="#-k-clustering-medoids-num" title="Permanent link">&para;</a></h3>
+<p>Set number of medoids in k-medoids clustering algorithm. This option also sets number of final models to be generated. (default: 10).</p>
+<hr>
+<h3 id="-clustering-iterations-num"><code>--clustering-iterations</code> <code>NUM</code><a class="headerlink" href="#-clustering-iterations-num" title="Permanent link">&para;</a></h3>
+<p>Set number of iterations of the k-medoids clustering algorithm. (default: 100).</p>
+<hr>
+<h3 id="-n-filtering-count-num"><code>-n</code>, <code>--filtering-count</code> <code>NUM</code><a class="headerlink" href="#-n-filtering-count-num" title="Permanent link">&para;</a></h3>
+<p>Set number of low-energy models from trajectories to be clustered (default 1000).</p>
+<hr>
+<h3 id="-filtering-mode-mode"><code>--filtering-mode</code> <code>MODE</code><a class="headerlink" href="#-filtering-mode-mode" title="Permanent link">&para;</a></h3>
+<p>Choose the filtering mode to select NUM (set by '--filtering-count') models for clustering.</p>
+<p>MODE can be either: (default: <code>each</code>)</p>
+<ul>
+<li><code>each</code> — models are ordered by protein-peptide(s) binding energy and top n = [NUM / R] (R is the number of replicas) is selected from EACH replica</li>
+<li><code>all</code> — models are ordered by protein-peptide(s) binding energy and top NUM is selected from ALL replicas combined</li>
+</ul>
+<hr>
+<h3 id="contact-maps">Contact Maps<a class="headerlink" href="#contact-maps" title="Permanent link">&para;</a></h3>
+<h3 id="-m-contact-maps"><code>-M</code>, <code>--contact-maps</code><a class="headerlink" href="#-m-contact-maps" title="Permanent link">&para;</a></h3>
+<p>Store contact maps matrix plots and histograms of contact frequencies. (default: False).</p>
+<hr>
+<h3 id="-t-contact-threshold-dist"><code>-T</code>, <code>--contact-threshold</code> <code>DIST</code><a class="headerlink" href="#-t-contact-threshold-dist" title="Permanent link">&para;</a></h3>
+<p>Set contact distance between side chains pseudoatoms (SC) for contact map plotting. (default: 6.5).</p>
+<hr>
+<h3 id="-contact-threshold-aa-dist"><code>--contact-threshold-aa</code> <code>DIST</code><a class="headerlink" href="#-contact-threshold-aa-dist" title="Permanent link">&para;</a></h3>
+<p>Set contact distance between heavy atoms for contact map plotting. (default: 5.5).</p>
+<hr>
+<h3 id="-contact-map-colors-clr1-clr2-clr6"><code>--contact-map-colors</code> <code>CLR1</code> <code>CLR2</code> ... <code>CLR6</code><a class="headerlink" href="#-contact-map-colors-clr1-clr2-clr6" title="Permanent link">&para;</a></h3>
+<p>Sets 6 colors (hex code, e.g. <code>#00FF00</code> for green etc.) to be used in contact map color bars. (default: <code>['#ffffff', '#f2d600', '#4b8f24', '#666666', '#e80915', '#000000']</code>).</p>
+<p>Command example:</p>
+<pre><code>CABSflex -i 1CE1 -a 10 -y 20 --contact-map-colors  ['#ff0fff', '#f2d610', '#4b9f24', '#666366', '#e80215', '#000100']
+</code></pre>
+<h2 id="6-reconstruction-all-atom">6. Reconstruction (All-Atom)<a class="headerlink" href="#6-reconstruction-all-atom" title="Permanent link">&para;</a></h2>
+<h3 id="-a-aa-rebuild"><code>-A</code>, <code>--aa-rebuild</code><a class="headerlink" href="#-a-aa-rebuild" title="Permanent link">&para;</a></h3>
+<p>Rebuild final models to all-atom representation. (default: True)</p>
+<hr>
+<h3 id="-aa-method-arg"><code>--aa-method</code> <code>ARG</code><a class="headerlink" href="#-aa-method-arg" title="Permanent link">&para;</a></h3>
+<p>Set method for all-atom reconstruction.</p>
+<p>ARG can be either:</p>
+<ul>
+<li><code>cg2all</code> — use cg2all package for all-atom reconstruction (default)</li>
+<li><code>modeller</code> — use MODELLER package for all-atom reconstruction</li>
+</ul>
+<hr>
+<h3 id="-m-modeller-iterations-num"><code>-m</code>, <code>--modeller-iterations</code> <code>NUM</code><a class="headerlink" href="#-m-modeller-iterations-num" title="Permanent link">&para;</a></h3>
+<p>Set number of iterations for reconstruction procedure in MODELLER package (default: 3). Bigger numbers may result in more accurate models, but reconstruction takes longer.</p>
+<hr>
+<h3 id="-cg2all-env-prefix-dir"><code>--cg2all-env-prefix</code> <code>DIR</code><a class="headerlink" href="#-cg2all-env-prefix-dir" title="Permanent link">&para;</a></h3>
+<p>Path to the isolated environment containing cg2all dependencies. Required if <code>--aa-method cg2all</code> is used.</p>
+<h2 id="7-output-control">7. Output Control<a class="headerlink" href="#7-output-control" title="Permanent link">&para;</a></h2>
+<h3 id="file-saving">File Saving<a class="headerlink" href="#file-saving" title="Permanent link">&para;</a></h3>
+<h3 id="-s-save-cabs-files"><code>-S</code>, <code>--save-cabs-files</code><a class="headerlink" href="#-s-save-cabs-files" title="Permanent link">&para;</a></h3>
+<p>Save CABS simulation file. The filename will have the following format: <code>%yy%mm%dd%HH%MM%SS%RANDOMSTRING.cbs</code>. For example: <code>181116161924knWPtn.cbs</code></p>
+<hr>
+<h3 id="-c-save-config"><code>-C</code>, <code>--save-config</code><a class="headerlink" href="#-c-save-config" title="Permanent link">&para;</a></h3>
+<p>Save simulation parameters in config file.</p>
+<hr>
+<h3 id="pdb-output">PDB Output<a class="headerlink" href="#pdb-output" title="Permanent link">&para;</a></h3>
+<h3 id="-o-pdb-output-selection"><code>-o</code>, <code>--pdb-output</code> <code>SELECTION</code><a class="headerlink" href="#-o-pdb-output-selection" title="Permanent link">&para;</a></h3>
+<p>Select structures to be saved in the pdb format.</p>
+<p>Available options are:</p>
+<ul>
+<li><code>A</code> — all (default)</li>
+<li><code>R</code> — replicas</li>
+<li><code>F</code> — filtered</li>
+<li><code>C</code> — clusters</li>
+<li><code>M</code> — models</li>
+<li><code>S</code> — starting</li>
+<li><code>N</code> — none</li>
+</ul>
+<p>i. e. <code>-o RM</code> — saves replicas and models.</p>
+<hr>
+<h3 id="data-formatting">Data Formatting<a class="headerlink" href="#data-formatting" title="Permanent link">&para;</a></h3>
+<h3 id="-renumber-residues-to-original"><code>--renumber-residues-to-original</code><a class="headerlink" href="#-renumber-residues-to-original" title="Permanent link">&para;</a></h3>
+<p>Renumber residues to original numbering in the input pdb file. (default: False).</p>
+<hr>
+<h3 id="-pdb-bfac-output-selection"><code>--pdb-bfac-output</code> <code>SELECTION</code><a class="headerlink" href="#-pdb-bfac-output-selection" title="Permanent link">&para;</a></h3>
+<p>Select what values should be saved in beta factors of the initial PDB structure.</p>
+<p>Available options are:</p>
+<ul>
+<li><code>A</code> — all</li>
+<li><code>B</code> — original beta factors of CA</li>
+<li><code>C</code> — flexibility categories</li>
+<li><code>P</code> — pLDDTs</li>
+<li><code>R</code> — RMSFs</li>
+<li><code>S</code> — secondary structure</li>
+<li><code>N</code> — none (default)</li>
+</ul>
+<p>i. e. <code>--pdb-bfac-output BP</code> — saves original beta-factors and pLDDTs.</p>
+<hr>
+<h3 id="-csv-output-selection"><code>--csv-output</code> <code>SELECTION</code><a class="headerlink" href="#-csv-output-selection" title="Permanent link">&para;</a></h3>
+<p>Select what values should be saved in csv format.</p>
+<p>Available options are:</p>
+<ul>
+<li><code>A</code> — all</li>
+<li><code>B</code> — original beta factors of CA</li>
+<li><code>C</code> — flexibility categories</li>
+<li><code>P</code> — pLDDTs</li>
+<li><code>S</code> — secondary structure</li>
+<li><code>N</code> — none (default)</li>
+</ul>
+<p>i. e. <code>--csv-output BP</code> — saves original beta-factors and pLDDTs.</p>
+<hr>
+<h3 id="-json-output"><code>--json-output</code><a class="headerlink" href="#-json-output" title="Permanent link">&para;</a></h3>
+<p>Store atom and chain numeration in json format. (default: False).</p>
+<hr>
+<h3 id="-dssp-output"><code>--dssp-output</code><a class="headerlink" href="#-dssp-output" title="Permanent link">&para;</a></h3>
+<p>Store DSSP output as a file (default is False).</p>
+<hr>
+<h3 id="-ss-output"><code>--ss-output</code><a class="headerlink" href="#-ss-output" title="Permanent link">&para;</a></h3>
+<p>Store secondary structure assignment as a file (default is False).</p>
+<hr>
+<h3 id="-restraints-output"><code>--restraints-output</code><a class="headerlink" href="#-restraints-output" title="Permanent link">&para;</a></h3>
+<p>Store restraints as a file (default is False).</p>
+<hr>
+<h3 id="-image-file-format-fmt"><code>--image-file-format</code> <code>FMT</code><a class="headerlink" href="#-image-file-format-fmt" title="Permanent link">&para;</a></h3>
+<p>Save all of the image files in given format. (default: <code>svg</code>).</p>
+<hr>
+<h3 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h3>
+<h3 id="-v-verbose-level"><code>-v</code>, <code>--verbose</code> <code>LEVEL</code><a class="headerlink" href="#-v-verbose-level" title="Permanent link">&para;</a></h3>
+<p>Set verbosity LEVEL: (default: 2)</p>
+<ul>
+<li>0 — silent mode (only CRITICAL messages)</li>
+<li>1 — WARNINGS</li>
+<li>2 — INFO</li>
+<li>3 — LOG FILES (log files are generated)</li>
+<li>4 — DEBUG (all messages)</li>
+</ul>
+<hr>
+<h3 id="-log"><code>--log</code><a class="headerlink" href="#-log" title="Permanent link">&para;</a></h3>
+<p>Automatically redirects output to a CABS.log file created in the working directory and stops progress bar from showing on higher verbosity levels and turns off log coloring. Piping standard error will not work with this option. If a log file already exists it will be appended to.</p>
+<hr>
+<h3 id="-no-progress-bar"><code>--no-progress-bar</code><a class="headerlink" href="#-no-progress-bar" title="Permanent link">&para;</a></h3>
+<p>Disables the progress bar.</p>
+<h2 id="8-system-tools">8. System &amp; Tools<a class="headerlink" href="#8-system-tools" title="Permanent link">&para;</a></h2>
+<h3 id="-w-work-dir-dir"><code>-w</code>, <code>--work-dir</code> <code>DIR</code><a class="headerlink" href="#-w-work-dir-dir" title="Permanent link">&para;</a></h3>
+<p>Set working directory to DIR. (default: <code>.</code>)</p>
+<hr>
+<h3 id="-fortran-command-path"><code>--fortran-command</code> <code>PATH</code><a class="headerlink" href="#-fortran-command-path" title="Permanent link">&para;</a></h3>
+<p>Provide path to fortran compiler binary (default is 'gfortran -O2').</p>
+<hr>
+<h3 id="-version"><code>--version</code><a class="headerlink" href="#-version" title="Permanent link">&para;</a></h3>
+<p>Print version and exit program.</p>
+<hr>
+<h3 id="-h-help"><code>-h</code>, <code>--help</code><a class="headerlink" href="#-h-help" title="Permanent link">&para;</a></h3>
+<p>Print help and exit program.</p>
+          </article>
+          <aside class="doc-toc">
+            <div class="toc-card">
+              <h2>On this page</h2>
+              <div class="toc">
+<ul>
+<li><a href="#options-reference">Options Reference</a><ul>
+<li><a href="#1-input-initial-structure">1. Input &amp; Initial Structure</a><ul>
+<li><a href="#-i-input-protein-input">-i, --input-protein INPUT</a></li>
+<li><a href="#-c-config-file">-c, --config FILE</a></li>
+<li><a href="#-l-load-cabs-files-file">-L, --load-cabs-files FILE</a></li>
+<li><a href="#-pdb-cache-dir-dir">--pdb-cache-dir DIR</a></li>
+<li><a href="#-receptor-ss-str">--receptor-ss STR</a></li>
+<li><a href="#-f-disulfide-bonds-residue1-residue2">-F, --disulfide-bonds RESIDUE1 RESIDUE2</a></li>
+<li><a href="#-backbone-cyclization-chain">--backbone-cyclization CHAIN</a></li>
+</ul>
+</li>
+<li><a href="#2-the-protein-model-flexibility-restraints">2. The Protein Model (Flexibility &amp; Restraints)</a><ul>
+<li><a href="#global-restraints-base-model">Global Restraints (Base Model)</a></li>
+<li><a href="#-g-protein-restraints-mode-gap-min-max">-g, --protein-restraints MODE [GAP MIN MAX]</a></li>
+<li><a href="#global-overrides-modifiers">Global Overrides &amp; Modifiers</a></li>
+<li><a href="#-n-no-protein-restraints">-N, --no-protein-restraints</a></li>
+<li><a href="#-protein-restraints-retain-percentage">--protein-restraints-retain PERCENTAGE</a></li>
+<li><a href="#-ca-rest-weight-weight_min-weight_max">--ca-rest-weight WEIGHT_MIN WEIGHT_MAX</a></li>
+<li><a href="#-sc-rest-weight-weight_min-weight_max">--sc-rest-weight WEIGHT_MIN WEIGHT_MAX</a></li>
+<li><a href="#-b-binding-interactions-factor">-b, --binding-interactions FACTOR</a></li>
+<li><a href="#flexibility-per-residue-definition">Flexibility (Per-Residue Definition)</a></li>
+<li><a href="#-f-protein-flexibility-flexibility">-f, --protein-flexibility FLEXIBILITY</a></li>
+<li><a href="#-protein-plddt-flexibility">--protein-plddt FLEXIBILITY</a></li>
+<li><a href="#-protein-category-flexibility">--protein-category FLEXIBILITY</a></li>
+<li><a href="#manual-restraints-additiveper-residue">Manual Restraints (Additive/Per-Residue)</a></li>
+<li><a href="#-ca-rest-add-resi-resj-dist-weight">--ca-rest-add RESI RESJ DIST WEIGHT</a></li>
+<li><a href="#-ca-rest-file-file">--ca-rest-file FILE</a></li>
+<li><a href="#-sc-rest-add-resi-resj-dist-weight">--sc-rest-add RESI RESJ DIST WEIGHT</a></li>
+<li><a href="#-sc-rest-file-file">--sc-rest-file FILE</a></li>
+</ul>
+</li>
+<li><a href="#3-simulation-parameters">3. Simulation Parameters</a><ul>
+<li><a href="#temperature">Temperature</a></li>
+<li><a href="#-t-temperature-tinit-tfinal">-t, --temperature TINIT TFINAL</a></li>
+<li><a href="#sampling-control">Sampling Control</a></li>
+<li><a href="#-y-mc-cycles-num">-y, --mc-cycles NUM</a></li>
+<li><a href="#-s-mc-steps-num">-s, --mc-steps NUM</a></li>
+<li><a href="#-a-mc-annealing-num">-a, --mc-annealing NUM</a></li>
+<li><a href="#-disable-centro">--disable-centro</a></li>
+<li><a href="#-z-random-seed-seed">-z, --random-seed SEED</a></li>
+<li><a href="#replica-exchange">Replica Exchange</a></li>
+<li><a href="#-r-replicas-num">-r, --replicas NUM</a></li>
+<li><a href="#-d-replicas-dtemp-delta">-D, --replicas-dtemp DELTA</a></li>
+</ul>
+</li>
+<li><a href="#4-cabsdock-peptide-docking">4. CABSdock (Peptide Docking)</a><ul>
+<li><a href="#peptide-input">Peptide Input</a></li>
+<li><a href="#-p-peptide-peptide">-p, --peptide PEPTIDE</a></li>
+<li><a href="#-p-add-peptide-peptide-conformation-location">-P, --add-peptide PEPTIDE CONFORMATION LOCATION</a></li>
+<li><a href="#-peptide-structure-prediction">--peptide-structure-prediction</a></li>
+<li><a href="#-nsp3-model-path-path">--nsp3-model-path PATH</a></li>
+<li><a href="#-align-peptide-options-keyval">--align-peptide-options KEY=VAL</a></li>
+<li><a href="#docking-search">Docking Search</a></li>
+<li><a href="#-d-separation-distance">-d, --separation DISTANCE</a></li>
+<li><a href="#-insertion-attempts-num">--insertion-attempts NUM</a></li>
+<li><a href="#-insertion-clash-dist">--insertion-clash DIST</a></li>
+<li><a href="#-pairmod-filename">--pairmod FILENAME</a></li>
+<li><a href="#-e-exclude-residues">-e, --exclude RESIDUES</a></li>
+<li><a href="#-excluding-distance-dist">--excluding-distance DIST</a></li>
+</ul>
+</li>
+<li><a href="#5-analysis-alignment">5. Analysis &amp; Alignment</a><ul>
+<li><a href="#reference-alignment">Reference &amp; Alignment</a></li>
+<li><a href="#-r-reference-pdb-ref">-R, --reference-pdb REF</a></li>
+<li><a href="#-align-method">--align METHOD</a></li>
+<li><a href="#-align-options-keyval">--align-options KEY=VAL</a></li>
+<li><a href="#-weighted-fit-arg">--weighted-fit ARG</a></li>
+<li><a href="#-gauss-iterations-num">--gauss-iterations NUM</a></li>
+<li><a href="#clustering-filtering">Clustering &amp; Filtering</a></li>
+<li><a href="#-k-clustering-medoids-num">-k, --clustering-medoids NUM</a></li>
+<li><a href="#-clustering-iterations-num">--clustering-iterations NUM</a></li>
+<li><a href="#-n-filtering-count-num">-n, --filtering-count NUM</a></li>
+<li><a href="#-filtering-mode-mode">--filtering-mode MODE</a></li>
+<li><a href="#contact-maps">Contact Maps</a></li>
+<li><a href="#-m-contact-maps">-M, --contact-maps</a></li>
+<li><a href="#-t-contact-threshold-dist">-T, --contact-threshold DIST</a></li>
+<li><a href="#-contact-threshold-aa-dist">--contact-threshold-aa DIST</a></li>
+<li><a href="#-contact-map-colors-clr1-clr2-clr6">--contact-map-colors CLR1 CLR2 ... CLR6</a></li>
+</ul>
+</li>
+<li><a href="#6-reconstruction-all-atom">6. Reconstruction (All-Atom)</a><ul>
+<li><a href="#-a-aa-rebuild">-A, --aa-rebuild</a></li>
+<li><a href="#-aa-method-arg">--aa-method ARG</a></li>
+<li><a href="#-m-modeller-iterations-num">-m, --modeller-iterations NUM</a></li>
+<li><a href="#-cg2all-env-prefix-dir">--cg2all-env-prefix DIR</a></li>
+</ul>
+</li>
+<li><a href="#7-output-control">7. Output Control</a><ul>
+<li><a href="#file-saving">File Saving</a></li>
+<li><a href="#-s-save-cabs-files">-S, --save-cabs-files</a></li>
+<li><a href="#-c-save-config">-C, --save-config</a></li>
+<li><a href="#pdb-output">PDB Output</a></li>
+<li><a href="#-o-pdb-output-selection">-o, --pdb-output SELECTION</a></li>
+<li><a href="#data-formatting">Data Formatting</a></li>
+<li><a href="#-renumber-residues-to-original">--renumber-residues-to-original</a></li>
+<li><a href="#-pdb-bfac-output-selection">--pdb-bfac-output SELECTION</a></li>
+<li><a href="#-csv-output-selection">--csv-output SELECTION</a></li>
+<li><a href="#-json-output">--json-output</a></li>
+<li><a href="#-dssp-output">--dssp-output</a></li>
+<li><a href="#-ss-output">--ss-output</a></li>
+<li><a href="#-restraints-output">--restraints-output</a></li>
+<li><a href="#-image-file-format-fmt">--image-file-format FMT</a></li>
+<li><a href="#logging">Logging</a></li>
+<li><a href="#-v-verbose-level">-v, --verbose LEVEL</a></li>
+<li><a href="#-log">--log</a></li>
+<li><a href="#-no-progress-bar">--no-progress-bar</a></li>
+</ul>
+</li>
+<li><a href="#8-system-tools">8. System &amp; Tools</a><ul>
+<li><a href="#-w-work-dir-dir">-w, --work-dir DIR</a></li>
+<li><a href="#-fortran-command-path">--fortran-command PATH</a></li>
+<li><a href="#-version">--version</a></li>
+<li><a href="#-h-help">-h, --help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

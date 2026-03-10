@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Installation | CABS-flex Docs</title>
+    <link rel="stylesheet" href="assets/site.css">
+    <script defer src="assets/site.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="index.html">CABS-flex Docs</a>
+        <nav class="sidebar-nav" aria-label="Documentation"><section><h2>Core Guide</h2><ul><li><a href="index.html">Overview</a></li><li><a class="is-current" href="installation.html">Installation</a></li><li><a href="modeling-scheme.html">Modeling Scheme</a></li><li><a href="options.html">Key Options</a></li><li><a href="options-reference.html">Options Reference</a></li><li><a href="examples.html">Examples</a></li><li><a href="flexibility-modes.html">Flexibility Modes</a></li><li><a href="output-analysis.html">Output Analysis</a></li><li><a href="case-studies.html">Case Studies</a></li></ul></section><section><h2>CABSdock</h2><ul><li><a href="cabsdock.html">CABSdock</a></li><li><a href="cabsdock-options.html">CABSdock Options</a></li><li><a href="cabsdock-examples.html">CABSdock Examples</a></li><li><a href="cabsdock-output-analysis.html">CABSdock Output</a></li><li><a href="cabsdock-advanced-data.html">CABSdock Data</a></li></ul></section></nav>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">Menu</button>
+        </header>
+        <div class="content-grid">
+          <article class="doc-content">
+            <figure class="page-banner"><img alt="CABS-flex logo" src="images/2430462593-CABS-flex-logo-1401.jpg"></figure>
+<p><strong><a href="index.html">← Home</a></strong></p>
+<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<p>This page provides instructions for installing the CABS-flex/CABS-dock standalone package.</p>
+<hr>
+<h2 id="1-prerequisites">1. Prerequisites<a class="headerlink" href="#1-prerequisites" title="Permanent link">&para;</a></h2>
+<p>Before installation, ensure you have the following:</p>
+<ul>
+<li><strong>Linux OS</strong> (recommended) or macOS.</li>
+<li><strong>Windows</strong> (via <strong>WSL 2</strong> — <em>see below</em>).</li>
+<li><strong>Bash</strong> shell.</li>
+<li><strong>Git</strong> (for repository access).</li>
+<li><strong>Micromamba</strong> or <strong>Conda</strong> (Anaconda or Miniconda).<blockquote>
+<p>[!NOTE]
+The installer automatically bootstraps a standalone <strong>Micromamba</strong> binary if no environment manager is found. You do not need to pre-install Conda.</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="windows-support-wsl-2-tips">Windows Support (WSL 2) Tips<a class="headerlink" href="#windows-support-wsl-2-tips" title="Permanent link">&para;</a></h3>
+<p>For Windows users, it is <strong>mandatory</strong> to use the <strong>Windows Subsystem for Linux (WSL 2)</strong>. Native Windows Python is not supported.</p>
+<p><strong>How to enable WSL 2:</strong>
+1.  Open <strong>PowerShell</strong> as Administrator.
+2.  Run the command: <code>wsl --install</code>
+3.  <strong>Restart</strong> your computer.
+4.  Search for "Ubuntu" in the Start menu to open the Linux terminal.
+5.  Set up your Linux username and password.
+6.  Proceed with the <strong>Standard Installation</strong> below within this Ubuntu terminal.</p>
+<p><strong>WSL Optimization Tips:</strong>
+1.  <strong>Memory Allocation</strong>: All-atom reconstruction (cg2all) is memory intensive. If you experience crashes, ensure your <code>.wslconfig</code> (in <code>%USERPROFILE%</code>) allocates at least <strong>8GB-12GB</strong> of RAM.
+    <code>ini
+    [wsl2]
+    memory=12GB</code>
+2.  <strong>Filesystem Performance</strong>: For maximum performance, clone and run CABS-flex from the native Linux filesystem (e.g., <code>~/projects/</code>) instead of the Windows mount (<code>/mnt/c/...</code>).
+3.  <strong>Shell Job Control</strong>: If running custom test scripts or parallel wrappers, enable monitor mode (<code>set -m</code>) to ensure <code>jobs</code> surveillance works correctly in non-interactive shells.</p>
+<hr>
+<h2 id="2-standard-installation-recommended">2. Standard Installation (Recommended)<a class="headerlink" href="#2-standard-installation-recommended" title="Permanent link">&para;</a></h2>
+<p>This method uses <strong>Micromamba</strong> (or Conda) to manage the environment. The installer automatically sets up a <strong>dual-environment system</strong> to ensure stability for reconstruction.</p>
+<h3 id="step-1-run-installer">Step 1: Run Installer<a class="headerlink" href="#step-1-run-installer" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Remote Install</strong>: Replace <code>YOUR_TOKEN</code> with your GitHub Personal Access Token (PAT).
+  <code>bash
+  curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install.sh | bash -s YOUR_TOKEN</code></li>
+<li><strong>Local Install</strong>: If you have already cloned the repository, run from the root:
+  <code>bash
+  bash install.sh</code></li>
+</ul>
+<h3 id="step-2-configure-modeller-optional">Step 2: Configure Modeller (Optional)<a class="headerlink" href="#step-2-configure-modeller-optional" title="Permanent link">&para;</a></h3>
+<p>During installation, you will be prompted for your <strong>MODELLER license key</strong>. 
+- If provided, the installer will automatically locate and patch the configuration.
+- The installer now uses <code>micromamba run</code> to precisely detect the config file, handling differences between Modeller 10.x versions.</p>
+<h3 id="step-3-activate-and-use">Step 3: Activate and Use<a class="headerlink" href="#step-3-activate-and-use" title="Permanent link">&para;</a></h3>
+<p>The installer creates:
+1. <code>cabs</code>: Main environment for simulations.
+2. <code>cabs_reconstruct</code>: Segregated environment for <strong>cg2all</strong> reconstruction.</p>
+<p>Activate the main environment:</p>
+<pre><code class="language-bash">micromamba activate cabs
+# OR
+conda activate cabs
+</code></pre>
+<p>The path to <code>cabs_reconstruct</code> is automatically saved in the configuration, so you don't need to activate it manually.</p>
+<p>You can now use <code>CABSflex</code> and <code>CABSdock</code> commands.</p>
+<hr>
+<h2 id="3-hpc-source-installation-venv">3. HPC / Source Installation (Venv)<a class="headerlink" href="#3-hpc-source-installation-venv" title="Permanent link">&para;</a></h2>
+<p>For users on High-Performance Computing (HPC) clusters or those who prefer installing from a local source using virtual environments.</p>
+<h3 id="step-1-identify-and-load-modules">Step 1: Identify and Load Modules<a class="headerlink" href="#step-1-identify-and-load-modules" title="Permanent link">&para;</a></h3>
+<p>HPC environments use environment modules. Before installing, identify the compatible versions of GCC and Python:</p>
+<pre><code class="language-bash">module avail GCC
+module avail Python
+module load GCC/13.2.0 Python/3.11.5
+</code></pre>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+Always run the installation from a **worker node** (via `srun --pty bash -i`) to ensure access to all resources and avoid login node restrictions.
+</div>
+
+<h3 id="step-2-filesystem-check">Step 2: Filesystem Check<a class="headerlink" href="#step-2-filesystem-check" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>HOME</strong>: Usually persistent but limited in space.</li>
+<li><strong>SCRATCH</strong>: Fast, high-capacity, but temporary. Use it for <code>TEMP_ROOT</code> in the script.</li>
+<li><strong>BASE_INSTALL_DIR</strong>: Where the virtual environment will live (e.g., inside your home directory or in persistent storage allocated for your project).</li>
+</ul>
+<h3 id="step-3-clone-and-configure">Step 3: Clone and Configure<a class="headerlink" href="#step-3-clone-and-configure" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">git clone https://github.com/LCBio/cabsflex.git
+cd cabsflex
+</code></pre>
+<p>Edit the <strong>CONFIGURATION SECTION</strong> at the top of <code>install-hpc.sh</code>:
+- <code>BASE_INSTALL_DIR</code>: Where the virtual environment will live (e.g., inside your home directory or in persistent storage allocated for your project).
+- <code>MODELLER_KEY</code>: Your license key (see below).
+- <code>TEMP_ROOT</code>: Set to your cluster's high-speed scratch directory.</p>
+<h3 id="step-4-run-the-local-installer">Step 4: Run the Local Installer<a class="headerlink" href="#step-4-run-the-local-installer" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">bash install-hpc.sh
+</code></pre>
+<h3 id="step-5-activate">Step 5: Activate<a class="headerlink" href="#step-5-activate" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash">source path/to/your/venv/bin/activate
+</code></pre>
+<hr>
+<h2 id="4-optional-dependencies">4. Optional Dependencies<a class="headerlink" href="#4-optional-dependencies" title="Permanent link">&para;</a></h2>
+<h3 id="modeller-optional">MODELLER (Optional)<a class="headerlink" href="#modeller-optional" title="Permanent link">&para;</a></h3>
+<p>CABS-dock can use <strong>MODELLER</strong> as an alternative to cg2all for all-atom reconstruction. While the installer downloads the package, you <strong>must</strong> provide a license key for it to work.
+- <strong>Get a key</strong>: Register at <a href="https://salilab.org/modeller/registration.html">https://salilab.org/modeller/registration.html</a> (free for academic use).
+- <strong>Configure for Conda</strong>: Once the environment is created, you may need to add the key to the license file:
+  <code>bash
+  # Locate the config file automatically
+  MOD_CONFIG=$(micromamba run -n cabs python -c "import modlib.modeller.config as c; print(c.__file__)")
+  # Set the license
+  sed -i "s/license = .*/license = r'YOUR_KEY'/" $MOD_CONFIG</code></p>
+<h3 id="cg2all">cg2all<a class="headerlink" href="#cg2all" title="Permanent link">&para;</a></h3>
+<p>The default all-atom reconstruction tool used in CABS-flex and CABS-dock. The HPC installer sets this up automatically in a segregated environment to avoid dependency conflicts.</p>
+<hr>
+<h2 id="5-troubleshooting-faq">5. Troubleshooting &amp; FAQ<a class="headerlink" href="#5-troubleshooting-faq" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Issue</th>
+<th style="text-align: left;">Likely Cause</th>
+<th style="text-align: left;">Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Permission Denied (Git)</strong></td>
+<td style="text-align: left;">Invalid or expired token</td>
+<td style="text-align: left;">Ensure your PAT has <code>repo</code> access and hasn't expired.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>MODELLER ImportError</strong></td>
+<td style="text-align: left;">License key missing</td>
+<td style="text-align: left;">Follow the instructions in Section 4 to add your key.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Disk Quota Exceeded</strong></td>
+<td style="text-align: left;">Large temporary files</td>
+<td style="text-align: left;">Set the <code>TMPDIR</code> environment variable to a scratch partition.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Build Error: setuptools</strong></td>
+<td style="text-align: left;">Legacy test residues</td>
+<td style="text-align: left;">The installer now cleans <code>tests/test_cli_options/</code> before build. Run <code>git clean -fdx</code> if persists.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Micromamba: Download failed</strong></td>
+<td style="text-align: left;">Network/SSL</td>
+<td style="text-align: left;">Ensure <code>curl</code> is installed and has internet access.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Invalid License Key</strong></td>
+<td style="text-align: left;">Missing 'r' prefix</td>
+<td style="text-align: left;">Use <code>license = r'KEY'</code> in <code>config.py</code>. The installer does this automatically.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>WSL OOM / Crash</strong></td>
+<td style="text-align: left;">RAM Exhaustion</td>
+<td style="text-align: left;">Increase memory in <code>.wslconfig</code> (see Section 1).</td>
+</tr>
+<tr>
+<td style="text-align: left;">---</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+</tbody>
+</table>
+<h2 id="6-verification">6. Verification<a class="headerlink" href="#6-verification" title="Permanent link">&para;</a></h2>
+<p>Verify the installation:</p>
+<pre><code class="language-bash">CABSflex --help
+CABSdock --help
+</code></pre>
+<p>If the commands are recognized and display the help message, the installation was successful.</p>
+<hr>
+<p><strong>Next: <a href="modeling-scheme.html">Modeling Scheme</a></strong></p>
+          </article>
+          <aside class="doc-toc">
+            <div class="toc-card">
+              <h2>On this page</h2>
+              <div class="toc">
+<ul>
+<li><a href="#installation">Installation</a><ul>
+<li><a href="#1-prerequisites">1. Prerequisites</a><ul>
+<li><a href="#windows-support-wsl-2-tips">Windows Support (WSL 2) Tips</a></li>
+</ul>
+</li>
+<li><a href="#2-standard-installation-recommended">2. Standard Installation (Recommended)</a><ul>
+<li><a href="#step-1-run-installer">Step 1: Run Installer</a></li>
+<li><a href="#step-2-configure-modeller-optional">Step 2: Configure Modeller (Optional)</a></li>
+<li><a href="#step-3-activate-and-use">Step 3: Activate and Use</a></li>
+</ul>
+</li>
+<li><a href="#3-hpc-source-installation-venv">3. HPC / Source Installation (Venv)</a><ul>
+<li><a href="#step-1-identify-and-load-modules">Step 1: Identify and Load Modules</a></li>
+<li><a href="#step-2-filesystem-check">Step 2: Filesystem Check</a></li>
+<li><a href="#step-3-clone-and-configure">Step 3: Clone and Configure</a></li>
+<li><a href="#step-4-run-the-local-installer">Step 4: Run the Local Installer</a></li>
+<li><a href="#step-5-activate">Step 5: Activate</a></li>
+</ul>
+</li>
+<li><a href="#4-optional-dependencies">4. Optional Dependencies</a><ul>
+<li><a href="#modeller-optional">MODELLER (Optional)</a></li>
+<li><a href="#cg2all">cg2all</a></li>
+</ul>
+</li>
+<li><a href="#5-troubleshooting-faq">5. Troubleshooting &amp; FAQ</a></li>
+<li><a href="#6-verification">6. Verification</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
