@@ -1,0 +1,29 @@
+Unresolved legacy Bitbucket resources
+=====================================
+
+These asset URLs were referenced by the legacy wiki but were not found in
+the local wiki repository checkout. They remain external in the generated HTML.
+
+https://bitbucket.org/kdawid/cabsdock-plugin/
+https://bitbucket.org/lcbio/cabsdock/downloads/scripts.zip
+https://bitbucket.org/repo/Bgk4jed/images/1065948630-CABS-dock-pipeline4-800.png
+https://bitbucket.org/repo/Bgk4jed/images/1342300156-RMSD_frame_C_replica_5.png
+https://bitbucket.org/repo/Bgk4jed/images/1356306435-local_picture_2_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/1746489159-local_picture_1_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/2119333987-time-cabs-dock.jpg
+https://bitbucket.org/repo/Bgk4jed/images/2174651923-E_RMSD_C_inter.png
+https://bitbucket.org/repo/Bgk4jed/images/2185296185-picture_4_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/2195712623-RMSF_seq.png
+https://bitbucket.org/repo/Bgk4jed/images/2325037370-picture_1_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/2472973681-picture_4_lowqality.png
+https://bitbucket.org/repo/Bgk4jed/images/2709997918-scirep-movie.png
+https://bitbucket.org/repo/Bgk4jed/images/2731300091-rysunek_2_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/3039583421-twopeptide_picture_1_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/3137823269-rysunek_4_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/3169739384-picture_2_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/3369401027-rysunek_6_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/3595289609-all_contacts_histo_A.png
+https://bitbucket.org/repo/Bgk4jed/images/3716129613-twopeptide_picture_2_lowquality.png
+https://bitbucket.org/repo/Bgk4jed/images/3757883939-cluster_0_ch_A.png
+https://bitbucket.org/repo/Bgk4jed/images/782252864-target_all.png
+https://bitbucket.org/repo/Bgk4jed/images/811305076-E_RMSD_C_total.png

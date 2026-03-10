@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import html
+import re
+import shutil
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+import markdown
+
+
+ROOT = Path(__file__).resolve().parents[1]
+WIKI_ROOT = ROOT.parent / "CABSflex_standalone.wiki"
+OUTPUT_ROOT = ROOT / "docs"
+ASSETS_ROOT = OUTPUT_ROOT / "assets"
+SITE_CSS = "assets/site.css"
+SITE_JS = "assets/site.js"
+VIDEO_EXTENSIONS = {".mp4", ".webm", ".ogg"}
+
+PAGE_ORDER = [
+    "Home",
+    "Installation",
+    "Modeling-Scheme",
+    "Options",
+    "Options-Reference",
+    "Examples",
+    "Flexibility-Modes",
+    "Output-Analysis",
+    "CABSdock",
+    "CABSdock-Options",
+    "CABSdock-Examples",
+    "CABSdock-Output-Analysis",
+    "CABSdock-Advanced-Data",
+    "Case-Studies",
+]
+
+PAGE_LABELS = {
+    "Home": "Overview",
+    "Installation": "Installation",
+    "Modeling-Scheme": "Modeling Scheme",
+    "Options": "Key Options",
+    "Options-Reference": "Options Reference",
+    "Examples": "Examples",
+    "Flexibility-Modes": "Flexibility Modes",
+    "Output-Analysis": "Output Analysis",
+    "CABSdock": "CABSdock",
+    "CABSdock-Options": "CABSdock Options",
+    "CABSdock-Examples": "CABSdock Examples",
+    "CABSdock-Output-Analysis": "CABSdock Output",
+    "CABSdock-Advanced-Data": "CABSdock Data",
+    "Case-Studies": "Case Studies",
+}
+
+SECTION_LABELS = {
+    "Core Guide": [
+        "Home",
+        "Installation",
+        "Modeling-Scheme",
+        "Options",
+        "Options-Reference",
+        "Examples",
+        "Flexibility-Modes",
+        "Output-Analysis",
+        "Case-Studies",
+    ],
+    "CABSdock": [
+        "CABSdock",
+        "CABSdock-Options",
+        "CABSdock-Examples",
+        "CABSdock-Output-Analysis",
+        "CABSdock-Advanced-Data",
+    ],
+}
+
+WIKI_LINK_RE = re.compile(r"\]\(([A-Za-z0-9_-]+)(#[^)]+)?\)")
+ALERT_RE = re.compile(r"^> \[!(NOTE|TIP|WARNING|IMPORTANT)\]\s*$")
+YOUTUBE_THUMB_RE = re.compile(
+    r'<a href="(?P<href>https?://(?:www\.)?(?:youtube\.com/watch\?v=[^"]+|youtu\.be/[^"?]+)[^"]*)">'
+    r'\s*<img alt="(?P<alt>[^"]*)" src="(?P<src>[^"]*)"[^>]*>\s*</a>',
+    re.IGNORECASE | re.DOTALL,
+)
+LOCAL_VIDEO_THUMB_RE = re.compile(
+    r'<a href="(?P<href>(?:videos|media|assets/videos)/[^"]+\.(?:mp4|webm|ogg))">'
+    r'\s*<img alt="(?P<alt>[^"]*)" src="(?P<src>[^"]*)"[^>]*>\s*</a>',
+    re.IGNORECASE | re.DOTALL,
+)
+LOCAL_VIDEO_LINK_RE = re.compile(
+    r'<p><a href="(?P<href>(?:videos|media|assets/videos)/[^"]+\.(?:mp4|webm|ogg))">'
+    r'(?P<label>.*?)</a></p>',
+    re.IGNORECASE | re.DOTALL,
+)
+BITBUCKET_IMAGE_RE = re.compile(r"https://bitbucket\.org/[^)\s]+")
+UNRESOLVED_ASSETS: set[str] = set()
+
+
+def page_output_name(page_name: str) -> str:
+    return "index.html" if page_name == "Home" else f"{page_name.lower()}.html"
+
+
+def youtube_embed_url(url: str) -> str | None:
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+    if "youtu.be" in host:
+        video_id = parsed.path.strip("/")
+    elif "youtube.com" in host:
+        video_id = parse_qs(parsed.query).get("v", [None])[0]
+    else:
+        return None
+    if not video_id:
+        return None
+    return (
+        f"https://www.youtube.com/embed/{video_id}"
+        f"?rel=0&modestbranding=1&playsinline=1&loop=1&playlist={video_id}"
+    )
+
+
+def build_sidebar(current_page: str) -> str:
+    parts = ['<nav class="sidebar-nav" aria-label="Documentation">']
+    for section, pages in SECTION_LABELS.items():
+        parts.append(f"<section><h2>{html.escape(section)}</h2><ul>")
+        for page in pages:
+            href = page_output_name(page)
+            cls = ' class="is-current"' if page == current_page else ""
+            label = PAGE_LABELS.get(page, page)
+            parts.append(
+                f'<li><a{cls} href="{href}">{html.escape(label)}</a></li>'
+            )
+        parts.append("</ul></section>")
+    parts.append("</nav>")
+    return "".join(parts)
+
+
+def rewrite_internal_links(text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        target = match.group(1)
+        anchor = match.group(2) or ""
+        if target in PAGE_LABELS:
+            return f"]({page_output_name(target)}{anchor})"
+        return match.group(0)
+
+    return WIKI_LINK_RE.sub(repl, text)
+
+
+def resolve_legacy_image(url: str) -> str:
+    file_name = Path(urlparse(url).path).name
+    candidates = [file_name, re.sub(r"^\d+-", "", file_name)]
+    for candidate in candidates:
+        if (WIKI_ROOT / "images" / candidate).exists():
+            return f"images/{candidate}"
+    UNRESOLVED_ASSETS.add(url)
+    return url
+
+
+def rewrite_bitbucket_images(text: str) -> str:
+    return BITBUCKET_IMAGE_RE.sub(lambda match: resolve_legacy_image(match.group(0)), text)
+
+
+def rewrite_github_alerts(text: str) -> str:
+    lines = text.splitlines()
+    rewritten: list[str] = []
+    idx = 0
+    while idx < len(lines):
+        alert_match = ALERT_RE.match(lines[idx])
+        if not alert_match:
+            rewritten.append(lines[idx])
+            idx += 1
+            continue
+
+        kind = alert_match.group(1).lower()
+        body: list[str] = []
+        idx += 1
+        while idx < len(lines) and lines[idx].startswith("> "):
+            body.append(lines[idx][2:])
+            idx += 1
+
+        rewritten.append(f'<div class="admonition {kind}">')
+        rewritten.append(f'<p class="admonition-title">{kind.title()}</p>')
+        rewritten.extend(body or [""])
+        rewritten.append("</div>")
+    return "\n".join(rewritten)
+
+
+def preprocess_markdown(text: str) -> str:
+    text = rewrite_internal_links(text)
+    text = rewrite_bitbucket_images(text)
+    text = rewrite_github_alerts(text)
+    return text
+
+
+def convert_video_thumbnails(html_text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        href = match.group("href")
+        embed = youtube_embed_url(href)
+        if not embed:
+            return match.group(0)
+        alt = html.escape(match.group("alt") or "Embedded video")
+        return (
+            '<figure class="video-embed">'
+            f'<iframe src="{embed}" title="{alt}" loading="lazy" '
+            'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" '
+            'allowfullscreen></iframe>'
+            f"<figcaption>{alt}</figcaption>"
+            "</figure>"
+        )
+
+    return YOUTUBE_THUMB_RE.sub(repl, html_text)
+
+
+def convert_local_video_links(html_text: str) -> str:
+    def thumb_repl(match: re.Match[str]) -> str:
+        href = html.escape(match.group("href"))
+        poster = html.escape(match.group("src"))
+        alt = html.escape(match.group("alt") or "Embedded video")
+        ext = Path(match.group("href")).suffix.lower()
+        mime = f"video/{'ogg' if ext == '.ogg' else ext.lstrip('.')}"
+        return (
+            '<figure class="video-embed video-local">'
+            f'<video controls loop preload="metadata" playsinline poster="{poster}">'
+            f'<source src="{href}" type="{mime}">'
+            "Your browser does not support the video tag."
+            "</video>"
+            f"<figcaption>{alt}</figcaption>"
+            "</figure>"
+        )
+
+    def link_repl(match: re.Match[str]) -> str:
+        href = html.escape(match.group("href"))
+        label = re.sub(r"<.*?>", "", match.group("label")).strip() or "Embedded video"
+        ext = Path(match.group("href")).suffix.lower()
+        mime = f"video/{'ogg' if ext == '.ogg' else ext.lstrip('.')}"
+        safe_label = html.escape(label)
+        return (
+            '<figure class="video-embed video-local">'
+            f'<video controls loop preload="metadata" playsinline>'
+            f'<source src="{href}" type="{mime}">'
+            "Your browser does not support the video tag."
+            "</video>"
+            f"<figcaption>{safe_label}</figcaption>"
+            "</figure>"
+        )
+
+    html_text = LOCAL_VIDEO_THUMB_RE.sub(thumb_repl, html_text)
+    return LOCAL_VIDEO_LINK_RE.sub(link_repl, html_text)
+
+
+def normalize_media_blocks(html_text: str) -> str:
+    html_text = re.sub(
+        r"<p>(<figure class=\"video-embed.*?</figure>)</p>",
+        r"\1",
+        html_text,
+        flags=re.DOTALL,
+    )
+    html_text = re.sub(
+        r'^<p><img alt="CABS-flex logo" src="([^"]+)"></p>',
+        r'<figure class="page-banner"><img alt="CABS-flex logo" src="\1"></figure>',
+        html_text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    return html_text
+
+
+def markdown_to_html(text: str) -> tuple[str, str, str]:
+    md = markdown.Markdown(
+        extensions=[
+            "extra",
+            "admonition",
+            "attr_list",
+            "sane_lists",
+            "toc",
+        ],
+        extension_configs={"toc": {"permalink": True}},
+        output_format="html5",
+    )
+    body = md.convert(text)
+    body = convert_video_thumbnails(body)
+    body = convert_local_video_links(body)
+    body = normalize_media_blocks(body)
+    toc = md.toc or "<p class=\"toc-empty\">No table of contents for this page.</p>"
+    title = "CABS-flex Documentation"
+    match = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.DOTALL)
+    if match:
+        title = html.unescape(re.sub(r"<.*?>", "", match.group(1))).replace("¶", "").strip()
+    return title, toc, body
+
+
+def page_template(page: str, title: str, toc: str, body: str) -> str:
+    page_title = f"{title} | CABS-flex Docs"
+    return f"""<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{html.escape(page_title)}</title>
+    <link rel="stylesheet" href="{SITE_CSS}">
+    <script defer src="{SITE_JS}"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="index.html">CABS-flex Docs</a>
+        {build_sidebar(page)}
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">Menu</button>
+        </header>
+        <div class="content-grid">
+          <article class="doc-content">
+            {body}
+          </article>
+          <aside class="doc-toc">
+            <div class="toc-card">
+              <h2>On this page</h2>
+              {toc}
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
+"""
+
+
+def build_site() -> None:
+    if not WIKI_ROOT.exists():
+        raise SystemExit(f"Wiki repository not found at {WIKI_ROOT}")
+
+    OUTPUT_ROOT.mkdir(exist_ok=True)
+    (OUTPUT_ROOT / "images").mkdir(exist_ok=True)
+    (OUTPUT_ROOT / "uploads").mkdir(exist_ok=True)
+    ASSETS_ROOT.mkdir(exist_ok=True)
+
+    for folder in ("images", "uploads", "videos"):
+        src = WIKI_ROOT / folder
+        dst = OUTPUT_ROOT / folder
+        if dst.exists():
+            shutil.rmtree(dst)
+        if src.exists():
+            shutil.copytree(src, dst)
+
+    for page in PAGE_ORDER:
+        src = WIKI_ROOT / f"{page}.md"
+        if not src.exists():
+            raise SystemExit(f"Missing wiki page: {src}")
+        text = preprocess_markdown(src.read_text(encoding="utf-8"))
+        title, toc, body = markdown_to_html(text)
+        out = OUTPUT_ROOT / page_output_name(page)
+        out.write_text(page_template(page, title, toc, body), encoding="utf-8")
+
+    report = OUTPUT_ROOT / "migration-report.txt"
+    if UNRESOLVED_ASSETS:
+        lines = [
+            "Unresolved legacy Bitbucket resources",
+            "=====================================",
+            "",
+            "These asset URLs were referenced by the legacy wiki but were not found in",
+            "the local wiki repository checkout. They remain external in the generated HTML.",
+            "",
+        ]
+        lines.extend(sorted(UNRESOLVED_ASSETS))
+        report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    elif report.exists():
+        report.unlink()
+
+
+if __name__ == "__main__":
+    build_site()
