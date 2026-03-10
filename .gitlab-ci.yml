@@ -4,7 +4,7 @@ pages:
   script:
     - apt-get update
     - apt-get install -y git
-    - git clone https://gitlab.com/lcbio1/CABSflex_standalone.wiki.git /tmp/CABSflex_standalone.wiki
+    - git clone "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/lcbio1/CABSflex_standalone.wiki.git" /tmp/CABSflex_standalone.wiki
     - pip install markdown
     - CABSFLEX_WIKI_ROOT=/tmp/CABSflex_standalone.wiki python scripts/build_html_wiki.py
     - mkdir -p public
