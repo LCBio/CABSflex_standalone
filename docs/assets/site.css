@@ -374,6 +374,23 @@ blockquote {
   max-height: min(70vh, 760px);
 }
 
+.video-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+  margin: 2.5rem 0;
+}
+
+.video-gallery .video-embed {
+  margin: 0;
+}
+
+.video-gallery figcaption {
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 0.8rem;
+}
+
 .video-embed figcaption {
   margin-top: 0.55rem;
   color: var(--muted);
