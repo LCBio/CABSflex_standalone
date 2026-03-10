@@ -3,10 +3,8 @@ pages:
   image: python:3.11-bookworm
   script:
     - apt-get update
-    - apt-get install -y git git-lfs
-    - git lfs install
+    - apt-get install -y git
     - git clone https://gitlab.com/lcbio1/CABSflex_standalone.wiki.git /tmp/CABSflex_standalone.wiki
-    - git -C /tmp/CABSflex_standalone.wiki lfs pull
     - pip install markdown
     - CABSFLEX_WIKI_ROOT=/tmp/CABSflex_standalone.wiki python scripts/build_html_wiki.py
     - mkdir -p public

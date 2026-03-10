@@ -30,16 +30,9 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Git LFS
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git-lfs
-          git lfs install
-
       - name: Clone wiki repository
         run: |
           git clone https://gitlab.com/lcbio1/CABSflex_standalone.wiki.git /tmp/CABSflex_standalone.wiki
-          git -C /tmp/CABSflex_standalone.wiki lfs pull
 
       - name: Build docs from wiki source
         run: |

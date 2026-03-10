@@ -1,6 +1,6 @@
 # HTML Documentation Site
 
-This directory contains a static HTML version of the legacy wiki.
+This directory contains the site shell and local build instructions for the generated HTML documentation.
 
 ## Regenerate the site
 
@@ -22,9 +22,7 @@ After generation, check `docs/migration-report.txt`. It lists legacy Bitbucket-l
 
 ## Hosting recommendation
 
-Because the new site is committed as plain HTML, CSS, JavaScript, and static assets, **GitHub Pages** or **GitLab Pages** is a better fit than Read the Docs.
-
-Read the Docs is optimized for source-driven documentation builds. It can still host generated HTML indirectly, but that adds unnecessary build indirection for this repo.
+The site is generated in CI from the separate wiki repository and then published to Pages. Generated HTML and copied media are not kept in version control in the main repository.
 
 ## Video support
 
@@ -44,7 +42,7 @@ or a poster thumbnail link:
 
 The generator copies `videos/` into `docs/videos/` at build time and emits an HTML5 `<video>` player.
 
-`docs/videos/` is generated deploy output and is intentionally ignored in the main repository.
+Generated HTML, images, uploads, videos, and the migration report are intentionally ignored in the main repository.
 
 For future pages, you can either:
 

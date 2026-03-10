@@ -213,4 +213,8 @@ tests/1A2K/
 tests/1A02_test/
 tests/1A2K_fix/
 tests/1A2K_pymol_test/
+docs/*.html
+docs/images/
+docs/uploads/
 docs/videos/
+docs/migration-report.txt
