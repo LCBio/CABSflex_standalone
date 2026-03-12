@@ -652,7 +652,24 @@ def convert_cg_to_all(
                         tmp_file.write(line)
 
     if renumber_flag:
-        sync_residues(input_pdb_path=Path(reference_pdb), output_pdb_path=Path(pdb))
+        reference_path = None
+        start_path = Path(work_dir) / "output_pdbs" / "start.pdb"
+        start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
+        if start_path.exists():
+            reference_path = start_path
+        elif start_all_path.exists():
+            reference_path = start_all_path
+        elif reference_pdb:
+            candidate = Path(str(reference_pdb).split(":")[0])
+            if candidate.exists():
+                reference_path = candidate
+
+        if reference_path is None:
+            raise FileNotFoundError(
+                "Could not resolve a PDB file for residue renumbering."
+            )
+
+        sync_residues(input_pdb_path=reference_path, output_pdb_path=Path(pdb))
 
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(pdb)
@@ -713,23 +730,37 @@ def convert_cg_to_all(
 
 def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:
     """Synchronize residue numbering between input and output PDB files."""
-    if not HAS_PANDAS:
-        raise ImportError(
-            "pandas and biopandas are required for sync_residues function"
+    input_ca_resnums: List[int] = []
+    within_first_model = False
+
+    for line in input_pdb_path.read_text().splitlines(keepends=True):
+        if line.startswith("MODEL"):
+            if within_first_model:
+                break
+            within_first_model = True
+            continue
+        if line.startswith("ENDMDL") and within_first_model:
+            break
+        if line.startswith("ATOM") and line[12:16].strip() == "CA":
+            input_ca_resnums.append(int(line[22:26]))
+
+    output_lines = output_pdb_path.read_text().splitlines(keepends=True)
+    output_ca_indices = [
+        idx
+        for idx, line in enumerate(output_lines)
+        if line.startswith("ATOM") and line[12:16].strip() == "CA"
+    ]
+
+    if len(input_ca_resnums) != len(output_ca_indices):
+        raise ValueError(
+            "Residue renumbering mismatch: "
+            f"reference has {len(input_ca_resnums)} CA atoms, "
+            f"model has {len(output_ca_indices)}."
         )
 
-    input_pdb = PandasPdb().read_pdb(str(input_pdb_path))
-    output_pdb = PandasPdb().read_pdb(str(output_pdb_path))
-    input_atom_df = input_pdb.df["ATOM"]
-    hetatm_df = input_pdb.df["HETATM"]
-    hetatm_df["residue_name"] = hetatm_df["residue_name"].map(AA_SUB_NAMES)
-    input_atom_df = pd.concat([input_atom_df, hetatm_df]).dropna(
-        subset=["residue_name"]
-    )
-    output_atom_df = output_pdb.df["ATOM"]
-    output_atom_df.loc[output_atom_df["atom_name"] == "CA", "residue_number"] = (
-        input_atom_df.loc[input_atom_df["atom_name"] == "CA", "residue_number"].values
-    )
-    output_pdb.df["ATOM"] = output_atom_df
-    output_pdb.to_pdb(str(output_pdb_path))
+    for resid, line_idx in zip(input_ca_resnums, output_ca_indices):
+        line = output_lines[line_idx]
+        output_lines[line_idx] = f"{line[:22]}{resid:4d}{line[26:]}"
+
+    output_pdb_path.write_text("".join(output_lines))
     return "Residues synchronized"

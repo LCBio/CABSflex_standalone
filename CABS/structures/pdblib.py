@@ -24,7 +24,7 @@ except ImportError:
 
 # CABS internal imports
 from CABS.config_loader import get_config_section
-from CABS.constants import AA_NAMES, AA_SUB_NAMES
+from CABS.constants import AA_NAMES, AA_SUB_NAMES, AA_SUB_NAMES_EXTENDED
 from CABS.io import logger
 from CABS.structures.atom import Atom, Atoms
 from CABS.structures.vector3d import Vector3d
@@ -177,12 +177,21 @@ class Pdb:
                 
                 # Rescuing non-standard AAs (which are often marked as HETATMs)
                 if fix_aa and resname not in AA_NAMES.values():
-                    resname = AA_SUB_NAMES.get(resname, resname)
+                    # Priority 1: Use extended mapping (maps non-standard to standard types)
+                    sname = AA_SUB_NAMES_EXTENDED.get(resname)
+                    if sname:
+                        resname = AA_NAMES.get(sname, resname)
+                    else:
+                        # Priority 2: Use standard mapping (maps standard types to 1-letter codes)
+                        # This handles cases where resname is already a standard 3-letter code
+                        resname = AA_SUB_NAMES.get(resname, resname)
 
                 if no_water and resname == "HOH": continue
                 
                 # Drop heteroatoms unless they were recognized and translated into standard AAs
-                if no_hetero and residue.id[0] != " " and resname not in AA_NAMES.values():
+                # Biopython residue.id[0] is ' ' for ATOM, 'H_RES' for HETATM, 'W' for WATER
+                is_hetero = residue.id[0] != " "
+                if no_hetero and is_hetero and resname not in AA_NAMES.values():
                     continue
 
                 for atom in residue:

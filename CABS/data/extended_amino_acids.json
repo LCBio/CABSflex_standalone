@@ -109,6 +109,10 @@
     "BFD": "D",
     "BG1": "S",
     "BHD": "D",
-    "BIF": "F"
+    "BIF": "F",
+    "MSE": "M",
+    "CSX": "C",
+    "CME": "C",
+    "MLY": "K"
   }
 }

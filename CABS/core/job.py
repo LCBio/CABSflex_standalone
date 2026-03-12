@@ -34,6 +34,7 @@ from CABS.core.trajectory import Trajectory
 from CABS.io import logger
 import CABS.io.optparser as opt_parser
 from CABS.structures import pdblib, protein
+from CABS.structures.atom import Atoms
 from CABS.structures.pdblib import Pdb
 from CABS.structures.protein import ProteinComplex
 from CABS.utils import utils
@@ -1080,6 +1081,64 @@ class DockTask(CABSTask):
         ret.number_of_peptides = len(self.peptides)
         return ret
 
+    @staticmethod
+    def _longest_common_subsequence_alignment(ref_atoms, model_atoms):
+        ref_seq = [atom.resname for atom in ref_atoms]
+        model_seq = [atom.resname for atom in model_atoms]
+        dp = [[0] * (len(model_seq) + 1) for _ in range(len(ref_seq) + 1)]
+
+        for i in range(len(ref_seq) - 1, -1, -1):
+            for j in range(len(model_seq) - 1, -1, -1):
+                if ref_seq[i] == model_seq[j]:
+                    dp[i][j] = dp[i + 1][j + 1] + 1
+                else:
+                    dp[i][j] = max(dp[i + 1][j], dp[i][j + 1])
+
+        i = j = 0
+        aligned_pairs = []
+        while i < len(ref_seq) and j < len(model_seq):
+            if ref_seq[i] == model_seq[j]:
+                aligned_pairs.append((ref_atoms[i], model_atoms[j]))
+                i += 1
+                j += 1
+            elif dp[i + 1][j] >= dp[i][j + 1]:
+                i += 1
+            else:
+                j += 1
+
+        if not aligned_pairs:
+            raise AlignError("No common peptide subsequence between model and reference.")
+
+        return (
+            Atoms([ref_atom for ref_atom, _ in aligned_pairs]),
+            Atoms([model_atom for _, model_atom in aligned_pairs]),
+            tuple(aligned_pairs),
+        )
+
+    def _log_peptide_alignment_warning(
+        self,
+        ref_pept_chain,
+        pept_chain,
+        ref_atoms,
+        model_atoms,
+        pep_aln,
+        method_label,
+    ):
+        aligned_ref_ids = {ref_atom.resid_id() for ref_atom, _ in pep_aln}
+        aligned_model_ids = {model_atom.resid_id() for _, model_atom in pep_aln}
+        excluded_ref = len(ref_atoms) - len(aligned_ref_ids)
+        excluded_model = len(model_atoms) - len(aligned_model_ids)
+        if excluded_ref or excluded_model:
+            logger.warning(
+                module_name=_name,
+                msg=(
+                    f"Using partial peptide alignment for model chain {pept_chain} "
+                    f"against reference chain {ref_pept_chain} via {method_label}: "
+                    f"aligned {len(pep_aln)} residue(s), excluded {excluded_ref} "
+                    f"reference residue(s) and {excluded_model} model residue(s)."
+                ),
+            )
+
     def calculate_rmsd(self, save=True):
         logger.debug(module_name=_name, msg="RMSD calculations starting...")
         sfname: str = ""
@@ -1104,13 +1163,62 @@ class DockTask(CABSTask):
         for pept_chain, ref_pept_chain in zip(
             self.initial_complex.peptide_chains, self.reference[2]
         ):
-            ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(
-                self.reference[0],
-                ref_pept_chain,
-                pept_chain,
-                align_mth=self.align,
-                kwargs=self.align_peptide_options,
+            ref_chain_atoms = self.reference[0].select(
+                "name CA and not HETERO and chain %s" % ref_pept_chain
             )
+            model_chain_atoms = self.trajectory.template.select(
+                "name CA and not HETERO and chain %s" % pept_chain
+            )
+            try:
+                ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(
+                    self.reference[0],
+                    ref_pept_chain,
+                    pept_chain,
+                    align_mth=self.align,
+                    kwargs=self.align_peptide_options,
+                )
+                self._log_peptide_alignment_warning(
+                    ref_pept_chain,
+                    pept_chain,
+                    ref_chain_atoms,
+                    model_chain_atoms,
+                    pep_aln,
+                    method_label=str(self.align),
+                )
+            except (ValueError, AlignError) as e:
+                try:
+                    ref_pep_stc, self_pep_stc, pep_aln = (
+                        self._longest_common_subsequence_alignment(
+                            ref_chain_atoms, model_chain_atoms
+                        )
+                    )
+                except AlignError:
+                    logger.warning(
+                        module_name=_name,
+                        msg=(
+                            f"Skipping peptide RMSD for model chain {pept_chain} "
+                            f"against reference chain {ref_pept_chain}: {e} "
+                            f"(reference length {len(ref_chain_atoms)}, "
+                            f"model length {len(model_chain_atoms)})."
+                        ),
+                    )
+                    continue
+                logger.warning(
+                    module_name=_name,
+                    msg=(
+                        f"Peptide alignment for model chain {pept_chain} against "
+                        f"reference chain {ref_pept_chain} failed with {self.align}; "
+                        "using the longest common peptide subsequence instead."
+                    ),
+                )
+                self._log_peptide_alignment_warning(
+                    ref_pept_chain,
+                    pept_chain,
+                    ref_chain_atoms,
+                    model_chain_atoms,
+                    pep_aln,
+                    method_label="longest-common-subsequence fallback",
+                )
             if save:
                 paln_pep = sfname + "_%s.csv" % pept_chain
                 save_csv(paln_pep, ("reference", "template"), pep_aln)
@@ -1147,7 +1255,13 @@ class DockTask(CABSTask):
                         for rmsd in results["rmsds_" + _type]:
                             outfile.write(str(rmsd) + ";\n")
             all_results[pept_chain] = results
-        logger.info(module_name=_name, msg="RMSD successfully saved")
+        if all_results:
+            logger.info(module_name=_name, msg="RMSD successfully saved")
+        else:
+            logger.warning(
+                module_name=_name,
+                msg="Target RMSD alignment succeeded, but no peptide RMSD results were saved.",
+            )
         return all_results
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):

@@ -624,10 +624,12 @@ class Peptide(Atoms):
                 raise Pdb.InvalidPdbInput("Input looks like a sequence (no file/ID match)")
 
             pdb = Pdb(
-                source=source, selection="name CA", pdb_cache=pdb_cache, no_exit=True
+                source=source, pdb_cache=pdb_cache, no_exit=True
             )
+            ss = pdb.dssp(work_dir=work_dir)
+            pdb.atoms = pdb.atoms.select("name CA")
             atoms = pdb.atoms.models()[0]
-            atoms.update_sec(pdb.dssp(work_dir=work_dir))
+            atoms.update_sec(ss)
         except Pdb.InvalidPdbInput:
             atoms = Atoms(source)
         atoms.set_bfac(0.0)

@@ -341,6 +341,7 @@ class ProgressBar:
     FORMAT: str = "{:<20} {:<19}[{}] {:.1f}%\r"
     BAR0: str = " "
     BAR1: str = "#"
+    COMPACT_STEP: float = 5.0
 
     def __init__(
         self,
@@ -362,9 +363,15 @@ class ProgressBar:
             delay: Initial delay before starting
             start_msg: Message to display at start
         """
-        if _log_level >= LogLevel.INFO.value and not _remote and _progress_bar:
+        is_tty = hasattr(out, "isatty") and out.isatty()
+        if _log_level >= LogLevel.INFO.value and _progress_bar and not _remote and is_tty:
+            self.mode = "tty"
             self.stream = out
+        elif _log_level >= LogLevel.INFO.value and _progress_bar:
+            self.mode = "compact"
+            self.stream = _stream
         else:
+            self.mode = "silent"
             self.stream = open(os.devnull, "w")
         self.total = total
         self.current = 0.0
@@ -372,9 +379,13 @@ class ProgressBar:
         self.is_done = False
         self.module_name = module_name
         self.prefix = _prefix[str(LogLevel.INFO.value)]
+        self.next_report_percent = self.COMPACT_STEP
 
         if start_msg:
-            self.stream.write(coloring(msg=start_msg) + "\n")
+            if self.mode == "compact":
+                info(module_name=self.module_name, msg=start_msg)
+            else:
+                self.stream.write(coloring(msg=start_msg) + "\n")
         if self.job_name:
             info(
                 module_name=self.module_name,
@@ -389,6 +400,14 @@ class ProgressBar:
         percent = 1.0 * self.current / self.total
         num = int(self.WIDTH * percent)
         percent = round(100.0 * percent, 1)
+        if self.mode == "compact":
+            while percent >= self.next_report_percent and self.next_report_percent < 100.0:
+                info(
+                    module_name=self.module_name,
+                    msg=f"{self.job_name} progress: {self.next_report_percent:.1f}%",
+                )
+                self.next_report_percent += self.COMPACT_STEP
+            return
         bar = self.BAR1 * num + self.BAR0 * (self.WIDTH - num)
         self.stream.write(
             self.FORMAT.format(
@@ -432,7 +451,10 @@ class ProgressBar:
         """
         if not self.is_done:
             self.finish()
-            self.stream.write(" " * 80 + "\r")
+            if self.mode == "compact":
+                info(module_name=self.module_name, msg=f"{self.job_name} progress: 100.0%")
+            if self.mode == "tty":
+                self.stream.write(" " * 80 + "\r")
             if show_time:
                 t = gmtime(time() - self.start_time)
                 info(
