@@ -355,14 +355,14 @@ class Pdb:
             "Check internet connection or ID validity."
         )
 
-    def mk_ss_header(self, dssp_from_aa: bool = False) -> str:
+    def mk_ss_header(self, work_dir: str = "", dssp_from_aa: bool = False) -> str:
         """
         Generates PDB-compliant HELIX and SHEET records.
 
         This reconstructs the header information needed by visualization tools
         based on the secondary structure assigned by MDTraj.
         """
-        dssp_data = self.dssp(dssp_from_aa=dssp_from_aa)
+        dssp_data = self.dssp(work_dir=work_dir, dssp_from_aa=dssp_from_aa)
         if not dssp_data: return ""
 
         def identify_boundaries(ss_type):
@@ -415,7 +415,7 @@ class Pdb:
     def save_initial_pdb(self, work_dir: str = "") -> None:
         """Saves the loaded coordinates as a standard PDB file."""
         if work_dir:
-            header = self.mk_ss_header()
+            header = self.mk_ss_header(work_dir=work_dir)
             path = os.path.join(work_dir, "output_pdbs", "start_all.pdb")
             os.makedirs(os.path.dirname(path), exist_ok=True)
             self.atoms.save_to_pdb(path, header=header)

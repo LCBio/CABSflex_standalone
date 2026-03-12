@@ -105,7 +105,13 @@
                     "contact-map-colors",
                     "align",
                     "align-options",
-                    "align-peptide-options"
+                    "align-peptide-options",
+                    "peptide-rmsd-mode",
+                    "peptide-min-aligned-length",
+                    "peptide-min-aligned-fraction",
+                    "peptide-min-identity",
+                    "peptide-max-gap-fraction",
+                    "peptide-min-contiguous-block"
                 ]
             ],
             [
@@ -312,6 +318,47 @@
             "default": [],
             "type": "split_equals",
             "help": "Path to alignment with reference structure. If set, the '--align' option is ignored"
+        },
+        "peptide-rmsd-mode": {
+            "default": "auto",
+            "choices": [
+                "strict",
+                "overlap",
+                "mutational",
+                "auto"
+            ],
+            "metavar": "MODE",
+            "help": "Select peptide RMSD comparison policy. (default: %(default)s)\n\nAvailable options are:\n\n[1] strict - require full peptide alignment\n[2] overlap - allow strict first, then use only exactly aligned overlapping residues\n[3] mutational - allow strict and overlap first, then use mismatch-tolerant local alignment\n[4] auto - alias for 'mutational'"
+        },
+        "peptide-min-aligned-length": {
+            "default": 5,
+            "type": "int",
+            "metavar": "NUM",
+            "help": "Minimum number of peptide residues that must be aligned for overlap or mutational peptide RMSD modes. (default: %(default)s)"
+        },
+        "peptide-min-aligned-fraction": {
+            "default": 0.5,
+            "type": "float",
+            "metavar": "FRAC",
+            "help": "Minimum fraction of the shorter peptide that must be aligned for overlap or mutational peptide RMSD modes. (default: %(default)s)"
+        },
+        "peptide-min-identity": {
+            "default": 0.5,
+            "type": "float",
+            "metavar": "FRAC",
+            "help": "Minimum sequence identity over aligned peptide positions required for mutational peptide RMSD mode. (default: %(default)s)"
+        },
+        "peptide-max-gap-fraction": {
+            "default": 0.4,
+            "type": "float",
+            "metavar": "FRAC",
+            "help": "Maximum allowed gap fraction in mutational peptide RMSD mode. (default: %(default)s)"
+        },
+        "peptide-min-contiguous-block": {
+            "default": 3,
+            "type": "int",
+            "metavar": "NUM",
+            "help": "Minimum length of the longest contiguous peptide alignment block required for overlap or mutational peptide RMSD modes. (default: %(default)s)"
         },
         "backbone-cyclization": {
             "nargs": "?",

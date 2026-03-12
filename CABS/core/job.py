@@ -3,6 +3,7 @@ Module for running CABS jobs with comprehensive type annotations.
 """
 
 from abc import ABCMeta, abstractmethod
+import csv
 from copy import deepcopy
 from functools import reduce
 import glob
@@ -107,6 +108,20 @@ class CABSTask(metaclass=ABCMeta):
         self.peptide: Optional[str] = kwargs.get("peptide")
         self.peptide_structure_prediction: Optional[str] = kwargs.get(
             "peptide_structure_prediction"
+        )
+        self.peptide_rmsd_mode: str = kwargs.get("peptide_rmsd_mode", "auto")
+        self.peptide_min_aligned_length: int = kwargs.get(
+            "peptide_min_aligned_length", 5
+        )
+        self.peptide_min_aligned_fraction: float = kwargs.get(
+            "peptide_min_aligned_fraction", 0.5
+        )
+        self.peptide_min_identity: float = kwargs.get("peptide_min_identity", 0.5)
+        self.peptide_max_gap_fraction: float = kwargs.get(
+            "peptide_max_gap_fraction", 0.4
+        )
+        self.peptide_min_contiguous_block: int = kwargs.get(
+            "peptide_min_contiguous_block", 3
         )
         self.protein_category: Optional[str] = kwargs.get("protein_category")
         self.protein_flexibility: Optional[str] = kwargs.get("protein_flexibility")
@@ -1115,6 +1130,179 @@ class DockTask(CABSTask):
             tuple(aligned_pairs),
         )
 
+    @staticmethod
+    def _smith_waterman_peptide_alignment(ref_atoms, model_atoms):
+        match_score = 2
+        mismatch_score = -1
+        gap_score = -1
+        rows = len(ref_atoms)
+        cols = len(model_atoms)
+        scores = [[0] * (cols + 1) for _ in range(rows + 1)]
+        moves = [[None] * (cols + 1) for _ in range(rows + 1)]
+        best_i = best_j = 0
+        best_score = 0
+
+        for i in range(1, rows + 1):
+            for j in range(1, cols + 1):
+                diag = scores[i - 1][j - 1] + (
+                    match_score
+                    if ref_atoms[i - 1].resname == model_atoms[j - 1].resname
+                    else mismatch_score
+                )
+                up = scores[i - 1][j] + gap_score
+                left = scores[i][j - 1] + gap_score
+                score, move = max(
+                    ((0, None), (diag, "diag"), (up, "up"), (left, "left")),
+                    key=lambda item: item[0],
+                )
+                scores[i][j] = score
+                moves[i][j] = move
+                if score > best_score:
+                    best_score = score
+                    best_i = i
+                    best_j = j
+
+        if best_score <= 0:
+            raise AlignError("No sequential similarity.")
+
+        i, j = best_i, best_j
+        aligned_pairs = []
+        gap_count = 0
+        while i > 0 and j > 0 and scores[i][j] > 0:
+            move = moves[i][j]
+            if move == "diag":
+                aligned_pairs.append((ref_atoms[i - 1], model_atoms[j - 1]))
+                i -= 1
+                j -= 1
+            elif move == "up":
+                gap_count += 1
+                i -= 1
+            elif move == "left":
+                gap_count += 1
+                j -= 1
+            else:
+                break
+
+        if not aligned_pairs:
+            raise AlignError("No sequential similarity.")
+
+        aligned_pairs.reverse()
+        return (
+            Atoms([ref_atom for ref_atom, _ in aligned_pairs]),
+            Atoms([model_atom for _, model_atom in aligned_pairs]),
+            tuple(aligned_pairs),
+            gap_count,
+        )
+
+    @staticmethod
+    def _peptide_alignment_metrics(ref_atoms, model_atoms, pep_aln, gap_count=0):
+        aligned_ref_ids = [ref_atom.resid_id() for ref_atom, _ in pep_aln]
+        aligned_model_ids = [model_atom.resid_id() for _, model_atom in pep_aln]
+        aligned_length = len(pep_aln)
+        identical = sum(
+            1 for ref_atom, model_atom in pep_aln if ref_atom.resname == model_atom.resname
+        )
+        mismatch_count = aligned_length - identical
+        denominator = aligned_length + gap_count
+        identity = identical / float(aligned_length) if aligned_length else 0.0
+        longest_block = 0
+        current_block = 0
+        prev_ref = prev_model = None
+        for ref_atom, model_atom in pep_aln:
+            if (
+                prev_ref is not None
+                and ref_atom.resnum == prev_ref.resnum + 1
+                and model_atom.resnum == prev_model.resnum + 1
+                and ref_atom.chid == prev_ref.chid
+                and model_atom.chid == prev_model.chid
+            ):
+                current_block += 1
+            else:
+                current_block = 1
+            longest_block = max(longest_block, current_block)
+            prev_ref = ref_atom
+            prev_model = model_atom
+
+        return {
+            "reference_length": len(ref_atoms),
+            "model_length": len(model_atoms),
+            "aligned_length": aligned_length,
+            "aligned_fraction_shorter": (
+                aligned_length / float(min(len(ref_atoms), len(model_atoms)))
+                if min(len(ref_atoms), len(model_atoms))
+                else 0.0
+            ),
+            "identity": identity,
+            "gap_count": gap_count,
+            "gap_fraction": (gap_count / float(denominator)) if denominator else 0.0,
+            "mismatch_count": mismatch_count,
+            "longest_contiguous_block": longest_block,
+            "excluded_reference_residues": len(ref_atoms) - len(set(aligned_ref_ids)),
+            "excluded_model_residues": len(model_atoms) - len(set(aligned_model_ids)),
+        }
+
+    def _mode_order(self):
+        mode = self.peptide_rmsd_mode
+        if mode == "strict":
+            return ["strict"]
+        if mode == "overlap":
+            return ["strict", "overlap"]
+        return ["strict", "overlap", "mutational"]
+
+    def _alignment_passes_thresholds(self, mode, metrics):
+        if mode == "strict":
+            return (
+                metrics["aligned_length"] == metrics["reference_length"] == metrics["model_length"]
+                and metrics["mismatch_count"] == 0
+                and metrics["gap_count"] == 0
+            )
+        if metrics["aligned_length"] < self.peptide_min_aligned_length:
+            return False
+        if metrics["aligned_fraction_shorter"] < self.peptide_min_aligned_fraction:
+            return False
+        if metrics["longest_contiguous_block"] < self.peptide_min_contiguous_block:
+            return False
+        if mode == "mutational":
+            if metrics["identity"] < self.peptide_min_identity:
+                return False
+            if metrics["gap_fraction"] > self.peptide_max_gap_fraction:
+                return False
+        return True
+
+    @staticmethod
+    def _save_peptide_alignment_csv(filename, pep_aln):
+        save_csv(filename, ("reference", "template"), pep_aln)
+
+    @staticmethod
+    def _save_peptide_alignment_summary(filename, summary_rows):
+        fieldnames = [
+            "model_chain",
+            "reference_chain",
+            "selected_mode",
+            "strict_status",
+            "strict_reason",
+            "overlap_status",
+            "overlap_reason",
+            "mutational_status",
+            "mutational_reason",
+            "reference_length",
+            "model_length",
+            "aligned_length",
+            "aligned_fraction_shorter",
+            "identity",
+            "gap_count",
+            "gap_fraction",
+            "mismatch_count",
+            "longest_contiguous_block",
+            "excluded_reference_residues",
+            "excluded_model_residues",
+        ]
+        with open(filename, "w", newline="") as outfile:
+            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in summary_rows:
+                writer.writerow(row)
+
     def _log_peptide_alignment_warning(
         self,
         ref_pept_chain,
@@ -1139,6 +1327,75 @@ class DockTask(CABSTask):
                 ),
             )
 
+    def _select_peptide_alignment(self, ref_pept_chain, pept_chain):
+        ref_chain_atoms = self.reference[0].select(
+            "name CA and not HETERO and chain %s" % ref_pept_chain
+        )
+        model_chain_atoms = self.trajectory.template.select(
+            "name CA and not HETERO and chain %s" % pept_chain
+        )
+        results = {
+            "strict": {"status": "not-run", "reason": "", "metrics": None, "alignment": None},
+            "overlap": {"status": "not-run", "reason": "", "metrics": None, "alignment": None},
+            "mutational": {"status": "not-run", "reason": "", "metrics": None, "alignment": None},
+        }
+
+        for mode in self._mode_order():
+            try:
+                if mode == "strict":
+                    ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(
+                        self.reference[0],
+                        ref_pept_chain,
+                        pept_chain,
+                        align_mth=self.align,
+                        kwargs=self.align_peptide_options,
+                    )
+                    gap_count = 0
+                elif mode == "overlap":
+                    ref_pep_stc, self_pep_stc, pep_aln = (
+                        self._longest_common_subsequence_alignment(
+                            ref_chain_atoms, model_chain_atoms
+                        )
+                    )
+                    gap_count = 0
+                else:
+                    ref_pep_stc, self_pep_stc, pep_aln, gap_count = (
+                        self._smith_waterman_peptide_alignment(
+                            ref_chain_atoms, model_chain_atoms
+                        )
+                    )
+            except (ValueError, AlignError) as e:
+                results[mode].update(status="failed", reason=str(e))
+                continue
+
+            metrics = self._peptide_alignment_metrics(
+                ref_chain_atoms, model_chain_atoms, pep_aln, gap_count=gap_count
+            )
+            results[mode].update(
+                metrics=metrics,
+                alignment=(ref_pep_stc, self_pep_stc, pep_aln),
+            )
+            if self._alignment_passes_thresholds(mode, metrics):
+                results[mode]["status"] = "selected"
+                return {
+                    "mode": mode,
+                    "metrics": metrics,
+                    "alignment": (ref_pep_stc, self_pep_stc, pep_aln),
+                    "results": results,
+                    "ref_atoms": ref_chain_atoms,
+                    "model_atoms": model_chain_atoms,
+                }
+            results[mode].update(status="rejected", reason="Thresholds not satisfied")
+
+        return {
+            "mode": None,
+            "metrics": None,
+            "alignment": None,
+            "results": results,
+            "ref_atoms": ref_chain_atoms,
+            "model_atoms": model_chain_atoms,
+        }
+
     def calculate_rmsd(self, save=True):
         logger.debug(module_name=_name, msg="RMSD calculations starting...")
         sfname: str = ""
@@ -1149,6 +1406,7 @@ class DockTask(CABSTask):
             except OSError:
                 pass
         all_results = {}
+        peptide_alignment_summary = []
         ref_trg_stc, self_trg_stc, trg_aln = self.trajectory.align_to(
             self.reference[0],
             self.reference[1],
@@ -1163,52 +1421,76 @@ class DockTask(CABSTask):
         for pept_chain, ref_pept_chain in zip(
             self.initial_complex.peptide_chains, self.reference[2]
         ):
-            ref_chain_atoms = self.reference[0].select(
-                "name CA and not HETERO and chain %s" % ref_pept_chain
-            )
-            model_chain_atoms = self.trajectory.template.select(
-                "name CA and not HETERO and chain %s" % pept_chain
-            )
-            try:
-                ref_pep_stc, self_pep_stc, pep_aln = self.trajectory.align_to(
-                    self.reference[0],
-                    ref_pept_chain,
-                    pept_chain,
-                    align_mth=self.align,
-                    kwargs=self.align_peptide_options,
-                )
-                self._log_peptide_alignment_warning(
-                    ref_pept_chain,
-                    pept_chain,
-                    ref_chain_atoms,
-                    model_chain_atoms,
-                    pep_aln,
-                    method_label=str(self.align),
-                )
-            except (ValueError, AlignError) as e:
-                try:
-                    ref_pep_stc, self_pep_stc, pep_aln = (
-                        self._longest_common_subsequence_alignment(
-                            ref_chain_atoms, model_chain_atoms
+            selection = self._select_peptide_alignment(ref_pept_chain, pept_chain)
+            metrics = selection["metrics"]
+            ref_chain_atoms = selection["ref_atoms"]
+            model_chain_atoms = selection["model_atoms"]
+            selected_mode = selection["mode"]
+            row = {
+                "model_chain": pept_chain,
+                "reference_chain": ref_pept_chain,
+                "selected_mode": selected_mode or "skipped",
+                "strict_status": selection["results"]["strict"]["status"],
+                "strict_reason": selection["results"]["strict"]["reason"],
+                "overlap_status": selection["results"]["overlap"]["status"],
+                "overlap_reason": selection["results"]["overlap"]["reason"],
+                "mutational_status": selection["results"]["mutational"]["status"],
+                "mutational_reason": selection["results"]["mutational"]["reason"],
+                "reference_length": len(ref_chain_atoms),
+                "model_length": len(model_chain_atoms),
+                "aligned_length": 0,
+                "aligned_fraction_shorter": 0.0,
+                "identity": 0.0,
+                "gap_count": 0,
+                "gap_fraction": 0.0,
+                "mismatch_count": 0,
+                "longest_contiguous_block": 0,
+                "excluded_reference_residues": len(ref_chain_atoms),
+                "excluded_model_residues": len(model_chain_atoms),
+            }
+            if metrics:
+                row.update(metrics)
+            peptide_alignment_summary.append(row)
+
+            if save:
+                for mode_name, result in selection["results"].items():
+                    if result["alignment"] is not None:
+                        _, _, alignment_pairs = result["alignment"]
+                        self._save_peptide_alignment_csv(
+                            sfname + f"_{pept_chain}_{mode_name}.csv", alignment_pairs
                         )
-                    )
-                except AlignError:
-                    logger.warning(
-                        module_name=_name,
-                        msg=(
-                            f"Skipping peptide RMSD for model chain {pept_chain} "
-                            f"against reference chain {ref_pept_chain}: {e} "
-                            f"(reference length {len(ref_chain_atoms)}, "
-                            f"model length {len(model_chain_atoms)})."
-                        ),
-                    )
-                    continue
+
+            if selected_mode is None:
                 logger.warning(
                     module_name=_name,
                     msg=(
-                        f"Peptide alignment for model chain {pept_chain} against "
-                        f"reference chain {ref_pept_chain} failed with {self.align}; "
-                        "using the longest common peptide subsequence instead."
+                        f"Skipping peptide RMSD for model chain {pept_chain} against "
+                        f"reference chain {ref_pept_chain}. "
+                        f"Reference length {len(ref_chain_atoms)}, model length {len(model_chain_atoms)}."
+                    ),
+                )
+                continue
+
+            ref_pep_stc, self_pep_stc, pep_aln = selection["alignment"]
+            if save:
+                paln_pep = sfname + "_%s.csv" % pept_chain
+                save_csv(paln_pep, ("reference", "template"), pep_aln)
+            if selected_mode == "strict":
+                logger.info(
+                    module_name=_name,
+                    msg=(
+                        f"Peptide RMSD for model chain {pept_chain} used strict mode: "
+                        f"aligned {metrics['aligned_length']}/{metrics['reference_length']} residues."
+                    ),
+                )
+            else:
+                logger.warning(
+                    module_name=_name,
+                    msg=(
+                        f"Peptide RMSD for model chain {pept_chain} fell back to "
+                        f"{selected_mode} mode: aligned {metrics['aligned_length']} "
+                        f"residue(s), identity {metrics['identity']:.3f}, "
+                        f"mismatches {metrics['mismatch_count']}, gaps {metrics['gap_count']}."
                     ),
                 )
                 self._log_peptide_alignment_warning(
@@ -1217,11 +1499,30 @@ class DockTask(CABSTask):
                     ref_chain_atoms,
                     model_chain_atoms,
                     pep_aln,
-                    method_label="longest-common-subsequence fallback",
+                    method_label=selected_mode,
                 )
             if save:
-                paln_pep = sfname + "_%s.csv" % pept_chain
-                save_csv(paln_pep, ("reference", "template"), pep_aln)
+                with open(
+                    os.path.join(odir, f"peptide_alignment_{pept_chain}.txt"), "w"
+                ) as outfile:
+                    outfile.write(
+                        "\n".join(
+                            [
+                                f"selected_mode: {selected_mode}",
+                                f"reference_length: {metrics['reference_length']}",
+                                f"model_length: {metrics['model_length']}",
+                                f"aligned_length: {metrics['aligned_length']}",
+                                f"aligned_fraction_shorter: {metrics['aligned_fraction_shorter']:.3f}",
+                                f"identity: {metrics['identity']:.3f}",
+                                f"gap_count: {metrics['gap_count']}",
+                                f"gap_fraction: {metrics['gap_fraction']:.3f}",
+                                f"mismatch_count: {metrics['mismatch_count']}",
+                                f"longest_contiguous_block: {metrics['longest_contiguous_block']}",
+                                f"excluded_reference_residues: {metrics['excluded_reference_residues']}",
+                                f"excluded_model_residues: {metrics['excluded_model_residues']}",
+                            ]
+                        )
+                    )
             self.rmslst[pept_chain] = self.trajectory.rmsd_to_reference(
                 ref_pep_stc, self_pep_stc
             )
@@ -1255,6 +1556,11 @@ class DockTask(CABSTask):
                         for rmsd in results["rmsds_" + _type]:
                             outfile.write(str(rmsd) + ";\n")
             all_results[pept_chain] = results
+        if save and peptide_alignment_summary:
+            self._save_peptide_alignment_summary(
+                os.path.join(odir, "peptide_alignment_summary.csv"),
+                peptide_alignment_summary,
+            )
         if all_results:
             logger.info(module_name=_name, msg="RMSD successfully saved")
         else:
@@ -1412,7 +1718,7 @@ class DockTask(CABSTask):
             source, rec, pep = ref.split(":")
             self.reference = (
                 pdblib.Pdb(
-                    ref,
+                    source,
                     pdb_cache=pdb_cache,
                     selection="name CA and (chain %s)" % ",".join(rec + pep),
                     no_exit=True,
@@ -1570,11 +1876,12 @@ class FlexTask(CABSTask):
         try:
             try:
                 if ":" in str(ref):
-                    dummy, trg_chids = ref.split(":")
+                    source, trg_chids = ref.split(":")
                 else:
+                    source = ref
                     trg_chids = None
                 ref_stc = pdblib.Pdb(
-                    ref,
+                    source,
                     pdb_cache=pdb_cache,
                     selection="name CA",
                     no_exit=True,
