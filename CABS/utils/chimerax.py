@@ -1,8 +1,4 @@
 """Generate ChimeraX (.cxc) scripts for CABS simulations.
-
-This mirrors the API of `pymol.py` and writes several ChimeraX command
-scripts based on common visualization presets. The templates below use
-the validated ChimeraX commands you provided.
 """
 from __future__ import annotations
 
