@@ -1,4 +1,4 @@
-.docs_pages_template:
+pages:
   stage: deploy
   image: python:3.11-bookworm
   script:
@@ -12,24 +12,6 @@
   artifacts:
     paths:
       - public
-
-pages:
-  extends: .docs_pages_template
   pages:
     publish: public
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      changes:
-        - .gitlab-ci.yml
-        - scripts/build_html_wiki.py
-        - docs/assets/**/*
-        - docs/README.md
-      when: on_success
-    - when: never
-
-pages_manual:
-  extends: .docs_pages_template
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-    - when: never
+  when: manual
