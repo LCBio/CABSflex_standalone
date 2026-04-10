@@ -2,13 +2,14 @@ import json
 import os
 import subprocess
 
-def create_and_export_presentation():
-    # Updated filenames
-    ipynb_name = "report.ipynb"
+
+def generate_notebook(work_dir, export_html=False, jupyter_path="jupyter"):
+    """Generate a portable CABS analysis notebook in the simulation work directory."""
+    work_dir = os.path.abspath(work_dir)
+    ipynb_name = os.path.join(work_dir, "report.ipynb")
     html_name = "report.html"
-    protein = "1CRN"
-    # Current target directory
-    base_dir = f"output/{protein}"
+    protein = os.path.basename(work_dir.rstrip(os.sep)) or "CABS"
+    base_dir = work_dir
 
     print(f"1. Generating notebook structure (source: {base_dir})...")
 
@@ -252,13 +253,21 @@ def create_and_export_presentation():
     with open(ipynb_name, "w", encoding="utf-8") as f:
         json.dump(notebook_content, f, indent=4, ensure_ascii=False)
 
+    if not export_html:
+        print(f"2. Notebook generated: {ipynb_name}")
+        return ipynb_name
+
     print("2. Converting to HTML...")
-    jupyter_path = "/Users/piotrszukalo/micromamba/envs/cabs/bin/jupyter"
     try:
-        subprocess.run([jupyter_path, "nbconvert", "--execute", "--to", "html", "--ExecutePreprocessor.kernel_name=cabs", "--no-input", ipynb_name], check=True)
-        print(f"✅ Success! File generated: {os.path.abspath(html_name)}")
+        subprocess.run([jupyter_path, "nbconvert", "--execute", "--to", "html", "--ExecutePreprocessor.kernel_name=cabs", "--no-input", ipynb_name], check=True, cwd=work_dir)
+        print(f"Success! File generated: {os.path.join(work_dir, html_name)}")
     except Exception as e:
-        print(f"❌ Error during conversion: {e}")
+        print(f"Error during conversion: {e}")
+    return ipynb_name
+
+
+def create_and_export_presentation():
+    return generate_notebook(".", export_html=True)
 
 if __name__ == "__main__":
     create_and_export_presentation()

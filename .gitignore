@@ -220,3 +220,6 @@ docs/videos/
 docs/migration-report.txt
 tests/gallery/
 tests/Gallery
+
+#AI agent related files
+.continue/

@@ -109,14 +109,16 @@ def generate_chimerax_scripts(work_dir: str | Path, start_pdb_path: Optional[str
     work_dir = Path(work_dir)
     if presets is None:
         presets = list(DEFAULT_PRESETS.keys())
+    model_pattern = "model_*.pdb"
+    if models_pdbs:
+        model_pattern = os.path.relpath(str(Path(models_pdbs[0]).parent / "model_*.pdb"), work_dir)
 
     generated: List[Path] = []
     for preset in presets:
         tpl = DEFAULT_PRESETS.get(preset)
         if not tpl:
             continue
-        # The templates assume model_*.pdb files are present in the working directory.
-        generated.append(write_cxc(work_dir, preset, tpl))
+        generated.append(write_cxc(work_dir, preset, tpl.replace("model_*.pdb", model_pattern)))
 
     if restraints_file and os.path.exists(restraints_file):
         r = _generate_restraints_script(work_dir, restraints_file, start_pdb_path)

@@ -42,6 +42,8 @@ from CABS.utils import utils
 from CABS.utils.align import AlignError, align_to, save_csv
 from CABS.utils.filter import Filter
 from CABS.utils.utils import convert_cg_to_all
+from CABS.utils import chimerax as chimerax_utils
+from CABS.utils import notebook as notebook_utils
 from CABS.utils import pymol as pymol_utils
 from CABS.config_loader import get_config_section, get_cg2all_env_prefix
 
@@ -90,6 +92,10 @@ class CABSTask(metaclass=ABCMeta):
         self.generate_pymol_visualizations: Optional[bool] = kwargs.get(
             "generate_pymol_visualizations"
         )
+        self.generate_chimera_visualizations: Optional[bool] = kwargs.get(
+            "generate_chimera_visualizations"
+        )
+        self.generate_notebook: Optional[bool] = kwargs.get("generate_notebook")
         self.image_file_format: Optional[str] = kwargs.get("image_file_format")
         self.input_protein: Optional[str] = kwargs.get("input_protein")
         self.insertion_attempts: Optional[int] = kwargs.get("insertion_attempts")
@@ -219,6 +225,20 @@ class CABSTask(metaclass=ABCMeta):
 
         if self.nsp3_model_path:
             protein.Protein.NSP3_MODEL_PATH = self.nsp3_model_path
+
+        self.generate_visualizations = any(
+            (
+                self.generate_pymol_visualizations,
+                self.generate_chimera_visualizations,
+                self.generate_notebook,
+            )
+        )
+        if self.generate_visualizations:
+            self.pdb_output = "A"
+            self.pdb_bfac_output = "A"
+            self.restraints_output = True
+            self.contact_maps = True
+            self.ss_output = True
 
         self.file_TRAF = self.file_SEQ = None
         if self.load_cabs_files:
@@ -397,15 +417,7 @@ class CABSTask(metaclass=ABCMeta):
     def run(self):
         file_traf = self.file_TRAF
         file_seq = self.file_SEQ
-        
-        # Override output flags if we need to generate PyMOL visualizations
-        if self.generate_pymol_visualizations:
-            self.pdb_output = "A"
-            self.pdb_bfac_output = "A"
-            self.restraints_output = True
-            self.contact_maps = True
-            self.ss_output = True
-            
+
         self.setup_job()
         with_cabs = None in (file_traf, file_seq)
 
@@ -445,13 +457,27 @@ class CABSTask(metaclass=ABCMeta):
         if self.csv_output:
             self.save_csv_files()
             
+        if self.generate_visualizations:
+            self.generate_analysis_visualizations()
+
+        if self.load_cabs_files:
+            for _file in CABS_FILES:
+                try:
+                    os.remove(os.path.join(self.work_dir, _file))
+                except OSError:
+                    pass
+        logger.info(module_name=_name, msg="Simulation completed successfully")
+
+    def generate_analysis_visualizations(self):
+        start_pdb_path = os.path.join(self.work_dir, "output_pdbs", "start.pdb")
+        model_pdbs = [
+            os.path.join(self.work_dir, "output_pdbs", f"model_{i}.pdb")
+            for i in range(self.clustering_medoids)
+        ]
+        restraints_file = os.path.join(self.work_dir, "output_data", "restraints.txt")
+
         if self.generate_pymol_visualizations:
             logger.info(module_name=_name, msg="Generating PyMOL visualization scripts...")
-            start_pdb_path = os.path.join(self.work_dir, "output_pdbs", "start.pdb")
-            model_pdbs = []
-            for i in range(self.clustering_medoids):
-                model_pdbs.append(os.path.join(self.work_dir, "output_pdbs", f"model_{i}.pdb"))
-            restraints_file = os.path.join(self.work_dir, "output_data", "restraints.txt")
             try:
                 pymol_utils.generate_pymol_scripts(
                     work_dir=self.work_dir,
@@ -462,13 +488,24 @@ class CABSTask(metaclass=ABCMeta):
             except Exception as e:
                 logger.warning(_name, f"Failed to generate PyMOL scripts: {e}")
 
-        if self.load_cabs_files:
-            for _file in CABS_FILES:
-                try:
-                    os.remove(os.path.join(self.work_dir, _file))
-                except OSError:
-                    pass
-        logger.info(module_name=_name, msg="Simulation completed successfully")
+        if self.generate_chimera_visualizations:
+            logger.info(module_name=_name, msg="Generating ChimeraX visualization scripts...")
+            try:
+                chimerax_utils.generate_chimerax_scripts(
+                    work_dir=self.work_dir,
+                    start_pdb_path=start_pdb_path,
+                    models_pdbs=model_pdbs,
+                    restraints_file=restraints_file,
+                )
+            except Exception as e:
+                logger.warning(_name, f"Failed to generate ChimeraX scripts: {e}")
+
+        if self.generate_notebook:
+            logger.info(module_name=_name, msg="Generating analysis notebook...")
+            try:
+                notebook_utils.generate_notebook(self.work_dir)
+            except Exception as e:
+                logger.warning(_name, f"Failed to generate analysis notebook: {e}")
 
     def save_cabs_res(self):
         with NamedTemporaryFile(

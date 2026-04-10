@@ -120,7 +120,9 @@
                     "save-cabs-files",
                     "load-cabs-files",
                     "save-config",
+                    "generate-chimera-visualizations",
                     "generate-pymol-visualizations",
+                    "generate-notebook",
                     "pdb-output",
                     "pdb-bfac-output",
                     "csv-output",
@@ -250,7 +252,9 @@
                     "save-cabs-files",
                     "load-cabs-files",
                     "save-config",
+                    "generate-chimera-visualizations",
                     "generate-pymol-visualizations",
+                    "generate-notebook",
                     "pdb-output",
                     "pdb-bfac-output",
                     "csv-output",
@@ -530,6 +534,14 @@
         "generate-pymol-visualizations": {
             "action": "store_true",
             "help": "Force-enable output flags needed to visualize the results, and generate PyMOL script files (.pml) to easily view simulations, models, and contact maps."
+        },
+        "generate-chimera-visualizations": {
+            "action": "store_true",
+            "help": "Force-enable output flags needed to visualize the results, and generate ChimeraX script files (.cxc) to easily view simulations, models, and contact maps."
+        },
+        "generate-notebook": {
+            "action": "store_true",
+            "help": "Force-enable output flags needed for analysis, and generate a Jupyter notebook report in the working directory."
         },
         "help": {
             "flag": "-h",
