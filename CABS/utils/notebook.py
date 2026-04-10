@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 
 
@@ -258,11 +259,26 @@ def generate_notebook(work_dir, export_html=False, jupyter_path="jupyter"):
         return ipynb_name
 
     print("2. Converting to HTML...")
+    html_path = os.path.join(work_dir, html_name)
     try:
-        subprocess.run([jupyter_path, "nbconvert", "--execute", "--to", "html", "--ExecutePreprocessor.kernel_name=cabs", "--no-input", ipynb_name], check=True, cwd=work_dir)
-        print(f"Success! File generated: {os.path.join(work_dir, html_name)}")
+        jupyter = shutil.which(jupyter_path) or jupyter_path
+        subprocess.run(
+            [jupyter, "nbconvert", "--to", "html", "--no-input", ipynb_name],
+            check=True,
+            cwd=work_dir,
+        )
+        print(f"Success! File generated: {html_path}")
     except Exception as e:
         print(f"Error during conversion: {e}")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(
+                "<!doctype html>\n"
+                "<html><head><meta charset=\"utf-8\"><title>CABS Analysis Report</title></head>\n"
+                "<body><h1>CABS Analysis Report</h1>\n"
+                "<p>The notebook report was generated as report.ipynb, but automatic HTML conversion failed.</p>\n"
+                f"<p>Error: {str(e)}</p></body></html>\n"
+            )
+        print(f"Fallback HTML generated: {html_path}")
     return ipynb_name
 
 

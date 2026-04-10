@@ -201,7 +201,7 @@ install-changed.sh.bak
 .cabsPDBcache
 
 #Test directories
-tests/test_*
+tests/test_*/
 tests/verify_*
 tests/scenarios
 test_cabsdock_options
@@ -218,8 +218,9 @@ docs/images/
 docs/uploads/
 docs/videos/
 docs/migration-report.txt
-tests/gallery/
+tests/gallery
 tests/Gallery
 
 #AI agent related files
 .continue/
+way/

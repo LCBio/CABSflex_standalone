@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional
 
 
 TEMPLATE_COLOR_RMSF = """# Color by RMSF
-open model_*.pdb
+open {rmsf_pdb}
 set bgColor white
 color byattribute a:bfactor
 lighting intensity 0.7
@@ -25,24 +25,18 @@ graphics silhouettes true
 """
 
 TEMPLATE_COLOR_SS = """# Color by secondary structure
-open model_*.pdb
+open {secstr_pdb}
 set bgColor white
-select helix
-color sel #6b1a56ff
-select strand
-color sel dark goldenrod
-select coil
-color sel #cfcfcfff
-select clear
+color byattribute a:bfactor
 lighting intensity 0.6
 graphics silhouettes true
 """
 
 TEMPLATE_RMSF_WORM = """# Color by RMSF and display as worm
-open model_*.pdb
+open {rmsf_pdb}
 set bgColor white
 color byattribute a:bfactor
-Worm bfactor
+worm bfactor
 lighting intensity 0.7
 graphics silhouettes true
 """
@@ -111,14 +105,21 @@ def generate_chimerax_scripts(work_dir: str | Path, start_pdb_path: Optional[str
         presets = list(DEFAULT_PRESETS.keys())
     model_pattern = "model_*.pdb"
     if models_pdbs:
-        model_pattern = os.path.relpath(str(Path(models_pdbs[0]).parent / "model_*.pdb"), work_dir)
+        model_dir = Path(models_pdbs[0]).parent
+        model_pattern = os.path.relpath(str(model_dir / "model_*.pdb"), work_dir)
+        rmsf_pdb = os.path.relpath(str(model_dir / "start_rmsf.pdb"), work_dir)
+        secstr_pdb = os.path.relpath(str(model_dir / "start_secstr.pdb"), work_dir)
+    else:
+        rmsf_pdb = model_pattern
+        secstr_pdb = model_pattern
 
     generated: List[Path] = []
     for preset in presets:
         tpl = DEFAULT_PRESETS.get(preset)
         if not tpl:
             continue
-        generated.append(write_cxc(work_dir, preset, tpl.replace("model_*.pdb", model_pattern)))
+        content = tpl.format(rmsf_pdb=rmsf_pdb, secstr_pdb=secstr_pdb)
+        generated.append(write_cxc(work_dir, preset, content.replace("model_*.pdb", model_pattern)))
 
     if restraints_file and os.path.exists(restraints_file):
         r = _generate_restraints_script(work_dir, restraints_file, start_pdb_path)

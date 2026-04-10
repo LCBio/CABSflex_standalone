@@ -9,6 +9,7 @@ import subprocess
 from tempfile import NamedTemporaryFile
 from typing import (
     Any,
+    Dict,
     List,
     Literal,
     Optional,
@@ -92,6 +93,11 @@ RotationMatrix = npt.NDArray[np.float64]
 CoordinateArray = npt.NDArray[np.float64]  # Shape (N, 3)
 TrajectoryArray = npt.NDArray[np.float64]  # Shape (frames, atoms, 3)
 WeightArray = Optional[npt.NDArray[np.float64]]
+
+CG2ALL_REPRESENTATIONS = {
+    "calpha": "CalphaBasedModel",
+    "calpha-sc": "CalphaSCModel",
+}
 
 
 # Load random ligand library
@@ -622,13 +628,113 @@ def random_rotation_matrix() -> RotationMatrix:
     return (rx.dot(ry)).dot(rz)
 
 
+def _format_cg_pdb_line(
+    serial: int,
+    atom_name: str,
+    source: Dict[str, Any],
+    coord: npt.NDArray[np.float64],
+) -> str:
+    fmt_name = f" {atom_name:<3s}"
+    if len(atom_name) == 4:
+        fmt_name = atom_name
+    return (
+        f"ATOM  {serial:5d} {fmt_name:4s}{source['alt']:1s}"
+        f"{source['resname']:<4s}{source['chain']:1s}{source['resnum']:4d}"
+        f"{source['icode']:1s}   {coord[0]:8.3f}{coord[1]:8.3f}{coord[2]:8.3f}"
+        f"{source['occ']:6.2f}{source['bfac']:6.2f} {source['tail']}\n"
+    )
+
+
+def _read_calpha_atoms(filename: Union[str, TextIO]) -> List[Dict[str, Any]]:
+    atoms = []
+    f_in = open(filename, "r") if isinstance(filename, str) else closing(filename)
+    with f_in as f:
+        for line in f:
+            if line.startswith("ENDMDL"):
+                break
+            if not line.startswith(("ATOM", "HETATM")) or line[12:16].strip() != "CA":
+                continue
+            atoms.append(
+                {
+                    "alt": line[16],
+                    "resname": line[17:21].strip(),
+                    "chain": line[21],
+                    "resnum": int(line[22:26]),
+                    "icode": line[26],
+                    "coord": np.array(
+                        [
+                            float(line[30:38]),
+                            float(line[38:46]),
+                            float(line[46:54]),
+                        ]
+                    ),
+                    "occ": float(line[54:60]),
+                    "bfac": float(line[60:66]),
+                    "tail": line[67:].rstrip("\n") if len(line) > 67 else "",
+                }
+            )
+    return atoms
+
+
+def _write_cg2all_input_pdb(
+    filename: Union[str, TextIO],
+    output_file: TextIO,
+    cg2all_representation: str,
+) -> None:
+    ca_atoms = _read_calpha_atoms(filename)
+    if not ca_atoms:
+        raise ValueError("No CA atoms found in coarse-grained model.")
+    if cg2all_representation not in CG2ALL_REPRESENTATIONS:
+        raise ValueError(f"Unsupported cg2all representation: {cg2all_representation}")
+
+    serial = 1
+    if cg2all_representation == "calpha":
+        for atom in ca_atoms:
+            output_file.write(_format_cg_pdb_line(serial, "CA", atom, atom["coord"]))
+            serial += 1
+        return
+
+    segment = []
+    for atom in ca_atoms:
+        if segment and atom["chain"] != segment[-1]["chain"]:
+            serial = _write_calpha_sc_segment(output_file, segment, serial)
+            segment = []
+        segment.append(atom)
+    if segment:
+        _write_calpha_sc_segment(output_file, segment, serial)
+
+
+def _write_calpha_sc_segment(
+    output_file: TextIO,
+    ca_atoms: List[Dict[str, Any]],
+    serial: int,
+) -> int:
+    if len(ca_atoms) < 3:
+        sc_coords = np.array([atom["coord"] for atom in ca_atoms])
+    else:
+        nms = [
+            type("ResidueName", (), {"resname": atom["resname"]})()
+            for atom in ca_atoms
+        ]
+        ca_coords = np.array([atom["coord"] for atom in ca_atoms])
+        sc_coords = SCModeler(nms).rebuild_one(ca_coords, sc=True)
+    for atom, sc_coord in zip(ca_atoms, sc_coords):
+        output_file.write(_format_cg_pdb_line(serial, "CA", atom, atom["coord"]))
+        serial += 1
+        output_file.write(_format_cg_pdb_line(serial, "SC", atom, sc_coord))
+        serial += 1
+    return serial
+
+
 def convert_cg_to_all(
     filename: Union[str, TextIO],
     work_dir: str = ".",
     iter: int = 0,
     reference_pdb: Optional[str] = None,
     renumber_flag: bool = False,
-    env_prefix: Optional[str] = None
+    env_prefix: Optional[str] = None,
+    output_filename: Optional[str] = None,
+    cg2all_representation: str = "calpha",
 ) -> str:
     """
     Convert coarse-grained model to all-atom
@@ -637,19 +743,7 @@ def convert_cg_to_all(
         prefix=".", suffix=".pdb", dir=work_dir, mode="w", delete=False
     ) as tmp_file:
         pdb = tmp_file.name
-
-        atoms = []
-        pattern = re.compile("ATOM.{9}CA .([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*")
-        f_in = open(filename, "r") if isinstance(filename, str) else closing(filename)
-        with f_in as f:
-            for line in f:
-                if line.startswith("ENDMDL"):
-                    break
-                else:
-                    match = re.match(pattern, line)
-                    if match:
-                        atoms.append(match.groups())
-                        tmp_file.write(line)
+        _write_cg2all_input_pdb(filename, tmp_file, cg2all_representation)
 
     if renumber_flag:
         reference_path = None
@@ -673,7 +767,8 @@ def convert_cg_to_all(
 
     output_dir = Path(work_dir) / "output_pdbs"
     input_pdb = Path(pdb)
-    fout = f"model_{iter}.pdb"
+    fout = output_filename or f"model_{iter}.pdb"
+    cg_model = CG2ALL_REPRESENTATIONS[cg2all_representation]
     # Modify the subprocess call to use micromamba run if an environment prefix is provided.
     # This ensures all environment variables and dependencies (like torch, dgl) are correctly set up.
     if env_prefix:
@@ -687,6 +782,7 @@ def convert_cg_to_all(
             "convert_cg2all",
             "-p", str(input_pdb),
             "-o", str(output_dir / fout),
+            "--cg", cg_model,
             "--device", "cpu"
         ]
     else:
@@ -695,6 +791,7 @@ def convert_cg_to_all(
             "convert_cg2all",
             "-p", str(input_pdb),
             "-o", str(output_dir / fout),
+            "--cg", cg_model,
             "--device", "cpu"
         ]
 

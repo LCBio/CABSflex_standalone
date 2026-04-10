@@ -18,14 +18,11 @@ show cartoon
 ''')
 
 PML_COLOR_SS_TEMPLATE = Template('''\
-# Assuming PyMOL's secondary structure assignment (dss) is sufficient
-$load_lines
+# Color by CABS secondary structure values stored in start_secstr.pdb B-factors
+load $target_pdb, secondary_structure_parameters
 hide all
 show cartoon
-dss
-color red, ss H
-color yellow, ss S
-color green, ss L
+spectrum b, blue_white_red, secondary_structure_parameters
 ''')
 
 PML_COLOR_RMSF_TEMPLATE = Template('''\
@@ -85,13 +82,18 @@ def _generate_load_models_script(scripts_dir, start_pdb_path, models_pdbs):
         f.write(content)
 
 def _generate_color_ss_script(scripts_dir, models_pdbs):
-    load_lines = []
-    for i, model_path in enumerate(models_pdbs):
-        rel_path = os.path.relpath(model_path, scripts_dir)
-        load_lines.append(f"load {rel_path}, model_{i}")
-        
+    target_pdb = ""
+    if models_pdbs:
+        first_model_dir = os.path.dirname(models_pdbs[0])
+        secstr_pdb = os.path.join(first_model_dir, "start_secstr.pdb")
+        if os.path.exists(secstr_pdb):
+            target_pdb = secstr_pdb
+        else:
+            target_pdb = models_pdbs[0]
+
+    rel_path = os.path.relpath(target_pdb, scripts_dir) if target_pdb else ""
     content = PML_COLOR_SS_TEMPLATE.substitute(
-        load_lines="\n".join(load_lines)
+        target_pdb=rel_path
     )
     with open(os.path.join(scripts_dir, "color_by_ss.pml"), "w") as f:
         f.write(content)

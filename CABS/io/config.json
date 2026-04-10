@@ -86,7 +86,9 @@
                 "ALL-ATOM RECONSTRUCTION OPTIONS",
                 [
                     "aa-rebuild",
+                    "aa-rebuild-replicas",
                     "aa-method",
+                    "cg2all-representation",
                     "cg2all-env-prefix",
                     "modeller-iterations"
                 ]
@@ -225,7 +227,9 @@
                 "ALL-ATOM RECONSTRUCTION OPTIONS",
                 [
                     "aa-rebuild",
+                    "aa-rebuild-replicas",
                     "aa-method",
+                    "cg2all-representation",
                     "cg2all-env-prefix",
                     "modeller-iterations"
                 ]
@@ -292,6 +296,10 @@
             "flag": "-A",
             "action": "store_true",
             "help": "Rebuild final models to all-atom representation. (default: %(default)s)"
+        },
+        "aa-rebuild-replicas": {
+            "action": "store_true",
+            "help": "Rebuild trajectory replica frames to all-atom representation. This may take significant time (hours to days), depending on the system size and trajectory length. (default: %(default)s)"
         },
         "add-peptide": {
             "flag": "-P",
@@ -411,6 +419,15 @@
             "metavar": "DIR",
             "default": null,
             "help": "Path to the isolated environment containing cg2all dependencies. Required if --aa-method cg2all is used."
+        },
+        "cg2all-representation": {
+            "choices": [
+                "calpha",
+                "calpha-sc"
+            ],
+            "default": "calpha",
+            "metavar": "REP",
+            "help": "Coarse-grained representation passed to cg2all when --aa-method cg2all is used. REP can be either 'calpha' for CA-only reconstruction or 'calpha-sc' for CA plus CABS side-chain pseudoatoms. (default: %(default)s)"
         },
         "clustering-iterations": {
             "default": 100,

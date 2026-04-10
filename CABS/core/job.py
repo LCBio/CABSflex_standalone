@@ -59,6 +59,7 @@ class CABSTask(metaclass=ABCMeta):
             "aa_method"
         )
         self.aa_rebuild: Optional[bool] = kwargs.get("aa_rebuild")
+        self.aa_rebuild_replicas: Optional[bool] = kwargs.get("aa_rebuild_replicas")
         self.add_peptide: Optional[str] = kwargs.get("add_peptide")
         self.align: Optional[bool] = kwargs.get("align")
         self.align_options: Dict[str, Any] = dict(kwargs.get("align_options", []))
@@ -70,6 +71,9 @@ class CABSTask(metaclass=ABCMeta):
         self.ca_rest_file: Optional[str] = kwargs.get("ca_rest_file")
         self.ca_rest_weight: Optional[float] = kwargs.get("ca_rest_weight")
         self.cg2all_env_prefix: Optional[str] = kwargs.get("cg2all_env_prefix")
+        self.cg2all_representation: str = kwargs.get(
+            "cg2all_representation", "calpha"
+        )
         self.clustering_iterations: Optional[int] = kwargs.get("clustering_iterations")
         self.clustering_medoids: Optional[int] = kwargs.get("clustering_medoids")
         self.contact_map_colors: Optional[List[ColorHex]] = kwargs.get(
@@ -181,6 +185,28 @@ class CABSTask(metaclass=ABCMeta):
         # Work_dir processing: making sure work_dir is abspath
         self.work_dir = os.path.abspath(self.work_dir)
 
+        self.generate_visualizations = any(
+            (
+                self.generate_pymol_visualizations,
+                self.generate_chimera_visualizations,
+                self.generate_notebook,
+            )
+        )
+        if self.generate_visualizations:
+            self.aa_rebuild = True
+            self.pdb_output = "A"
+            self.pdb_bfac_output = "A"
+            self.restraints_output = True
+            self.contact_maps = True
+            self.ss_output = True
+
+        if self.aa_rebuild_replicas:
+            self.aa_rebuild = True
+            if not self.pdb_output or "N" in self.pdb_output:
+                self.pdb_output = "R"
+            elif "A" not in self.pdb_output and "R" not in self.pdb_output:
+                self.pdb_output += "R"
+
         try:
             logger.setup(
                 log_level=self.verbose,
@@ -226,19 +252,12 @@ class CABSTask(metaclass=ABCMeta):
         if self.nsp3_model_path:
             protein.Protein.NSP3_MODEL_PATH = self.nsp3_model_path
 
-        self.generate_visualizations = any(
-            (
-                self.generate_pymol_visualizations,
-                self.generate_chimera_visualizations,
-                self.generate_notebook,
+        if self.aa_rebuild_replicas:
+            logger.warning(
+                _name,
+                "All-atom reconstruction of trajectory replicas may take significant time "
+                "(hours to days), depending on the system size and trajectory length.",
             )
-        )
-        if self.generate_visualizations:
-            self.pdb_output = "A"
-            self.pdb_bfac_output = "A"
-            self.restraints_output = True
-            self.contact_maps = True
-            self.ss_output = True
 
         self.file_TRAF = self.file_SEQ = None
         if self.load_cabs_files:
@@ -503,7 +522,7 @@ class CABSTask(metaclass=ABCMeta):
         if self.generate_notebook:
             logger.info(module_name=_name, msg="Generating analysis notebook...")
             try:
-                notebook_utils.generate_notebook(self.work_dir)
+                notebook_utils.generate_notebook(self.work_dir, export_html=True)
             except Exception as e:
                 logger.warning(_name, f"Failed to generate analysis notebook: {e}")
 
@@ -820,6 +839,8 @@ class CABSTask(metaclass=ABCMeta):
         if "R" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving replicas...")
             self.trajectory.to_pdb(mode="replicas", to_dir=output_folder)
+            if self.aa_rebuild_replicas:
+                self.save_all_atom_replicas(output_folder)
         # Saving top1000 models to PDB:
         if "F" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving filtered models...")
@@ -910,7 +931,8 @@ class CABSTask(metaclass=ABCMeta):
                                 iter=i,
                                 reference_pdb=self.input_protein,
                                 renumber_flag=self.renumber,
-                                env_prefix=self.cg2all_env_prefix
+                                env_prefix=self.cg2all_env_prefix,
+                                cg2all_representation=self.cg2all_representation,
                             )
                             if attempt_cyclization:
                                 pth_tmp = os.path.join(
@@ -965,6 +987,80 @@ class CABSTask(metaclass=ABCMeta):
                 logger.log_file(module_name=_name, msg="Saving JSON output.")
                 medoids_ca_atoms_list = self.medoids.to_atoms_list()
                 medoids_ca_atoms_list[0].save_to_json(json_file)
+
+    def save_all_atom_replicas(self, output_folder):
+        if not self.aa_rebuild:
+            logger.warning(
+                _name,
+                "--aa-rebuild-replicas requires all-atom reconstruction. Enabling --aa-rebuild.",
+            )
+            self.aa_rebuild = True
+
+        if self.aa_method not in ALLOWED_AA_METHODS:
+            logger.warning(
+                _name,
+                f"Unknown AA method: {self.aa_method}. Skipping replica reconstruction.",
+            )
+            return
+
+        ca2all = None
+        if self.aa_method == "modeller":
+            try:
+                from CABS.reconstruction.ca2all import ca2all
+            except ImportError:
+                logger.warning(
+                    _name,
+                    "Modeller not found. Skipping all-atom replica reconstruction.",
+                )
+                return
+
+        logger.warning(
+            _name,
+            "Reconstructing all trajectory replica frames to all-atom representation. "
+            "This may take hours to days for large systems.",
+        )
+
+        shape = self.trajectory.coordinates.shape
+        for replica_idx in range(shape[0]):
+            for model_idx in range(shape[1]):
+                ca_model = self.trajectory.get_model(replica_idx * shape[1] + model_idx)
+                ca_path = os.path.join(
+                    output_folder, f"replica_{replica_idx}_model_{model_idx}_ca.pdb"
+                )
+                aa_name = f"replica_{replica_idx}_model_{model_idx}.pdb"
+                aa_path = os.path.join(output_folder, aa_name)
+                ca_model.save_to_pdb(ca_path)
+                try:
+                    if self.aa_method == "modeller":
+                        ca2all(
+                            ca_path,
+                            output=aa_path,
+                            iterations=self.modeller_iterations,
+                            out_mdl=os.path.join(
+                                self.work_dir,
+                                "output_data",
+                                f"modeller_replica_{replica_idx}_model_{model_idx}.txt",
+                            ),
+                            work_dir=self.work_dir,
+                            cyclization=self.cyclization,
+                            disulfide_bonds=self.disulfide_bonds,
+                        )
+                    elif self.aa_method == "cg2all":
+                        convert_cg_to_all(
+                            ca_path,
+                            work_dir=self.work_dir,
+                            iter=model_idx,
+                            reference_pdb=self.input_protein,
+                            renumber_flag=self.renumber,
+                            env_prefix=self.cg2all_env_prefix,
+                            output_filename=aa_name,
+                            cg2all_representation=self.cg2all_representation,
+                        )
+                except Exception as e:
+                    logger.warning(
+                        _name,
+                        f"Failed to reconstruct replica {replica_idx}, model {model_idx}: {e}",
+                    )
 
     def save_bfac_models(self):
         pdb_output = os.path.join(self.work_dir, "output_pdbs")
