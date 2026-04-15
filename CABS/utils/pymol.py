@@ -12,6 +12,7 @@ PML_MODELS_TEMPLATE = Template('''\
 $load_lines
 $align_lines
 hide all
+dss
 show cartoon
 # Optionally, group the models
 # group models, model_*
@@ -21,6 +22,7 @@ PML_COLOR_SS_TEMPLATE = Template('''\
 # Color by CABS secondary structure values stored in start_secstr.pdb B-factors
 load $target_pdb, secondary_structure_parameters
 hide all
+dss
 show cartoon
 spectrum b, blue_white_red, secondary_structure_parameters
 ''')
@@ -29,6 +31,7 @@ PML_COLOR_RMSF_TEMPLATE = Template('''\
 # Color by B-factor (RMSF/flexibility)
 $load_lines
 hide all
+dss
 show cartoon
 spectrum b, rainbow_rev, minimum=0.0
 ''')
@@ -37,6 +40,7 @@ PML_ANIMATE_TEMPLATE = Template('''\
 # Load all models into a single object with multiple states
 $load_states_lines
 hide all
+dss
 show cartoon
 smooth
 mset 1 x10
