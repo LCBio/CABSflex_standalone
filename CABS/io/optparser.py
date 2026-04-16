@@ -106,6 +106,21 @@ def mk_parser(parser_dict, group_dict, option_dict):
     return parser
 
 
+def str2bool(v):
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    if str(v).lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif str(v).lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        import argparse
+
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def restore_types(dict):
     from CABS.config_loader import get_type_dispatch
 
@@ -116,6 +131,7 @@ def restore_types(dict):
         "int": int,
         "float": float,
         "str": str,
+        "bool": str2bool,
         "split_equals": lambda x: x.split("="),
     }
 

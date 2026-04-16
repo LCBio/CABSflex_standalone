@@ -361,6 +361,44 @@ class Atoms:
     def extend(self, other: "Atoms") -> None:
         self.atoms.extend(other.atoms)
 
+    def add_side_chain_centers(self) -> None:
+        """
+        Rebuilds side-chain centers from CA coordinates and adds them as SC atoms.
+        Interleaves SC atoms with CA atoms.
+        """
+        # We only rebuild if we have some atoms and the first one is a CA
+        if not self.atoms:
+            return
+
+        from CABS.utils.utils import SCModeler
+        
+        # Ensure we are working with CA atoms for SCModeler
+        ca_atoms = self.select("name CA")
+        if not ca_atoms:
+            return
+
+        sc_modeler = SCModeler(ca_atoms)
+        sc_coords = sc_modeler.rebuild_one(ca_atoms.to_numpy())
+        
+        new_atoms = []
+        for i, ca in enumerate(ca_atoms.atoms):
+            new_atoms.append(ca)
+            sc_atom = Atom(
+                model=ca.model,
+                hetatm=ca.hetatm,
+                serial=0,
+                name="SC",
+                resname=ca.resname,
+                chid=ca.chid,
+                resnum=ca.resnum,
+                icode=ca.icode,
+                coord=Vector3d(sc_coords[i]),
+                occ=ca.occ,
+                bfac=ca.bfac
+            )
+            new_atoms.append(sc_atom)
+        self.atoms = new_atoms
+
     def __str__(self) -> str:
         return "\n".join(str(atom) for atom in self.atoms)
 

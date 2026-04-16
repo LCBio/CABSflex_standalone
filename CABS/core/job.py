@@ -72,7 +72,7 @@ class CABSTask(metaclass=ABCMeta):
         self.ca_rest_weight: Optional[float] = kwargs.get("ca_rest_weight")
         self.cg2all_env_prefix: Optional[str] = kwargs.get("cg2all_env_prefix")
         self.cg2all_representation: str = kwargs.get(
-            "cg2all_representation", "calpha"
+            "cg2all_representation", "calpha-sc"
         )
         self.clustering_iterations: Optional[int] = kwargs.get("clustering_iterations")
         self.clustering_medoids: Optional[int] = kwargs.get("clustering_medoids")
@@ -155,12 +155,23 @@ class CABSTask(metaclass=ABCMeta):
         self.sc_rest_add: Optional[str] = kwargs.get("sc_rest_add")
         self.sc_rest_file: Optional[str] = kwargs.get("sc_rest_file")
         self.sc_rest_weight: Optional[float] = kwargs.get("sc_rest_weight")
+        self.weighted_fit: Optional[str] = kwargs.get("weighted_fit")
+        self.disable_side_chain_centers = kwargs.get("disable_side_chain_centers")
         self.separation: Optional[str] = kwargs.get("separation")
         self.ss_output: Optional[bool] = kwargs.get("ss_output")
         self.temperature: Optional[float] = kwargs.get("temperature")
         self.verbose: Optional[int] = kwargs.get("verbose")
         self.work_dir: Optional[str] = kwargs.get("work_dir")
-        self.weighted_fit: Optional[str] = kwargs.get("weighted_fit")
+        self.write_sc_start_pdbs = kwargs.get("write_sc_start_pdbs")
+
+        if self.cg2all_representation == "calpha" and self.disable_side_chain_centers is None:
+            self.disable_side_chain_centers = True
+            logger.info(_name, "Side-chain centers disabled by default for 'calpha' representation.")
+        elif self.disable_side_chain_centers is None:
+            self.disable_side_chain_centers = False
+
+        if self.write_sc_start_pdbs is None:
+            self.write_sc_start_pdbs = False
 
         # Job attributes collected.
         self.config: Dict[str, Any] = kwargs
@@ -836,27 +847,33 @@ class CABSTask(metaclass=ABCMeta):
                 "Possibly overwriting previous pdb files. Use --work-dir <DIR> to avoid that.",
             )
         # Saving the trajectory to PDBs:
+        sc_flag = not self.disable_side_chain_centers
         if "R" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving replicas...")
-            self.trajectory.to_pdb(mode="replicas", to_dir=output_folder)
+            self.trajectory.to_pdb(mode="replicas", to_dir=output_folder, sc=sc_flag)
             if self.aa_rebuild_replicas:
                 self.save_all_atom_replicas(output_folder)
         # Saving top1000 models to PDB:
         if "F" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving filtered models...")
             self.filtered_trajectory.to_pdb(
-                mode="replicas", to_dir=output_folder, name="top1000"
+                mode="replicas", to_dir=output_folder, name="top1000", sc=sc_flag
             )
         # Saving clusters in CA representation
         if "C" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving clusters...")
             for i, cluster in enumerate(self.clusters):
                 cluster.to_pdb(
-                    mode="replicas", to_dir=output_folder, name=f"cluster_{i}"
+                    mode="replicas", to_dir=output_folder, name=f"cluster_{i}", sc=sc_flag
                 )
         if "S" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving starting structure...")
-            self.initial_complex.save_to_pdb(os.path.join(output_folder, "start.pdb"))
+            if self.write_sc_start_pdbs:
+                temp_complex = deepcopy(self.initial_complex)
+                temp_complex.add_side_chain_centers()
+                temp_complex.save_to_pdb(os.path.join(output_folder, "start.pdb"))
+            else:
+                self.initial_complex.save_to_pdb(os.path.join(output_folder, "start.pdb"))
 
         # Saving final models:
         if "M" in self.pdb_output:
@@ -882,7 +899,7 @@ class CABSTask(metaclass=ABCMeta):
                                 module_name=_name,
                                 msg=f"Running Modeller to rebuild models (iterations: {self.modeller_iterations}).",
                             )
-                            pdb_medoids = self.medoids.to_pdb()
+                            pdb_medoids = self.medoids.to_pdb(sc=False)
                             for i, fname in enumerate(pdb_medoids):
                                 ca2all(
                                     fname,
@@ -922,7 +939,7 @@ class CABSTask(metaclass=ABCMeta):
                                 )
                             else:
                                 attempt_cyclization = True
-                        pdb_medoids = self.medoids.to_pdb()
+                        pdb_medoids = self.medoids.to_pdb(sc=False)
                         original_chains = "".join(self.medoids.template.list_chains())
                         for i, fname in enumerate(pdb_medoids):
                             convert_cg_to_all(
@@ -977,7 +994,7 @@ class CABSTask(metaclass=ABCMeta):
                 logger.log_file(
                     module_name=_name, msg="Saving final models (in CA representation)."
                 )
-                self.medoids.to_pdb(mode="models", to_dir=output_folder, name="model")
+                self.medoids.to_pdb(mode="models", to_dir=output_folder, name="model", sc=sc_flag)
 
             if self.json_output:
                 json_file = os.path.join(self.work_dir, "output_data", "medoid.json")
@@ -985,7 +1002,7 @@ class CABSTask(metaclass=ABCMeta):
                 if not os.path.isdir(odir):
                     os.makedirs(odir)
                 logger.log_file(module_name=_name, msg="Saving JSON output.")
-                medoids_ca_atoms_list = self.medoids.to_atoms_list()
+                medoids_ca_atoms_list = self.medoids.to_atoms_list(sc=sc_flag)
                 medoids_ca_atoms_list[0].save_to_json(json_file)
 
     def save_all_atom_replicas(self, output_folder):
@@ -1216,6 +1233,8 @@ class DockTask(CABSTask):
             save_initial_pdb=self.save_initial_pdb,
             json_output=self.json_output,
             predict_peptide_structure=self.peptide_structure_prediction,
+            cg2all_env_prefix=self.cg2all_env_prefix,
+            sc=self.write_sc_start_pdbs,
         )
 
     def load_output(self, ftraf=None, fseq=None):
@@ -1891,6 +1910,8 @@ class FlexTask(CABSTask):
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
             json_output=self.json_output,
+            cg2all_env_prefix=self.cg2all_env_prefix,
+            sc=self.write_sc_start_pdbs,
         )
 
         # score results logic

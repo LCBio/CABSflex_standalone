@@ -266,7 +266,9 @@
                     "dssp-output",
                     "ss-output",
                     "restraints-output",
-                    "renumber-residues-to-original"
+                    "renumber-residues-to-original",
+                    "disable-side-chain-centers",
+                    "write-sc-start-pdbs"
                 ]
             ],
             [
@@ -425,7 +427,7 @@
                 "calpha",
                 "calpha-sc"
             ],
-            "default": "calpha",
+            "default": "calpha-sc",
             "metavar": "REP",
             "help": "Coarse-grained representation passed to cg2all when --aa-method cg2all is used. REP can be either 'calpha' for CA-only reconstruction or 'calpha-sc' for CA plus CABS side-chain pseudoatoms. (default: %(default)s)"
         },
@@ -508,6 +510,13 @@
         "disable-centro": {
             "action": "store_true",
             "help": "Disable centrosymmetric potential in the simulation (default is '%(default)s')"
+        },
+        "disable-side-chain-centers": {
+            "type": "bool",
+            "nargs": "?",
+            "const": true,
+            "default": null,
+            "help": "Disable side-chain centers in the output PDB files (default is '%(default)s')"
         },
         "exclude": {
             "flag": "-e",
@@ -825,6 +834,13 @@
         "weighted-fit": {
             "metavar": "ARG",
             "help": "This option allows to set and customize the way models are structurally aligned, which affects both calculation of the RMSD/RMSF and clustering together with the selectiom of the final models.\nModels are aligned by the Kabsch optimal fit algorithm. This options assigns weights to all atoms, which specify how 'important' the atom is in the structural fit process. Weights are numbers from [0:1] range with '0' meaning 'irrelevant in fitting process.'\n\nARG can be either:\n\n[1] 'gauss' - Weights are generated automatically in the iterative procedure described in 'Biophys J. 2006 Jun 15; 90(12): 4558-4573'\nThe procedure consists of the following steps: (1) Set wi = 1.0 for i = [1,2 ... N], where N is the number of atoms. (2) Align structures using weights wi. (3) Calculate di - displacement of the i-th atom. (4) Update weights according to formula: wi = exp(-0.5 * di * di). Repeat (2) through (4) until convergence.\n[2] 'flex' - Weights are taken from the flexibility settings. (See help entry for '--protein-flexibility')\n[3] 'ss' - Weights are taken from the secondary structure assignment. Atoms in helices and sheets are given w = 1.0, while those in loops and coil get w = 0.0\n[4] <filename> - Weights are read from a file <filename>. The file should follow this format:\n\n# Example file\n# default 1.0 (default value, if omitted w = 1.0 is assumed)\n# 1:A 0.5\n# 5:A 0.1\n# ...\n# 1:B 0.99\n# ...\n# End of file\n\n[5] 'off' - Turns off weighted-fit (all weights are 1.0)."
+        },
+        "write-sc-start-pdbs": {
+            "type": "bool",
+            "nargs": "?",
+            "const": true,
+            "default": null,
+            "help": "Include side-chain centers in the starting PDB structures (default is '%(default)s')"
         },
         "work-dir": {
             "flag": "-w",

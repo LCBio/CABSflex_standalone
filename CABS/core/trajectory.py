@@ -202,7 +202,7 @@ class Trajectory:
         inds = [self.template.atoms.index(a) for a in template]
         return Trajectory(template, self.coordinates[:, :, inds, :], self.headers)
 
-    def to_atoms(self):
+    def to_atoms(self, sc: bool = True) -> Atoms:
         result = Atoms()
         num = 0
         shape = self.coordinates.shape
@@ -211,11 +211,13 @@ class Trajectory:
             num += 1
             atoms.set_model_number(num)
             atoms.from_numpy(model)
+            if sc:
+                atoms.add_side_chain_centers()
             result.extend(atoms)
         self.coordinates.reshape(shape)
         return result
 
-    def to_atoms_list(self):
+    def to_atoms_list(self, sc: bool = True) -> List[Atoms]:
         result = []
         num = 0
         shape = self.coordinates.shape
@@ -224,6 +226,8 @@ class Trajectory:
             num += 1
             atoms.set_model_number(num)
             atoms.from_numpy(model)
+            if sc:
+                atoms.add_side_chain_centers()
             result.append(atoms)
         self.coordinates.reshape(shape)
         return result
@@ -338,7 +342,7 @@ class Trajectory:
         self.coordinates.reshape(shape)
         return m
 
-    def to_pdb(self, name=None, mode="models", to_dir=None):
+    def to_pdb(self, name=None, mode="models", to_dir=None, sc=True):
         """
         Method for transforming a trajectory instance into a PDB file-like object.
         :param name:    'name'  -- name (name) ;)
@@ -348,6 +352,7 @@ class Trajectory:
                                       each representing one replica from the trajectory.
         :param to_dir:  path to directory in which the PDB files should be saved.
                         If None, only StringIO object is returned.
+        :param sc:      bool; if True, side chain centers are included.
         :return:        if to_dir is None: StringIO object
                         if to_dir is not None: saves file and returns True.
         """
@@ -360,11 +365,13 @@ class Trajectory:
                 pre = execution_mode[mode][1] if name is None else name
                 post = "" if len(execution_mode[mode][0]) == 1 else f"_{i}"
                 fname = os.path.join(to_dir, f"{pre}{post}.pdb")
-                Trajectory(self.template, m, None).to_atoms().save_to_pdb(fname)
+                Trajectory(self.template, m, None).to_atoms(sc=sc).save_to_pdb(fname)
             out = True
         else:
             out = [
-                StringIO(Trajectory(self.template, m, None).to_atoms().make_pdb())
+                StringIO(
+                    Trajectory(self.template, m, None).to_atoms(sc=sc).make_pdb()
+                )
                 for m in execution_mode[mode][0]
             ]
         return out

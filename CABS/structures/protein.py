@@ -44,6 +44,7 @@ class Protein(Atoms):
         save_initial_pdb: bool = False,
         predict_peptide_structure: bool = False,
         cg2all_env_prefix: Optional[str] = None,
+        sc: bool = False,
     ) -> None:
         Atoms.__init__(self)
 
@@ -126,8 +127,17 @@ class Protein(Atoms):
                 ss = pdb.dssp(work_dir=work_dir)
                 logger.debug(module_name=_name, msg=f"save_initial_pdb flag: {save_initial_pdb}")
                 if save_initial_pdb:
-                    logger.debug(module_name=_name, msg=f"Calling pdb.save_initial_pdb(work_dir={work_dir})")
-                    pdb.save_initial_pdb(work_dir=work_dir)
+                    logger.debug(module_name=_name, msg=f"Calling pdb.save_initial_pdb(work_dir={work_dir}) with sc={sc}")
+                    if sc:
+                        # Create a copy with SC for saving to start_all.pdb
+                        sc_atoms = pdb.atoms.select("name CA")
+                        sc_atoms.add_side_chain_centers()
+                        header = pdb.mk_ss_header(work_dir=work_dir)
+                        path = os.path.join(work_dir, "output_pdbs", "start_all.pdb")
+                        os.makedirs(os.path.dirname(path), exist_ok=True)
+                        sc_atoms.save_to_pdb(path, header=header)
+                    else:
+                        pdb.save_initial_pdb(work_dir=work_dir)
                 pdb.atoms = pdb.atoms.select("name CA")
                 self.atoms = pdb.atoms.models()[0]
 
@@ -665,6 +675,7 @@ class ProteinComplex(Atoms):
         json_output=False,
         cg2all_env_prefix=None,
         predict_peptide_structure=False,
+        sc=False,
     ):
         logger.debug(module_name=_name, msg="Preparing the complex")
         Atoms.__init__(self)
@@ -683,6 +694,7 @@ class ProteinComplex(Atoms):
             save_initial_pdb=save_initial_pdb,
             predict_peptide_structure=predict_peptide_structure,
             cg2all_env_prefix=cg2all_env_prefix,
+            sc=sc,
         )
         self.chain_list = self.protein.list_chains()
         self.protein_chains = "".join(self.chain_list.keys())
