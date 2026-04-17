@@ -711,8 +711,10 @@ class Atoms:
         :return: None
         """
         # Re-number serials if they are 0 or to ensure continuity
-        for i, atom in enumerate(self.atoms):
-            atom.serial = i + 1
+        # CHANGED: Reset serials per model instead of continuously
+        for model in self.models():
+            for i, atom in enumerate(model.atoms):
+                atom.serial = i + 1
             
         with open(filename, "w") as f:
             f.write(header)
