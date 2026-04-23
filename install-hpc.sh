@@ -26,7 +26,7 @@ INTEL_MODULE="HDF5/1.14.3-serial"
 NETCDF_MODULE="impi/2021.10.0 netCDF/4.9.3 "
 HDF5_MODULE="intel-compilers/2023.2.1 HDF5/1.14.3-serial"
 # Dependencies (Kept lean: MDTraj replaces DSSP binary)
-CORE_DEPS=("numpy" "matplotlib" "requests" "biopython" "mdtraj" "biopandas" "tqdm" "scipy")
+CORE_DEPS=("numpy" "matplotlib" "requests" "biopython" "mdtraj" "biopandas" "tqdm" "scipy" "pandas" "plotly" "jupyter" "nbconvert" "ipymolstar")
 TORCH_URL="https://download.pytorch.org/whl/cpu"
 NSP3_REPO_URL="https://github.com/Eryk96/NetSurfP-3.0.git"
 # ==============================================================================

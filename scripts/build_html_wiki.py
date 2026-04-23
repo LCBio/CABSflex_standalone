@@ -214,12 +214,15 @@ def convert_local_video_links(html_text: str) -> str:
     def thumb_repl(match: re.Match[str]) -> str:
         href = html.escape(match.group("href"))
         poster = html.escape(match.group("src"))
+        # Adjust for new thumbnails subdirectory
+        if poster.startswith("videos/") and not poster.startswith("videos/thumbnails/"):
+            poster = poster.replace("videos/", "videos/thumbnails/", 1)
         alt = html.escape(match.group("alt") or "Embedded video")
         ext = Path(match.group("href")).suffix.lower()
         mime = f"video/{'ogg' if ext == '.ogg' else ext.lstrip('.')}"
         return (
             '<figure class="video-embed video-local">'
-            f'<video controls loop preload="metadata" playsinline poster="{poster}">'
+            f'<video autoplay muted loop preload="metadata" playsinline poster="{poster}">'
             f'<source src="{href}" type="{mime}">'
             "Your browser does not support the video tag."
             "</video>"
@@ -235,7 +238,7 @@ def convert_local_video_links(html_text: str) -> str:
         safe_label = html.escape(label)
         return (
             '<figure class="video-embed video-local">'
-            f'<video controls loop preload="metadata" playsinline>'
+            f'<video autoplay muted loop preload="metadata" playsinline>'
             f'<source src="{href}" type="{mime}">'
             "Your browser does not support the video tag."
             "</video>"

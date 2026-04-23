@@ -11,3 +11,8 @@ netcdf4>=1.5.0
 mrcfile
 mdtraj
 typing_extensions
+pandas
+plotly
+jupyter
+nbconvert
+ipymolstar

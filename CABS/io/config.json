@@ -86,7 +86,6 @@
                 "ALL-ATOM RECONSTRUCTION OPTIONS",
                 [
                     "aa-rebuild",
-                    "aa-rebuild-replicas",
                     "aa-method",
                     "cg2all-representation",
                     "cg2all-env-prefix",
@@ -227,7 +226,6 @@
                 "ALL-ATOM RECONSTRUCTION OPTIONS",
                 [
                     "aa-rebuild",
-                    "aa-rebuild-replicas",
                     "aa-method",
                     "cg2all-representation",
                     "cg2all-env-prefix",
@@ -296,12 +294,12 @@
         },
         "aa-rebuild": {
             "flag": "-A",
-            "action": "store_true",
-            "help": "Rebuild final models to all-atom representation. (default: %(default)s)"
-        },
-        "aa-rebuild-replicas": {
-            "action": "store_true",
-            "help": "Rebuild trajectory replica frames to all-atom representation. This may take significant time (hours to days), depending on the system size and trajectory length. (default: %(default)s)"
+            "nargs": "?",
+            "const": "M",
+            "default": "M",
+            "type": "str",
+            "metavar": "MODE",
+            "help": "Rebuild models to all-atom representation. Supported modes:\n\n[1] 'M' (default) - rebuild Medoids (model_?.pdb) sequentially\n[2] 'C' - rebuild Clusters (cluster_?.pdb) in parallel\n[3] 'T' - rebuild Trajectories (replica_?.pdb) in batch DCD\n[4] 'A' - rebuild ALL of the above\n"
         },
         "add-peptide": {
             "flag": "-P",

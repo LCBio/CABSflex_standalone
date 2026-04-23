@@ -220,7 +220,8 @@ docs/videos/
 docs/migration-report.txt
 tests/gallery
 tests/Gallery
-
+tests/debug_run/
+tests/research_all_flag.pdb
 #AI agent related files
 .continue/
 way/

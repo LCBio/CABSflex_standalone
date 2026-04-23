@@ -42,6 +42,7 @@ from CABS.utils import utils
 from CABS.utils.align import AlignError, align_to, save_csv
 from CABS.utils.filter import Filter
 from CABS.utils.utils import convert_cg_to_all
+from CABS.reconstruction.cg2all_trajectory import reconstruct_job_outputs
 from CABS.utils import chimerax as chimerax_utils
 from CABS.utils import notebook as notebook_utils
 from CABS.utils import pymol as pymol_utils
@@ -58,8 +59,7 @@ class CABSTask(metaclass=ABCMeta):
         self.aa_method: Optional[Literal["modeller", "cg2all"]] = kwargs.get(
             "aa_method"
         )
-        self.aa_rebuild: Optional[bool] = kwargs.get("aa_rebuild")
-        self.aa_rebuild_replicas: Optional[bool] = kwargs.get("aa_rebuild_replicas")
+        self.aa_rebuild: str = str(kwargs.get("aa_rebuild", "M"))
         self.add_peptide: Optional[str] = kwargs.get("add_peptide")
         self.align: Optional[bool] = kwargs.get("align")
         self.align_options: Dict[str, Any] = dict(kwargs.get("align_options", []))
@@ -204,15 +204,17 @@ class CABSTask(metaclass=ABCMeta):
             )
         )
         if self.generate_visualizations:
-            self.aa_rebuild = True
+            if not self.aa_rebuild:
+                self.aa_rebuild = "M"
+            elif "M" not in self.aa_rebuild and "A" not in self.aa_rebuild:
+                self.aa_rebuild += "M"
             self.pdb_output = "A"
             self.pdb_bfac_output = "A"
             self.restraints_output = True
             self.contact_maps = True
             self.ss_output = True
 
-        if self.aa_rebuild_replicas:
-            self.aa_rebuild = True
+        if "T" in self.aa_rebuild or "A" in self.aa_rebuild:
             if not self.pdb_output or "N" in self.pdb_output:
                 self.pdb_output = "R"
             elif "A" not in self.pdb_output and "R" not in self.pdb_output:
@@ -263,7 +265,7 @@ class CABSTask(metaclass=ABCMeta):
         if self.nsp3_model_path:
             protein.Protein.NSP3_MODEL_PATH = self.nsp3_model_path
 
-        if self.aa_rebuild_replicas:
+        if "T" in self.aa_rebuild or "A" in self.aa_rebuild:
             logger.warning(
                 _name,
                 "All-atom reconstruction of trajectory replicas may take significant time "
@@ -473,7 +475,8 @@ class CABSTask(metaclass=ABCMeta):
             number_of_iterations=self.clustering_iterations,
         )
         if self.pdb_output:
-            self.save_models()
+            output_folder = self.save_models()
+            reconstruct_job_outputs(self, output_folder)
         if self.reference:
             try:
                 self.calculate_rmsd()
@@ -851,7 +854,7 @@ class CABSTask(metaclass=ABCMeta):
         if "R" in self.pdb_output:
             logger.log_file(module_name=_name, msg="Saving replicas...")
             self.trajectory.to_pdb(mode="replicas", to_dir=output_folder, sc=sc_flag)
-            if self.aa_rebuild_replicas:
+            if ("T" in self.aa_rebuild or "A" in self.aa_rebuild) and self.aa_method == "modeller":
                 self.save_all_atom_replicas(output_folder)
         # Saving top1000 models to PDB:
         if "F" in self.pdb_output:
@@ -874,14 +877,14 @@ class CABSTask(metaclass=ABCMeta):
                 temp_complex.save_to_pdb(os.path.join(output_folder, "start.pdb"))
             else:
                 self.initial_complex.save_to_pdb(os.path.join(output_folder, "start.pdb"))
-
+        
         # Saving final models:
         if "M" in self.pdb_output:
             save_to_ca = True
             odir = os.path.join(self.work_dir, "output_data")
             if not os.path.isdir(odir):
                 os.makedirs(odir)
-            if self.aa_rebuild:
+            if "M" in self.aa_rebuild or "A" in self.aa_rebuild:
                 if self.aa_method in ALLOWED_AA_METHODS:
                     logger.log_file(
                         module_name=_name,
@@ -1004,15 +1007,9 @@ class CABSTask(metaclass=ABCMeta):
                 logger.log_file(module_name=_name, msg="Saving JSON output.")
                 medoids_ca_atoms_list = self.medoids.to_atoms_list(sc=sc_flag)
                 medoids_ca_atoms_list[0].save_to_json(json_file)
+        return output_folder
 
     def save_all_atom_replicas(self, output_folder):
-        if not self.aa_rebuild:
-            logger.warning(
-                _name,
-                "--aa-rebuild-replicas requires all-atom reconstruction. Enabling --aa-rebuild.",
-            )
-            self.aa_rebuild = True
-
         if self.aa_method not in ALLOWED_AA_METHODS:
             logger.warning(
                 _name,

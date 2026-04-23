@@ -97,6 +97,10 @@ WeightArray = Optional[npt.NDArray[np.float64]]
 CG2ALL_REPRESENTATIONS = {
     "calpha": "CalphaBasedModel",
     "calpha-sc": "CalphaSCModel",
+    "CA": "CalphaBasedModel",
+    "CalphaSC": "CalphaSCModel",
+    "CalphaBasedModel": "CalphaBasedModel",
+    "CalphaSCModel": "CalphaSCModel"
 }
 
 
@@ -687,8 +691,16 @@ def _write_cg2all_input_pdb(
     if cg2all_representation not in CG2ALL_REPRESENTATIONS:
         raise ValueError(f"Unsupported cg2all representation: {cg2all_representation}")
 
+    # Normalize both CLI-style and cg2all-native representation labels.
+    rep_key = cg2all_representation.strip()
+    rep_lower = rep_key.lower()
+    if rep_key == "CA" or rep_lower == "calpha" or rep_key == "CalphaBasedModel":
+        internal_rep = "calpha"
+    else:
+        internal_rep = "calpha-sc"
+    
     serial = 1
-    if cg2all_representation == "calpha":
+    if internal_rep == "calpha":
         for atom in ca_atoms:
             output_file.write(_format_cg_pdb_line(serial, "CA", atom, atom["coord"]))
             serial += 1
@@ -735,40 +747,28 @@ def convert_cg_to_all(
     env_prefix: Optional[str] = None,
     output_filename: Optional[str] = None,
     cg2all_representation: str = "calpha",
+    aa_method: str = "cg2all",
 ) -> str:
     """
-    Convert coarse-grained model to all-atom
+    Convert coarse-grained model to all-atom.
     """
+    # Map internal CABS representation names to cg2all ones
+    rep_map = {
+        "calpha": "CA",
+        "calpha-sc": "CalphaSC"
+    }
+    cg_model = rep_map.get(cg2all_representation, "CalphaSC")
+
     with NamedTemporaryFile(
         prefix=".", suffix=".pdb", dir=work_dir, mode="w", delete=False
     ) as tmp_file:
         pdb = tmp_file.name
         _write_cg2all_input_pdb(filename, tmp_file, cg2all_representation)
-
-    if renumber_flag:
-        reference_path = None
-        start_path = Path(work_dir) / "output_pdbs" / "start.pdb"
-        start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
-        if start_path.exists():
-            reference_path = start_path
-        elif start_all_path.exists():
-            reference_path = start_all_path
-        elif reference_pdb:
-            candidate = Path(str(reference_pdb).split(":")[0])
-            if candidate.exists():
-                reference_path = candidate
-
-        if reference_path is None:
-            raise FileNotFoundError(
-                "Could not resolve a PDB file for residue renumbering."
-            )
-
-        sync_residues(input_pdb_path=reference_path, output_pdb_path=Path(pdb))
-
+    
     output_dir = Path(work_dir) / "output_pdbs"
-    input_pdb = Path(pdb)
     fout = output_filename or f"model_{iter}.pdb"
     cg_model = CG2ALL_REPRESENTATIONS[cg2all_representation]
+    
     # Modify the subprocess call to use micromamba run if an environment prefix is provided.
     # This ensures all environment variables and dependencies (like torch, dgl) are correctly set up.
     if env_prefix:
@@ -780,18 +780,20 @@ def convert_cg_to_all(
         command_parts = [
             mamba_exe, "run", "-p", env_prefix,
             "convert_cg2all",
-            "-p", str(input_pdb),
+            "-p", str(pdb),
             "-o", str(output_dir / fout),
             "--cg", cg_model,
+            "--fix",
             "--device", "cpu"
         ]
     else:
         # Fallback to the default path if no specific env is passed
         command_parts = [
             "convert_cg2all",
-            "-p", str(input_pdb),
+            "-p", str(pdb),
             "-o", str(output_dir / fout),
             "--cg", cg_model,
+            "--fix",
             "--device", "cpu"
         ]
 
@@ -802,16 +804,27 @@ def convert_cg_to_all(
     env.pop("PYTHONUSERBASE", None)
 
     try:
-        result = subprocess.run(
-            command_parts,
-            shell=False,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-        return result.stdout
+        if "cg2all" in aa_method:
+            result = subprocess.run(
+                command_parts,
+                shell=False,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=env,
+            )
+            return result.stdout
+        else:
+            # Modeller support
+            from CABS.reconstruction.ca2all import ca2all
+            with open(pdb) as f_in:
+                ca2all(
+                    f_in, 
+                    output=str(output_dir / fout), 
+                    work_dir=work_dir,
+                    iterations=1
+                )
     except subprocess.CalledProcessError as e:
         logger.critical(
             module_name="CG2ALL",
@@ -822,7 +835,9 @@ def convert_cg_to_all(
         logger.warning(module_name="CG2ALL", msg=f"CG2ALL failed with error: {e}")
         raise Exception("CG2ALL failed to convert CG model to all-atom model")
     finally:
-        os.remove(pdb)
+        if os.path.exists(pdb):
+            os.remove(pdb)
+    return str(output_dir / fout)
 
 
 def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:

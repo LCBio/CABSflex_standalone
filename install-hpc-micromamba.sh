@@ -342,7 +342,7 @@ main() {
 
     configure_cabs_paths
 
-    local main_specs=( "python=${PYTHON_VERSION_MAIN}" "pip" "dssp" "openmm" )
+    local main_specs=( "python=${PYTHON_VERSION_MAIN}" "pip" "dssp" "openmm" "pandas" "plotly" "jupyter" "nbconvert" )
     if [ "${INSTALL_MODELLER}" = "TRUE" ]; then
         main_specs+=( "modeller" )
     fi

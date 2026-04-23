@@ -299,7 +299,8 @@ rm -rf "$INSTALL_SRC/tests/test_cli_options" "$INSTALL_SRC/build" "$INSTALL_SRC/
 echo -e "${YELLOW}📦 Installing dependencies via micromamba...${NC}"
 echo -e "${YELLOW}📦 Installing core libraries...${NC}"
 micromamba install -n $ENV_NAME -y -c conda-forge --override-channels \
-    python=3.10 numpy matplotlib requests tqdm scipy h5py netcdf4
+    python=3.10 numpy matplotlib requests tqdm scipy h5py netcdf4 \
+    pandas plotly jupyter nbconvert
 
 # echo -e "${YELLOW}📦 Installing dev tools...${NC}"
 # micromamba install -n $ENV_NAME -y -c conda-forge --override-channels \
