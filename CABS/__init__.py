@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List
 
 __version__ = "3.0.2"
-__title__ = "CABS
+__title__ = "CABS"
 __author__ = "Laboratory of Computational Biology"
 __email__ = "k.wroblewski7@uw.edu.pl"
 __license__ = "MIT"

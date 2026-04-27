@@ -245,7 +245,7 @@ EOF
 
 configure_cabs_paths() {
     mkdir -p "${PROJECT_ROOT}/CABS/data"
-    printf '{"cg2all_env_prefix": "%s"}\n' "${CG2ALL_ENV_DIR}" > "${PROJECT_ROOT}/CABS/data/cabs_paths.json"
+    printf '{"cg2all_env_prefix": "%s", "cabs_env_prefix": "%s"}\n' "${CG2ALL_ENV_DIR}" "${MAIN_ENV_DIR}" > "${PROJECT_ROOT}/CABS/data/cabs_paths.json"
     success "Configured cg2all environment path in CABS/data/cabs_paths.json"
 }
 

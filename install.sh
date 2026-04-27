@@ -286,7 +286,8 @@ fi
 DATA_DIR="$INSTALL_SRC/CABS/data"
 echo -e "${YELLOW}📝 Preparing CABS configuration in $DATA_DIR...${NC}"
 mkdir -p "$DATA_DIR"
-echo "{\"cg2all_env_prefix\": \"$CG2ALL_ENV_PATH\"}" > "$DATA_DIR/cabs_paths.json"
+CABS_ENV_PATH="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}/envs/$ENV_NAME"
+echo "{\"cg2all_env_prefix\": \"$CG2ALL_ENV_PATH\", \"cabs_env_prefix\": \"$CABS_ENV_PATH\"}" > "$DATA_DIR/cabs_paths.json"
 echo -e "${GREEN}✅ Created cabs_paths.json configuration.${NC}"
 
 echo -e "${YELLOW}🧹 Cleaning up build artifacts from $INSTALL_SRC...${NC}"

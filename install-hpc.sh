@@ -156,7 +156,7 @@ _install_modeller
 
 # --- 4. CABS-flex Core ---
 cd "$CABS_FLEX_LOCAL_PATH"
-echo "{\"cg2all_env_prefix\": \"$CG2ALL_VENV_DIR\"}" > "$CABS_FLEX_LOCAL_PATH/CABS/data/cabs_paths.json"
+echo "{\"cg2all_env_prefix\": \"$CG2ALL_VENV_DIR\", \"cabs_env_prefix\": \"$VENV_DIR\"}" > "$CABS_FLEX_LOCAL_PATH/CABS/data/cabs_paths.json"
 echo -e "${YELLOW}📦 Installing CABSflex from local source...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" .
 deactivate
