@@ -9,9 +9,10 @@ from typing import Iterable, List, Optional
 
 
 TEMPLATE_COLOR_RMSF = """# Color by RMSF
-open {rmsf_pdb}
+open {rmsf_pdb} model_*.pdb
 set bgColor white
 color byattribute a:bfactor
+mcopy #1 to #2,3,4,5,6,7,8,9,10,11 settings c
 lighting intensity 0.7
 graphics silhouettes true
 """
@@ -42,6 +43,12 @@ graphics silhouettes true
 """
 
 TEMPLATE_RECORD_MOVIE = """# Record animation
+open {rmsf_pdb} model_*.pdb
+set bgColor white
+color byattribute a:bfactor
+mcopy #1 to #2,3,4,5,6,7,8,9,10,11 settings c
+lighting intensity 0.7
+graphics silhouettes true
 movie record size 3840,2160
 turn y 2 180; wait 180
 movie stop
