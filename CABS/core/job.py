@@ -551,7 +551,7 @@ class CABSTask(metaclass=ABCMeta):
         if self.generate_notebook:
             logger.info(module_name=_name, msg="Generating analysis notebook...")
             try:
-                notebook_utils.generate_notebook(self.work_dir, export_html=True)
+                notebook_utils.generate_notebook(self.work_dir, protein=self.input_protein, export_html=True)
             except Exception as e:
                 logger.warning(_name, f"Failed to generate analysis notebook: {e}")
 
