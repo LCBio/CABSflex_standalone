@@ -1,21 +1,22 @@
-![CABS-flex logo](images/2430462593-CABS-flex-logo-1401.jpg)
+![CABS-flex logo](images/CABSflex3.png)
 
 [![GitHub](https://img.shields.io/badge/repo-GitHub-brightgreen.svg)](https://github.com/LCBio/cabsflex)
 [![GitLab Mirror](https://img.shields.io/badge/mirror-GitLab-orange.svg)](https://gitlab.com/lcbio1/CABSflex_standalone.git)
 [![Wiki](https://img.shields.io/badge/docs-Wiki-blue.svg)](https://github.com/LCBio/cabsflex/wiki)
 
-**CABS-flex** is a powerful Python package designed for coarse-grained protein modeling and simulation. It leverages the efficient CABS force field to provide high-resolution insights into protein flexibility and structural dynamics.
+**CABS-flex standalone 3** is a unified command-line environment for coarse-grained protein modeling and simulation. It brings together protein flexibility simulations, de novo peptide modeling, and flexible peptide–protein docking into a single Python 3-based framework.
 
 ---
 
-## 🔬 The CABS Modeling Scheme
+## 🔬 Core Workflows
 
-CABS-flex combines the efficient **CABS coarse-grained model** with structural clustering and all-atom reconstruction:
-- **Efficiency**: A single amino acid is represented by 4 pseudo-atoms (CA, CB, Side-chain, and peptide bond center), significantly speeding up simulations.
-- **Accuracy**: Default distance restraints and simulation settings are optimized to provide the best possible convergence with consensus MD fluctuations.
-- **Pipeline**: Trajectories are clustered into representative models and subsequently reconstructed into all-atom representations using state-of-the-art tools like `cg2all` or `MODELLER`.
+CABS-flex 3 supports three main modeling pipelines:
 
-For a detailed explanation of the method, see the **[Modeling Scheme Wiki Page](https://github.com/LCBio/cabsflex/wiki/Modeling-Scheme)**.
+*   **Protein Flexibility**: Fast simulations of protein conformational dynamics, providing fluctuation profiles that align with MD simulations and NMR ensembles.
+*   **Peptide Modeling**: *De novo* structure prediction of linear and cyclic peptides (including backbone-cyclized and disulfide-bonded peptides).
+*   **Peptide–Protein Docking**: Flexible docking of peptides to protein receptors, supporting cases with unknown binding sites or significant receptor flexibility.
+
+For a detailed explanation of the methodology, see the **[Modeling Scheme](https://github.com/LCBio/cabsflex/wiki/Modeling-Scheme)**.
 
 ---
 
@@ -35,54 +36,48 @@ cd cabsflex
 bash install.sh
 ```
 
-> [!TIP]
-> **Remote Install**: You can also install directly via curl:
-> `curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install.sh | bash -s YOUR_BETA_TOKEN`
-
-### 2. HPC / Cluster Installation (Venv)
-Optimized for High-Performance Computing clusters (e.g., Helios) using environment modules.
+### 2. HPC / Cluster Installation
+Optimized for High-Performance Computing clusters using environment modules or standard virtual environments.
 
 ```bash
 # Clone the repository
 git clone https://github.com/LCBio/cabsflex.git
 cd cabsflex
 
-# Edit the configuration in install-hpc.sh (e.g., BASE_INSTALL_DIR, TEMP_ROOT)
-# Run the HPC installer
+# Option A: HPC Micromamba installer (Recommended)
+bash install-hpc-micromamba.sh
+
+# Option B: Standard Venv installer (for restricted clusters)
 bash install-hpc.sh
 ```
-> [!TIP]
-> Always run the installation from a worker node on HPC clusters to avoid login node restrictions.
 
-### 3. Usage
-Once installed, activate the environment as instructed by the installer:
-- **Conda**: `conda activate cabs`
-- **HPC**: `source path/to/your/venv/bin/activate`
+> [!TIP]
+> See the **[Installation Guide](https://github.com/LCBio/cabsflex/wiki/Installation)** for detailed configuration tips for specific HPC environments.
 
 ---
 
 ## 🧪 Quick Start
 
-### Protein Flexibility (CABS-flex)
-Simulate protein structure flexibility for PDB `1CE1`:
+Once installed, activate the environment (`micromamba activate cabs`) and run a short verification simulation:
+
+### Protein Flexibility
 ```bash
-CABSflex -i 1CE1 -a 10 -y 20 -w output_dir
+CABSflex -i 1HPW -a 10 -y 20 -w output_dir
 ```
 
-### Protein-Peptide Docking (CABS-dock)
-Flexible docking of a peptide sequence to a receptor structure:
+### Peptide–Protein Docking
 ```bash
-CABSdock -i protein.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
+CABSdock -i receptor.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
 ```
 
 ---
 
 ## 🔗 Resources & Documentation
 
-- 📚 **[Full Documentation (Wiki)](https://github.com/LCBio/cabsflex/wiki)**
-- 📖 **[Examples & Tutorials](https://github.com/LCBio/cabsflex/wiki/Examples)**
-- ⚙️ **[Options Reference](https://github.com/LCBio/cabsflex/wiki/Options-Reference)**
-- 🐛 **[Issue Tracker](https://github.com/LCBio/cabsflex/issues)**
+*   📚 **[Full Documentation (Wiki)](https://github.com/LCBio/cabsflex/wiki)**
+*   📖 **[Examples & Case Studies](https://github.com/LCBio/cabsflex/wiki/Examples)**
+*   ⚙️ **[Options Reference](https://github.com/LCBio/cabsflex/wiki/Options-Reference)**
+*   🐛 **[Issue Tracker](https://github.com/LCBio/cabsflex/issues)**
 
 ---
 
@@ -98,5 +93,4 @@ black --check CABS tests
 mypy CABS --ignore-missing-imports
 ```
 
-**Contact**: k.wroblewski7@uw.edu.pl  
-**Laboratory**: Laboratory of Computational Biology, University of Warsaw
+**Laboratory**: [Laboratory of Computational Biology](http://biocomp.chem.uw.edu.pl/), University of Warsaw
