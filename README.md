@@ -93,4 +93,4 @@ black --check CABS tests
 mypy CABS --ignore-missing-imports
 ```
 
-**Laboratory**: [Laboratory of Computational Biology](http://biocomp.chem.uw.edu.pl/), University of Warsaw
+**Laboratory**: [Laboratory of Computational Biology](https://lcbio.pl/), University of Warsaw
