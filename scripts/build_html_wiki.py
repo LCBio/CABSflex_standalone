@@ -25,59 +25,71 @@ PAGE_ORDER = [
     "Home",
     "Installation",
     "Modeling-Scheme",
-    "Options",
-    "Options-Reference",
-    "Examples",
+    "CABS-Model",
+    "Restraints",
     "Flexibility-Modes",
-    "Output-Analysis",
-    "CABSdock",
-    "CABSdock-Options",
-    "CABSdock-Examples",
-    "CABSdock-Output-Analysis",
-    "CABSdock-Advanced-Data",
+    "All-Atom-Reconstruction",
+    "Protein-Flexibility",
+    "Peptide-Modeling",
+    "Peptide-Protein-Docking",
+    "Examples",
+    "Gallery",
     "Case-Studies",
+    "Options-Reference",
+    "Visualization-Guide",
+    "Advanced-Data",
+    "References",
 ]
 
 PAGE_LABELS = {
     "Home": "Overview",
     "Installation": "Installation",
     "Modeling-Scheme": "Modeling Scheme",
-    "Options": "Key Options",
-    "Options-Reference": "Options Reference",
-    "Examples": "Examples",
+    "CABS-Model": "CABS Model",
+    "Restraints": "Restraints",
     "Flexibility-Modes": "Flexibility Modes",
-    "Output-Analysis": "Output Analysis",
-    "CABSdock": "CABSdock",
-    "CABSdock-Options": "CABSdock Options",
-    "CABSdock-Examples": "CABSdock Examples",
-    "CABSdock-Output-Analysis": "CABSdock Output",
-    "CABSdock-Advanced-Data": "CABSdock Data",
+    "All-Atom-Reconstruction": "All-Atom Reconstruction",
+    "Protein-Flexibility": "Protein Flexibility",
+    "Peptide-Modeling": "Peptide Modeling",
+    "Peptide-Protein-Docking": "Peptide–Protein Docking",
+    "Examples": "Examples",
+    "Gallery": "Gallery",
     "Case-Studies": "Case Studies",
+    "Options-Reference": "Options Reference",
+    "Visualization-Guide": "Visualization Guide",
+    "Advanced-Data": "Internal Data Structures",
+    "References": "References",
 }
 
 SECTION_LABELS = {
-    "Core Guide": [
+    "Start": [
         "Home",
         "Installation",
-        "Modeling-Scheme",
-        "Options",
-        "Options-Reference",
-        "Examples",
-        "Flexibility-Modes",
-        "Output-Analysis",
-        "Case-Studies",
     ],
-    "CABSdock": [
-        "CABSdock",
-        "CABSdock-Options",
-        "CABSdock-Examples",
-        "CABSdock-Output-Analysis",
-        "CABSdock-Advanced-Data",
+    "Core Concepts": [
+        "Modeling-Scheme",
+        "CABS-Model",
+        "Restraints",
+        "Flexibility-Modes",
+        "All-Atom-Reconstruction",
+    ],
+    "User Guide": [
+        "Protein-Flexibility",
+        "Peptide-Modeling",
+        "Peptide-Protein-Docking",
+    ],
+    "Resources": [
+        "Examples",
+        "Case-Studies",
+        "Options-Reference",
+        "Visualization-Guide",
+        "Advanced-Data",
+        "References",
     ],
 }
 
 WIKI_LINK_RE = re.compile(r"\]\(([A-Za-z0-9_-]+)(#[^)]+)?\)")
-ALERT_RE = re.compile(r"^> \[!(NOTE|TIP|WARNING|IMPORTANT)\]\s*$")
+ALERT_RE = re.compile(r"^(\s*)> \[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION)\]\s*$", re.IGNORECASE)
 YOUTUBE_THUMB_RE = re.compile(
     r'<a href="(?P<href>https?://(?:www\.)?(?:youtube\.com/watch\?v=[^"]+|youtu\.be/[^"?]+)[^"]*)">'
     r'\s*<img alt="(?P<alt>[^"]*)" src="(?P<src>[^"]*)"[^>]*>\s*</a>',
@@ -170,17 +182,21 @@ def rewrite_github_alerts(text: str) -> str:
             idx += 1
             continue
 
-        kind = alert_match.group(1).lower()
-        body: list[str] = []
+        indent = alert_match.group(1)
+        kind = alert_match.group(2).lower()
         idx += 1
-        while idx < len(lines) and lines[idx].startswith("> "):
-            body.append(lines[idx][2:])
+        # Convert to admonition extension syntax: !!! kind
+        # Add a blank line before the admonition if it's not at the start
+        if rewritten and rewritten[-1].strip():
+             rewritten.append("")
+        rewritten.append(f"{indent}!!! {kind}")
+        while idx < len(lines) and lines[idx].strip().startswith(">"):
+            # Strip the "> " and preserve the rest of the line, then indent it for the admonition block
+            line_content = re.sub(r"^\s*>\s?", "", lines[idx])
+            rewritten.append(f"{indent}    {line_content}")
             idx += 1
-
-        rewritten.append(f'<div class="admonition {kind}">')
-        rewritten.append(f'<p class="admonition-title">{kind.title()}</p>')
-        rewritten.extend(body or [""])
-        rewritten.append("</div>")
+        # Add an empty line to end the block
+        rewritten.append("")
     return "\n".join(rewritten)
 
 
@@ -267,13 +283,54 @@ def normalize_media_blocks(html_text: str) -> str:
     return html_text
 
 
+def add_external_link_targets(html_text: str) -> str:
+    def repl(match: re.Match[str]) -> str:
+        attrs = match.group(1)
+        if re.search(r'href="https?://', attrs) and 'target=' not in attrs:
+            return f'<a target="_blank" rel="noopener noreferrer" {attrs}>'
+        return match.group(0)
+    return re.sub(r'<a ([^>]+)>', repl, html_text)
+
+
+def link_pdb_ids(html_text: str) -> str:
+    parts = re.split(r'(<[^>]+>)', html_text)
+    # Heuristic: starts with 1-9, 4 chars long, must contain at least one letter to avoid years.
+    pdb_pattern = re.compile(r'\b([1-9][0-9A-Za-z]{3})(?:_([A-Z0-9]))?\b')
+    for i in range(len(parts)):
+        if i % 2 == 0:  # text node
+            def pdb_repl(match: re.Match[str]) -> str:
+                pdb_id = match.group(1)
+                if not any(c.isalpha() for c in pdb_id):
+                    return match.group(0)
+                # Avoid common false positives in this repo
+                if pdb_id.lower() in ('mc-c', 'mc-s'):
+                    return match.group(0)
+                url = f"https://www.rcsb.org/structure/{pdb_id.upper()}"
+                return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{match.group(0)}</a>'
+            parts[i] = pdb_pattern.sub(pdb_repl, parts[i])
+    return "".join(parts)
+
+
+def link_uniprot_ids(html_text: str) -> str:
+    parts = re.split(r'(<[^>]+>)', html_text)
+    # Pattern: UniProt: followed by ID
+    uniprot_pattern = re.compile(r'UniProt:\s*([A-Z0-9]{6,10})')
+    for i in range(len(parts)):
+        if i % 2 == 0:  # text node
+            def uniprot_repl(match: re.Match[str]) -> str:
+                uniprot_id = match.group(1)
+                url = f"https://www.uniprot.org/uniprotkb/{uniprot_id}/entry"
+                return f'UniProt: <a href="{url}" target="_blank" rel="noopener noreferrer">{uniprot_id}</a>'
+            parts[i] = uniprot_pattern.sub(uniprot_repl, parts[i])
+    return "".join(parts)
+
+
 def markdown_to_html(text: str) -> tuple[str, str, str]:
     md = markdown.Markdown(
         extensions=[
             "extra",
             "admonition",
             "attr_list",
-            "sane_lists",
             "toc",
         ],
         extension_configs={"toc": {"permalink": True}},
@@ -283,6 +340,9 @@ def markdown_to_html(text: str) -> tuple[str, str, str]:
     body = convert_video_thumbnails(body)
     body = convert_local_video_links(body)
     body = normalize_media_blocks(body)
+    body = add_external_link_targets(body)
+    body = link_pdb_ids(body)
+    body = link_uniprot_ids(body)
     toc = md.toc or "<p class=\"toc-empty\">No table of contents for this page.</p>"
     title = "CABS-flex Documentation"
     match = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.DOTALL)
@@ -299,8 +359,8 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{html.escape(page_title)}</title>
-    <link rel="stylesheet" href="{SITE_CSS}">
-    <script defer src="{SITE_JS}"></script>
+    <link rel="stylesheet" href="{SITE_CSS}?v=1.1">
+    <script defer src="{SITE_JS}?v=1.1"></script>
   </head>
   <body>
     <div class="site-shell">

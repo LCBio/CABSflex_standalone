@@ -413,12 +413,12 @@ class CABSTask(metaclass=ABCMeta):
             elif mode.lower() == "ss2":
                 self.protein_restraints = ("flexible", gap, min_d, max_d)
             elif mode not in allowed_modes:
-                logger.warning(
-                    _name,
-                    "Unknown protein restraints mode: '%s'. Changing to 'rigid'."
-                    % mode,
-                )
-                self.protein_restraints = ("rigid", gap, min_d, max_d)
+                # Use the predefined default for this task type
+                parser = opt_parser.dock_parser if self.__class__.__name__ == "DockTask" else opt_parser.flex_parser
+                default_mode = parser.get_default("protein_restraints")[0]
+                
+                logger.warning(_name, "Unknown mode: '%s'. Changing to '%s'." % (mode, default_mode))
+                self.protein_restraints = (default_mode, gap, min_d, max_d)
 
         if self.no_protein_restraints:
             self.category_mode = "unleashed"

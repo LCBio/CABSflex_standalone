@@ -59,8 +59,9 @@ pre {
 pre {
   overflow-x: auto;
   padding: 1rem 1.15rem;
-  background: #111317;
-  color: #f3f5f7;
+  background: #f6f8fa;
+  color: #24292f;
+  border: 1px solid #d0d7de;
   border-radius: 14px;
   font-size: 0.94rem;
 }
