@@ -81,8 +81,8 @@ SECTION_LABELS = {
     "Resources": [
         "Examples",
         "Case-Studies",
-        "Options-Reference",
         "Visualization-Guide",
+        "Options-Reference",
         "Advanced-Data",
         "References",
     ],
@@ -302,8 +302,8 @@ def link_pdb_ids(html_text: str) -> str:
                 pdb_id = match.group(1)
                 if not any(c.isalpha() for c in pdb_id):
                     return match.group(0)
-                # Avoid common false positives in this repo
-                if pdb_id.lower() in ('mc-c', 'mc-s'):
+                # Avoid common false positives
+                if pdb_id.upper() in ('12GB', '8GB', 'RAM', 'MC-C', 'MC-S'):
                     return match.group(0)
                 url = f"https://www.rcsb.org/structure/{pdb_id.upper()}"
                 return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{match.group(0)}</a>'
@@ -359,13 +359,13 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{html.escape(page_title)}</title>
-    <link rel="stylesheet" href="{SITE_CSS}?v=1.1">
-    <script defer src="{SITE_JS}?v=1.1"></script>
+    <link rel="stylesheet" href="{SITE_CSS}?v=1.2">
+    <script src="{SITE_JS}?v=1.2"></script>
   </head>
-  <body>
+  <body id="site-top">
     <div class="site-shell">
       <aside class="sidebar" id="sidebar">
-        <a class="brand" href="index.html">CABS-flex Docs</a>
+        <a class="brand" href="index.html">CABS-flex Standalone 3 Docs</a>
         {build_sidebar(page)}
       </aside>
       <main class="main-content">

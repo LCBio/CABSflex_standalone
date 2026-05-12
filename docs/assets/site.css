@@ -21,9 +21,7 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: smooth;
-}
+html {}
 
 body {
   margin: 0;
@@ -133,7 +131,7 @@ blockquote {
   letter-spacing: -0.02em;
 }
 
-.sidebar-nav section + section {
+.sidebar-nav section+section {
   margin-top: 1.35rem;
 }
 
@@ -152,7 +150,7 @@ blockquote {
   padding: 0;
 }
 
-.sidebar-nav li + li {
+.sidebar-nav li+li {
   margin-top: 0.15rem;
 }
 
@@ -216,7 +214,7 @@ blockquote {
   box-shadow: var(--shadow);
 }
 
-.doc-content > :first-child {
+.doc-content> :first-child {
   margin-top: 0;
 }
 
@@ -261,7 +259,7 @@ blockquote {
   padding-left: 1.35rem;
 }
 
-.doc-content li + li {
+.doc-content li+li {
   margin-top: 0.28rem;
 }
 
@@ -323,7 +321,7 @@ blockquote {
   padding-left: 1rem;
 }
 
-.toc-card li + li {
+.toc-card li+li {
   margin-top: 0.35rem;
 }
 
