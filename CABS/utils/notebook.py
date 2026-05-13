@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 def generate_notebook(work_dir, protein=None, export_html=False, jupyter_path="jupyter"):
-    """Generate a portable CABS analysis notebook in the simulation work directory."""
+    """Generate a CABS analysis notebook in the simulation work directory."""
     work_dir = os.path.abspath(work_dir)
     
     # 1. Ustalenie nazwy wyświetlanej (Display Name)
@@ -69,7 +69,7 @@ def generate_notebook(work_dir, protein=None, export_html=False, jupyter_path="j
         "except Exception as e: print(f'Error: {e}')\n"
     ]
 
-    # --- BLOCK 2: RMSF Plot Code (BLUE LINE) ---
+    # --- BLOCK 2: RMSF Plot Code ---
     plotly_rmsf_code = [
         "import plotly.graph_objects as go\n",
         "import plotly.io as pio\n",
