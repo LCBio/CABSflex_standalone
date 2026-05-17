@@ -476,8 +476,8 @@ blockquote {
   transform: translateY(0);
 }
 
-.reference-tooltip strong {
-  color: var(--accent);
+.reference-tooltip > strong {
+  color: magenta;
   font-weight: 600;
   display: block;
 }
@@ -486,6 +486,11 @@ blockquote {
   margin: 0;
   font-size: 0.84rem;
   color: #333333;
+}
+
+.reference-tooltip p strong {
+  color: red;
+  font-weight: 600;
 }
 
 /* Target Highlight Animation */

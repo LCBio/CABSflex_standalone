@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const paraHTML = nextPara && nextPara.tagName === 'P' ? nextPara.innerHTML : '';
 
-    tooltip.innerHTML = `<strong>${headingText}</strong><hr style="margin:8px 0; border:0; border-top:1px solid rgba(15, 98, 254, 0.15);">${paraHTML}`;
+    tooltip.innerHTML = `<strong>${headingText}</strong><hr style="margin:8px 0; border:0; border-top:1px solid rgba(15, 98, 254, 0.15);"><p>${paraHTML}</p>`;
     
     // Position tooltip relative to hovered link
     const rect = link.getBoundingClientRect();
