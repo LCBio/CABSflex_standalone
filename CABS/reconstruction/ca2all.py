@@ -88,20 +88,20 @@ def ca2all(
         if not len(atoms):
             raise Exception("File %s contains no CA atoms" % filename)
 
-        chains = [atoms[0][1]]
+        chains = [atoms[0][1].strip()]
         seq = ""
         chain_length = {}  # Dictionary to store chain name and sequence length
-        current_chain = atoms[0][1]
+        current_chain = atoms[0][1].strip()
         current_length = 0
 
         for a in atoms:
-            s, c = a[:2]
+            s, c = a[0], a[1].strip()
             if c != current_chain:
                 # Update the length of the previous chain
                 chain_length[current_chain] = current_length
                 current_chain = c
                 current_length = 0
-                chains += c
+                chains.append(c)
                 seq += "/"
             seq += aa_names[s]
             current_length += 1
@@ -121,12 +121,20 @@ def ca2all(
             def special_patches(self, aln):
                 self.rename_segments(segment_ids=chains)
                 if cyclization:
-                    for ch_id in cyclization:
+                    for ch_id_full in cyclization:
+                        ch_id = ch_id_full[:1]
+                        try:
+                            ch = self.chains[ch_id]
+                        except KeyError:
+                            if len(self.chains) == 1:
+                                ch = self.chains[0]
+                            else:
+                                raise
                         self.patch(
                             residue_type="LINK",
                             residues=(
-                                self.residues[f"{chain_length[ch_id]}:{ch_id}"],
-                                self.residues[f"1:{ch_id}"],
+                                ch.residues[len(ch.residues) - 1],
+                                ch.residues[0],
                             ),
                         )
                 if disulfide_bonds:
@@ -135,6 +143,9 @@ def ca2all(
                             residue_type="DISU",
                             residues=(self.residues[bond[0]], self.residues[bond[1]]),
                         )
+
+            def special_disulfides(self, aln):
+                pass
 
         mdl = MyModel(
             env,

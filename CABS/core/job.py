@@ -633,9 +633,15 @@ class CABSTask(metaclass=ABCMeta):
     def load_all_atom_tops(self):
         if self.aa_rebuild:
             pth = os.path.join(self.work_dir, "output_pdbs", "model_%i.pdb")
-            med_traj = np.array(
-                [Pdb(pth % i, create_from_aa=True).atoms.to_numpy() for i in range(self.clustering_medoids)]
-            )
+            pdb_files = [pth % i for i in range(self.clustering_medoids)]
+            coords_list = [Pdb(f, create_from_aa=True).atoms.to_numpy() for f in pdb_files]
+            try:
+                med_traj = np.array(coords_list)
+            except ValueError:
+                logger.warning(_name, "Inconsistent atom counts in all-atom models. Clustering/RMSD might be affected.")
+                min_atoms = min(c.shape[0] for c in coords_list)
+                med_traj = np.array([c[:min_atoms] for c in coords_list])
+            
             med_traj = np.expand_dims(med_traj, axis=1)
             mod0 = Pdb(
                 os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"),
@@ -715,16 +721,25 @@ class CABSTask(metaclass=ABCMeta):
                 add_restraints += Restraints.from_file(filename, sg=True)
 
         if self.cyclization:
-            add_restraints += Restraints(
-                self.initial_complex.protein.generate_backbone_restraints(
-                    self.cyclization
+            mapped_cyclization = [self.initial_complex.map_user_chain(c) for c in self.cyclization]
+            protein_restraints += Restraints(
+                self.initial_complex.generate_backbone_restraints(
+                    mapped_cyclization
                 )
             )
 
         if self.disulfide_bonds:
-            add_restraints += Restraints(
-                self.initial_complex.protein.generate_disulfide_restraints(
-                    self.disulfide_bonds
+            mapped_disulfides = []
+            for b1, b2 in self.disulfide_bonds:
+                mapped_disulfides.append(
+                    (
+                        self.initial_complex.map_user_residue(b1),
+                        self.initial_complex.map_user_residue(b2),
+                    )
+                )
+            protein_restraints += Restraints(
+                self.initial_complex.generate_disulfide_restraints(
+                    mapped_disulfides
                 ),
                 sg=True,
             )
@@ -816,20 +831,24 @@ class CABSTask(metaclass=ABCMeta):
                 module_name=_name, msg="Loading trajectories from the CABS run"
             )
             self.trajectory = self.cabsrun.get_trajectory()
-        self.trajectory.weights = self.initial_complex.protein.weights
-        self.trajectory.template.update_ids(
-            self.initial_complex.protein.old_ids, pedantic=False
-        )
-        self.initial_complex.protein.update_ids(self.initial_complex.protein.old_ids)
-        chs = "".join(self.initial_complex.protein_chains)
-        tchs = "".join(
-            sorted(set(chs).intersection(self.trajectory.template.list_chains()))
-        )
+        self.trajectory.weights = self.initial_complex.weights
+        chs = list(self.initial_complex.list_chains().keys())
+        tchs = [c for c in chs if c in self.trajectory.template.list_chains()]
         self.trajectory.tmp_target_chs = tchs
+        ref_stc = self.initial_complex.protein
+        if not ref_stc:
+            ref_stc = self.initial_complex.select("model 1")
+
         ic_stc, tt_stc, dummy_aln = self.trajectory.align_to(
-            self.initial_complex.protein, chs, tchs, align_mth="trivial"
+            ref_stc, chs, tchs, align_mth="trivial"
         )
         self.trajectory.superimpose_to(ic_stc, tt_stc)
+
+        # Update IDs after alignment to avoid issues with multi-character chain IDs (like PEP1) in selection strings
+        self.trajectory.template.update_ids(
+            self.initial_complex.old_ids, pedantic=False
+        )
+        self.initial_complex.update_ids(self.initial_complex.old_ids, pedantic=False)
         logger.info(module_name=_name, msg="Trajectories loaded successfully")
         return self.trajectory
 
@@ -839,6 +858,21 @@ class CABSTask(metaclass=ABCMeta):
 
     def save_models(self):
         output_folder = os.path.join(self.work_dir, "output_pdbs")
+        
+        # Safe mapping of peptide aliases (PEP1, PEP2...) to actual chain IDs
+        def map_resid(resid):
+            if self.initial_complex and resid in self.initial_complex.new_ids:
+                return self.initial_complex.new_ids[resid]
+            return resid
+
+        mapped_cyclization = [map_resid(f"1:{c}") for c in self.cyclization] if self.cyclization else []
+        mapped_cyclization = [c.split(":")[1] if ":" in c else c for c in mapped_cyclization]
+
+        mapped_disulfides = [
+            (map_resid(b[0]), map_resid(b[1]))
+            for b in self.disulfide_bonds
+        ] if self.disulfide_bonds else []
+
         logger.log_file(
             module_name=_name, msg="Saving pdb files to " + str(output_folder)
         )
@@ -916,15 +950,9 @@ class CABSTask(metaclass=ABCMeta):
                                         f"modeller_output_{i}.txt",
                                     ),
                                     work_dir=self.work_dir,
-                                    cyclization=self.cyclization,
-                                    disulfide_bonds=self.disulfide_bonds,
+                                    cyclization=mapped_cyclization,
+                                    disulfide_bonds=mapped_disulfides,
                                 )
-                                pth_tmp = os.path.join(
-                                    self.work_dir, "output_pdbs", f"model_{i}.pdb"
-                                )
-                                mod = Pdb(pth_tmp, create_from_aa=True)
-                                ssh = ""
-                                mod.atoms.save_to_pdb(pth_tmp, header=ssh)
                             save_to_ca = False
                     elif self.aa_method == "cg2all":
                         logger.log_file(
@@ -971,20 +999,10 @@ class CABSTask(metaclass=ABCMeta):
                                             f"modeller_output_{i}.txt",
                                         ),
                                         work_dir=self.work_dir,
-                                        cyclization=self.cyclization,
-                                        disulfide_bonds=self.disulfide_bonds,
+                                        cyclization=mapped_cyclization,
+                                        disulfide_bonds=mapped_disulfides,
                                         only_cyclization=True,
                                     )
-                            pth_tmp = os.path.join(
-                                self.work_dir, "output_pdbs", f"model_{i}.pdb"
-                            )
-                            mod = Pdb(pth_tmp, create_from_aa=True)
-                            ssh = ""
-                            output_atoms = mod.atoms
-                            output_chains = "".join(output_atoms.list_chains())
-                            if original_chains != output_chains:
-                                output_atoms.change_chid(output_chains, original_chains)
-                            output_atoms.save_to_pdb(pth_tmp, header=ssh)
                         save_to_ca = False
                 else:
                     logger.warning(
@@ -1009,7 +1027,19 @@ class CABSTask(metaclass=ABCMeta):
                 medoids_ca_atoms_list[0].save_to_json(json_file)
         return output_folder
 
-    def save_all_atom_replicas(self, output_folder):
+        def map_resid(resid):
+            if self.initial_complex and resid in self.initial_complex.new_ids:
+                return self.initial_complex.new_ids[resid]
+            return resid
+
+        mapped_cyclization = [map_resid(f"1:{c}") for c in self.cyclization] if self.cyclization else []
+        mapped_cyclization = [c.split(":")[1] if ":" in c else c for c in mapped_cyclization]
+
+        mapped_disulfides = [
+            (map_resid(b[0]), map_resid(b[1]))
+            for b in self.disulfide_bonds
+        ] if self.disulfide_bonds else []
+
         if self.aa_method not in ALLOWED_AA_METHODS:
             logger.warning(
                 _name,
@@ -1056,10 +1086,21 @@ class CABSTask(metaclass=ABCMeta):
                                 f"modeller_replica_{replica_idx}_model_{model_idx}.txt",
                             ),
                             work_dir=self.work_dir,
-                            cyclization=self.cyclization,
-                            disulfide_bonds=self.disulfide_bonds,
+                            cyclization=mapped_cyclization,
+                            disulfide_bonds=mapped_disulfides,
                         )
                     elif self.aa_method == "cg2all":
+                        attempt_cyclization = False
+                        if self.cyclization or self.disulfide_bonds:
+                            try:
+                                from CABS.reconstruction.ca2all import ca2all
+                                attempt_cyclization = True
+                            except ImportError:
+                                logger.warning(
+                                    _name,
+                                    msg="Modeller not found. Skipping backbone and/or disulfide cyclization for replica reconstruction.",
+                                )
+                        
                         convert_cg_to_all(
                             ca_path,
                             work_dir=self.work_dir,
@@ -1070,6 +1111,23 @@ class CABSTask(metaclass=ABCMeta):
                             output_filename=aa_name,
                             cg2all_representation=self.cg2all_representation,
                         )
+
+                        if attempt_cyclization:
+                            with open(aa_path) as f:
+                                ca2all(
+                                    f,
+                                    output=aa_path,
+                                    iterations=1,
+                                    out_mdl=os.path.join(
+                                        self.work_dir,
+                                        "output_data",
+                                        f"modeller_replica_{replica_idx}_model_{model_idx}.txt",
+                                    ),
+                                    work_dir=self.work_dir,
+                                    cyclization=mapped_cyclization,
+                                    disulfide_bonds=mapped_disulfides,
+                                    only_cyclization=True,
+                                )
                 except Exception as e:
                     logger.warning(
                         _name,
@@ -1129,11 +1187,12 @@ class CABSTask(metaclass=ABCMeta):
             logger.log(
                 module_name=_name, msg="Saving starting structure with RMSF values..."
             )
-            rmsfs = self.trajectory.rmsf(self.initial_complex.protein_chains)
+            chs = self.initial_complex.protein_chains or self.initial_complex.peptide_chains
+            rmsfs = self.trajectory.rmsf(chs)
             rmsf_update_dict = {}
             atom_index = 0
             for atom in self.trajectory.template.atoms:
-                if atom.chid in self.initial_complex.protein_chains:
+                if atom.chid in chs:
                     rmsf_update_dict[atom.resid_id()] = rmsfs[atom_index]
                     atom_index += 1
             initial_pdb_file.update_bfac(rmsf_update_dict)
@@ -1907,6 +1966,7 @@ class FlexTask(CABSTask):
             pdb_cache=self.pdb_cache,
             save_initial_pdb=self.save_initial_pdb,
             json_output=self.json_output,
+            predict_peptide_structure=self.peptide_structure_prediction,
             cg2all_env_prefix=self.cg2all_env_prefix,
             sc=self.write_sc_start_pdbs,
         )
@@ -1919,14 +1979,15 @@ class FlexTask(CABSTask):
 
     def score_results(self, n_filtered, number_of_medoids, number_of_iterations):
         # Clustering the trajectory
+        chs = self.initial_complex.protein_chains or self.initial_complex.peptide_chains
         clst = Clustering(
-            self.trajectory, "chain " + ",".join(self.initial_complex.protein_chains)
+            self.trajectory, "chain " + ",".join(chs)
         )
         self.medoids, self.clusters_dict, self.clusters = clst.cabs_clustering(
             number_of_medoids=number_of_medoids,
             number_of_iterations=number_of_iterations,
         )
-        self.rmslst = {self.initial_complex.protein_chains: clst.distance_matrix[0]}
+        self.rmslst = {"".join(chs): clst.distance_matrix[0]}
 
     def load_output(self, *args, **kwargs):
         ret = super(FlexTask, self).load_output(*args, **kwargs)
@@ -2001,7 +2062,7 @@ class FlexTask(CABSTask):
 
         thrt = thra if self.aa_rebuild else thr
 
-        rchs = self.initial_complex.protein_chains
+        rchs = self.initial_complex.protein_chains or self.initial_complex.peptide_chains
 
         cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
         if self.aa_rebuild:
@@ -2044,11 +2105,12 @@ class FlexTask(CABSTask):
                 super(FlexTask, self).parse_reference(ref, pdb_cache)
                 logger.info(_name, f"Reference {ref} loaded.")
             except AttributeError:  # if ref is None it has no split mth
+                chs = self.initial_complex.protein_chains or self.initial_complex.peptide_chains
                 ref_stc = self.initial_complex.select(
-                    "name CA and (chain %s)"
-                    % ",".join(self.initial_complex.protein_chains)
+                    "name CA and (chain %s)" % ",".join(chs)
                 )
-                ref_stc.update_ids(self.initial_complex.protein.old_ids)
+                if self.initial_complex.protein:
+                    ref_stc.update_ids(self.initial_complex.protein.old_ids)
                 self.reference = (
                     ref_stc,
                     "".join(sorted(set([i.chid for i in ref_stc]))),
@@ -2071,7 +2133,7 @@ class FlexTask(CABSTask):
 
         graph_RMSF(
             self.trajectory,
-            self.initial_complex.protein_chains,
+            self.initial_complex.protein_chains or self.initial_complex.peptide_chains,
             os.path.join(pltdir, "RMSF"),
             fmt=self.image_file_format,
         )

@@ -10,7 +10,7 @@ from CABS.utils.utils import convert_cg_to_all
 
 from CABS.utils.utils import CG2ALL_REPRESENTATIONS
 from CABS.reconstruction.cg2all import _read_calpha_atoms, _write_calpha_sc_segment, _format_cg_pdb_line
-from CABS.reconstruction.cg2all import sync_residues_with_template
+from CABS.reconstruction.cg2all import sync_residues_with_template, sync_residues
 
 def _task_wrapper(kwargs):
     """Simple wrapper for parallel execution of convert_cg_to_all."""
@@ -139,10 +139,21 @@ def reconstruct_trajectory(
             logger.debug(module_name="CG2ALL", msg=f"Converting reconstructed DCD to final PDB: {output_pdb}")
             aa_traj = md.load(output_dcd, top=temp_output_pdb)
             aa_traj.save_pdb(output_pdb)
+        # Always synchronize residues and chains from the input coarse-grained trajectory.
+        # This ensures that CABS-assigned metadata is preserved in the all-atom reconstruction.
+        if output_pdb and os.path.exists(output_pdb):
+            logger.debug(module_name="CG2ALL", msg=f"Synchronizing chains and residues for: {output_pdb}")
+            sync_residues(
+                input_pdb_path=Path(trajectory_file),
+                output_pdb_path=Path(output_pdb),
+            )
+            
+            # If renumbering to original PDB is requested, perform a second pass with the topology template.
             if renumber_flag:
+                # Use topology_pdb as the AA template for precise renumbering
                 sync_residues_with_template(
                     input_pdb_path=Path(trajectory_file),
-                    topology_pdb_path=Path(temp_output_pdb),
+                    topology_pdb_path=Path(topology_pdb),
                     output_pdb_path=Path(output_pdb),
                 )
             if os.path.exists(output_dcd):

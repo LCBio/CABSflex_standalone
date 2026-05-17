@@ -64,12 +64,13 @@ class Clustering:
             filtered_targets = [
                 target for target in medoid_ndx if target not in to_remove
             ]
-            from CABS.io import logger
-            logger.warning(
-                "Clustering",
-                f"The number of unique structures {len(filtered_targets)} is less than the number of medoids {k}. Reducing medoids count to {len(filtered_targets)}.",
-            )
-            k = len(filtered_targets)
+            if len(filtered_targets) < k:
+                from CABS.io import logger
+                logger.warning(
+                    "Clustering",
+                    f"The number of unique structures {len(filtered_targets)} is less than the number of medoids {k}. Reducing medoids count to {len(filtered_targets)}.",
+                )
+                k = len(filtered_targets)
             np.random.shuffle(filtered_targets)
             medoid_ndx = np.sort(filtered_targets[:k])
 

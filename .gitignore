@@ -225,3 +225,7 @@ tests/research_all_flag.pdb
 #AI agent related files
 .continue/
 way/
+temp_cg.pdb
+temp_cg2all_in.pdb
+test_complex.pdb
+scratch/

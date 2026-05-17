@@ -457,10 +457,25 @@ def convert_cg_to_all(
             env=env,
         )
         
-        # After successful conversion, synchronize residues in the OUTPUT file
+        # After successful conversion, synchronize residues in the OUTPUT file.
+        # We always sync from the input CG file first to ensure chains are preserved.
         output_file_path = output_dir / fout
-        if output_file_path.exists() and renumber_flag:
-            sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
+        if output_file_path.exists():
+            # Pass 1: Sync to CABS assignments (using input_pdb as reference)
+            sync_residues(input_pdb_path=input_pdb, output_pdb_path=output_file_path)
+            
+            # Pass 2: Sync to original PDB numbering (using reference_path and start_all.pdb as template)
+            if renumber_flag and reference_path:
+                start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
+                if start_all_path.exists():
+                    sync_residues_with_template(
+                        input_pdb_path=reference_path,
+                        topology_pdb_path=start_all_path,
+                        output_pdb_path=output_file_path
+                    )
+                else:
+                    # Fallback to sync_residues if template is missing
+                    sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
             
         return result.stdout
     except subprocess.CalledProcessError as e:

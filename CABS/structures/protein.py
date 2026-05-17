@@ -48,6 +48,18 @@ class Protein(Atoms):
     ) -> None:
         Atoms.__init__(self)
 
+        if source is None:
+            self.source = None
+            self.old_ids = {}
+            self.new_ids = {}
+            self.exclude = {}
+            self.weights = []
+            self.cg2all_env_prefix = cg2all_env_prefix
+            self.center = Vector3d(0, 0, 0)
+            self.dimension = 0.0
+            self.patches = {}
+            return
+
         logger.info(module_name=_name, msg=f"Loading {source} as input protein")
 
         # Only happens if user explicitly wants to predict peptide structure
@@ -64,7 +76,7 @@ class Protein(Atoms):
             if ":" not in source:
                 if self.NSP3_MODEL_PATH:
                     try:
-                        from CABS.secstrpredictor import SecStrPredictor
+                        from CABS.prediction.secstrpredictor import SecStrPredictor
 
                         predictor = SecStrPredictor(self.NSP3_MODEL_PATH)
                     except ImportError as e:
@@ -554,47 +566,18 @@ class Protein(Atoms):
                             restr.append(f"{a1.resid_id()} {a2.resid_id()} {d} {w}")
         return restr
 
-    def generate_backbone_restraints(self, cyclic_chains):
-        restr = []
-        for chain in cyclic_chains:
-            first_res = None
-            for atom in self.atoms:
-                if atom.chid == chain:
-                    first_res = atom.resid_id()
-                    break
-            last_res = None
-            for atom in reversed(self.atoms):
-                if atom.chid == chain:
-                    last_res = atom.resid_id()
-                    break
-            if first_res and last_res:
-                restr.append(f"{first_res} {last_res} 3.8 1.0")
-            else:
-                logger.warning(
-                    module_name=_name,
-                    msg=f"Cyclic backbone could not be created in chain {chain}",
+    def generate_ca_restraints(self):
+        """
+        Generates restraints for the CA-CA bonds.
+        :return: list of restraints
+        """
+        restraints = []
+        for i in range(len(self.atoms) - 1):
+            if self.atoms[i].chid == self.atoms[i + 1].chid:
+                restraints.append(
+                    f"{self.atoms[i].resid_id()} {self.atoms[i + 1].resid_id()} 3.8 1.0"
                 )
-
-        return restr
-
-    def generate_disulfide_restraints(self, disulfide_bonds):
-        restr = []
-        for bond in disulfide_bonds:
-            res1 = None
-            res2 = None
-            for atom in self.atoms:
-                if atom.resid_id() == bond[0] and atom.resname == "CYS":
-                    res1 = atom.resid_id()
-                elif atom.resid_id() == bond[1] and atom.resname == "CYS":
-                    res2 = atom.resid_id()
-            if res1 and res2:
-                restr.append(f"{res1} {res2} 2.0 1.0")
-            else:
-                logger.warning(
-                    module_name=_name,
-                    msg=f"Disulfide bond between residues {bond[0]} {bond[1]} could not be created",
-                )
-        return restr
+        return restraints
 
     def calculate_distances(self):
         """
@@ -618,7 +601,7 @@ class Peptide(Atoms):
     Class for the peptides.
     """
 
-    def __init__(self, source, conformation, location, work_dir=".", pdb_cache=None, cg2all_env_prefix=None):
+    def __init__(self, source, conformation, location, work_dir=".", pdb_cache=None, cg2all_env_prefix=None, predict_peptide_structure=False):
         logger.info(
             module_name=_name,
             msg=f"Loading ligand: {source}, conformation - {conformation}, location - {location}",
@@ -641,7 +624,21 @@ class Peptide(Atoms):
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(ss)
         except Pdb.InvalidPdbInput:
-            atoms = Atoms(source)
+            if ":" not in source and (predict_peptide_structure or Protein.NSP3_MODEL_PATH):
+                # Try prediction for sequence without SS
+                try:
+                    from CABS.prediction.secstrpredictor import SecStrPredictor
+                    # If model path is not set, SecStrPredictor will use propensity fallback
+                    predictor = SecStrPredictor(Protein.NSP3_MODEL_PATH)
+                    logger.info(_name, f"Predicting SS for peptide sequence: {source}")
+                    sec_str = predictor.predict_q3(source)
+                    atoms = Atoms(f"{source}:{sec_str}")
+                except Exception as e:
+                    logger.warning(_name, f"Peptide SS prediction failed: {e}. Defaulting to Coil.")
+                    atoms = Atoms(source)
+            else:
+                atoms = Atoms(source)
+
         atoms.set_bfac(0.0)
         self.conformation = conformation
         self.location = location
@@ -697,23 +694,26 @@ class ProteinComplex(Atoms):
             sc=sc,
         )
         self.chain_list = self.protein.list_chains()
-        self.protein_chains = "".join(self.chain_list.keys())
+        self.protein_chains = list(self.chain_list.keys())
+        self.weights = list(self.protein.weights) if self.protein.weights is not None else []
         self.old_ids = deepcopy(self.protein.old_ids)
 
         self.peptides = []
-        self.peptide_chains = ""
+        self.peptide_chains = []
         if peptides:
-            taken_chains = self.protein_chains + "X"
+            taken_chains = "".join(self.protein_chains) + "X"
             for num, p in enumerate(peptides):
                 peptide = Peptide(*p, work_dir=work_dir, pdb_cache=pdb_cache,
-                                  cg2all_env_prefix=cg2all_env_prefix)
+                                  cg2all_env_prefix=cg2all_env_prefix,
+                                  predict_peptide_structure=predict_peptide_structure)
                 if peptide[0].chid in taken_chains:
                     peptide.change_chid(
                         peptide[0].chid, utils.next_letter(taken_chains)
                     )
                 taken_chains += peptide[0].chid
-                self.peptide_chains += peptide[0].chid
+                self.peptide_chains.append(peptide[0].chid)
                 self.peptides.append(peptide)
+                self.weights.extend([1.0] * len(peptide))
                 update_dict = {}
                 i = 1
                 for atom in peptide:
@@ -759,8 +759,41 @@ class ProteinComplex(Atoms):
             if not os.path.isdir(odir):
                 os.makedirs(odir)
             complex_to_save.save_to_json(json_file)
+            logger.debug(module_name=_name, msg="Atoms saved to JSON file")
 
-        logger.debug(module_name=_name, msg="Atoms saved to JSON file")
+    def update_ids(self, ids, pedantic=True):
+        super().update_ids(ids, pedantic)
+        all_chains = list(self.select("model 1").list_chains().keys())
+        self.protein_chains = [c for c in all_chains if not c.startswith("PEP")]
+        self.peptide_chains = [c for c in all_chains if c.startswith("PEP")]
+        # If heuristic failed to find any peptides but there are chains, and we know we had peptides...
+        if not self.peptide_chains and self.peptides and all_chains:
+            # If there's no protein, everything must be peptides
+            if not self.protein or not self.protein.atoms:
+                self.peptide_chains = all_chains
+            else:
+                # This case is complex, but startswith('PEP') should have worked if we followed our own convention
+                pass
+
+    def map_user_chain(self, user_chain):
+        """Maps user-friendly chain IDs (PEP1) to internal ones (A) during setup."""
+        if user_chain.startswith("PEP"):
+            try:
+                idx = int(user_chain[3:]) - 1
+                if 0 <= idx < len(self.peptides):
+                    return self.peptides[idx][0].chid
+            except (ValueError, IndexError):
+                pass
+        return user_chain
+
+    def map_user_residue(self, user_residue):
+        """Maps user-friendly residue IDs (e.g., '1:PEP1') to internal ones (e.g., '1:A')."""
+        if ":" in user_residue:
+            resnum, chid = user_residue.split(":", 1)
+            return f"{resnum}:{self.map_user_chain(chid)}"
+        return user_residue
+
+
 
     @staticmethod
     def insert_peptide(protein, peptide, separation):

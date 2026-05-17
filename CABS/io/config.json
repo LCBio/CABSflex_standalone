@@ -178,6 +178,7 @@
                 "BASIC OPTIONS",
                 [
                     "input-protein",
+                    "peptide",
                     "config"
                 ]
             ],
@@ -193,6 +194,17 @@
                     "weighted-fit",
                     "gauss-iterations",
                     "receptor-ss"
+                ]
+            ],
+            [
+                "PEPTIDE OPTIONS",
+                [
+                    "add-peptide",
+                    "separation",
+                    "insertion-clash",
+                    "insertion-attempts",
+                    "pairmod",
+                    "peptide-structure-prediction"
                 ]
             ],
             [
@@ -580,7 +592,7 @@
         "input-protein": {
             "flag": "-i",
             "metavar": "INPUT",
-            "required": true,
+            "required": false,
             "help": "Load input protein structure.\n\nINPUT can be either:\n\n[1] PDB code (optionally with chain IDs)\ni.e. '-P 1CE1:HL' loads chains H and L of 1CE1 protein structure downloaded from the PDB database\n[2] PDB file (optionally gzipped)\n\nNote that only protein chain(s) are extracted from the input file, discarding all non-protein molecules."
         },
         "insertion-attempts": {

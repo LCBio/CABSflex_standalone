@@ -322,8 +322,11 @@ class Pdb:
             api_resp = req.get(f"{api_base}{entry_id}", timeout=10)
             if api_resp.status_code == 200:
                 metadata = api_resp.json()
-                db_status = metadata.get("pdbx_database_status", {})
-                can_use_pdb = (db_status.get("pdb_format_compatible", "N") == "Y")
+                db_status = metadata.get("pdbx_database_status")
+                if db_status:
+                    can_use_pdb = (db_status.get("pdb_format_compatible", "N") == "Y")
+                else:
+                    can_use_pdb = False
             else:
                 logger.warning(_name, f"Entry {entry_id} not indexed in API. Trying mmCIF only.")
         except req.RequestException:

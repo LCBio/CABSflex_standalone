@@ -25,6 +25,7 @@ from CABS.constants import (
     CABS_SS,
     CABS_SS_REVERSE,
 )
+from CABS.io import logger
 from CABS.io.logger import ProgressBar
 from CABS.structures.vector3d import Vector3d
 from CABS.utils import utils
@@ -43,7 +44,7 @@ class Atom:
     """
 
     # pattern used to decompose return value of resid_id() to (resnum, icode, chid)
-    RES_ID_PATT = re.compile(r"(-?[0-9]{1,4})([^0-9]?):([A-Z0-9])")
+    RES_ID_PATT = re.compile(r"(-?[0-9]{1,4})([^0-9]?):([A-Z0-9]+)")
 
     def __init__(
         self, line: Optional[str] = None, model: int = 0, **kwargs: Any
@@ -102,7 +103,7 @@ class Atom:
         fmt_name = f" {self.name:<3s}"
         if len(self.name) == 4:
             fmt_name = self.name
-        line += f"{self.serial:5d} {fmt_name:4s}{self.alt:1s}{self.resname:<4s}{self.chid:1s}{self.resnum:4d}{self.icode:1s}   {self.coord:24s}{self.occ:6.2f}{self.bfac:6.2f} {self.tail}"
+        line += f"{self.serial:5d} {fmt_name:4s}{self.alt:1s}{self.resname:<4s}{self.chid[:1]:1s}{self.resnum:4d}{self.icode:1s}   {self.coord:24s}{self.occ:6.2f}{self.bfac:6.2f} {self.tail}"
         return line
 
     def __repr__(self) -> str:
@@ -446,6 +447,8 @@ class Atoms:
         Returns a list of Atoms objects representing chains.
         :return: [Atoms]
         """
+        if not self.atoms:
+            return []
         chn = []
         chain = Atoms()
         chain.append(self.atoms[0])
@@ -618,6 +621,8 @@ class Atoms:
         :param other: Atoms
         :return: float
         """
+        if not self.atoms:
+            return float("inf")
         return min(a.min_distance(other) for a in self.atoms)
 
     def change_chid(self, old, new):
@@ -673,6 +678,50 @@ class Atoms:
         :return: float
         """
         return sqrt(max([p[0].dist2(p[1]) for p in combinations(self.atoms, 2)]))
+
+    def generate_backbone_restraints(self, cyclic_chains):
+        restr = []
+        for chain in cyclic_chains:
+            first_res = None
+            for atom in self.atoms:
+                if atom.chid == chain:
+                    first_res = atom.resid_id()
+                    break
+            last_res = None
+            for atom in reversed(self.atoms):
+                if atom.chid == chain:
+                    last_res = atom.resid_id()
+                    break
+            if first_res and last_res:
+                restr.append(f"{first_res} {last_res} 3.8 1.0")
+            else:
+                logger.warning(
+                    "Atoms",
+                    f"Cyclic backbone could not be created in chain {chain}",
+                )
+
+        return restr
+
+    def generate_disulfide_restraints(self, disulfide_bonds):
+        restr = []
+        for bond in disulfide_bonds:
+            res1 = None
+            res2 = None
+            for atom in self.atoms:
+                if atom.resid_id() == bond[0] and atom.resname == "CYS":
+                    res1 = atom.resid_id()
+                elif atom.resid_id() == bond[1] and atom.resname == "CYS":
+                    res2 = atom.resid_id()
+                if res1 and res2:
+                    break
+            if res1 and res2:
+                restr.append(f"{res1} {res2} 2.0 1.0")
+            else:
+                msg = f"Disulfide bond between residues {bond[0]} {bond[1]} could not be created (check if residues are CYS and exist)"
+                logger.critical("Atoms", msg)
+                raise ValueError(msg)
+
+        return restr
 
     def make_pdb(self, bar_msg=""):
         """
