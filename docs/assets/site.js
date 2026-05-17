@@ -51,7 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hash) {
       try {
         const decodedHash = decodeURIComponent(hash);
-        const target = document.querySelector(decodedHash);
+        let target = document.querySelector(decodedHash);
+        if (!target) {
+          // Fall back to lowercase version of the hash
+          target = document.querySelector(decodedHash.toLowerCase());
+        }
         if (target) {
           target.classList.remove('target-highlight');
           void target.offsetWidth; // Trigger reflow to restart animation
@@ -64,6 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
             void nextPara.offsetWidth;
             nextPara.classList.add('target-highlight');
           }
+
+          // Smooth scroll target into view center to avoid top bar overlap
+          setTimeout(() => {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
         }
       } catch (err) {
         console.error('Error in anchor highlighting:', err);
@@ -74,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', highlightTarget);
   // Run on load with a slight delay to ensure layout is complete and scroll position is settled
   if (window.location.hash) {
-    setTimeout(highlightTarget, 300);
+    setTimeout(highlightTarget, 400);
   }
 
   // --- Reference Hover Previews ---
@@ -113,7 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const doc = await fetchReferences();
     if (!doc) return;
 
-    const targetHeading = doc.querySelector(hash);
+    let targetHeading = doc.querySelector(hash);
+    if (!targetHeading) {
+      // Fall back to lowercase version of the hash
+      targetHeading = doc.querySelector(hash.toLowerCase());
+    }
     if (!targetHeading) return;
 
     // Extract citation title and body paragraph

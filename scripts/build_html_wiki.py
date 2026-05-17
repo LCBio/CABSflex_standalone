@@ -359,8 +359,8 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{html.escape(page_title)}</title>
-    <link rel="stylesheet" href="{SITE_CSS}?v=1.3">
-    <script src="{SITE_JS}?v=1.3"></script>
+    <link rel="stylesheet" href="{SITE_CSS}?v=1.4">
+    <script src="{SITE_JS}?v=1.4"></script>
   </head>
   <body id="site-top">
     <div class="site-shell">
