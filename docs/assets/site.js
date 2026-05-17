@@ -61,12 +61,17 @@ document.addEventListener('DOMContentLoaded', () => {
           void target.offsetWidth; // Trigger reflow to restart animation
           target.classList.add('target-highlight');
           
-          // Also highlight next paragraph if it's a reference page section
-          if (target.tagName === 'H2' && target.nextElementSibling && target.nextElementSibling.tagName === 'P') {
-            const nextPara = target.nextElementSibling;
-            nextPara.classList.remove('target-highlight');
-            void nextPara.offsetWidth;
-            nextPara.classList.add('target-highlight');
+          // Also highlight the actual citation paragraph if it's a reference page section
+          if (target.tagName === 'H2') {
+            let nextPara = target.nextElementSibling;
+            while (nextPara && (nextPara.tagName !== 'P' || nextPara.textContent.includes('⬆ Back to top'))) {
+              nextPara = nextPara.nextElementSibling;
+            }
+            if (nextPara) {
+              nextPara.classList.remove('target-highlight');
+              void nextPara.offsetWidth;
+              nextPara.classList.add('target-highlight');
+            }
           }
 
           // Smooth scroll target into view center to avoid top bar overlap
@@ -129,9 +134,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!targetHeading) return;
 
-    // Extract citation title and body paragraph
+    // Extract citation title and skip 'Back to top' link to find actual citation body paragraph
     const headingText = targetHeading.textContent.replace('¶', '').trim();
-    const nextPara = targetHeading.nextElementSibling;
+    let nextPara = targetHeading.nextElementSibling;
+    while (nextPara && (nextPara.tagName !== 'P' || nextPara.textContent.includes('⬆ Back to top'))) {
+      nextPara = nextPara.nextElementSibling;
+    }
     const paraHTML = nextPara && nextPara.tagName === 'P' ? nextPara.innerHTML : '';
 
     tooltip.innerHTML = `<strong>${headingText}</strong><hr style="margin:8px 0; border:0; border-top:1px solid rgba(15, 98, 254, 0.15);">${paraHTML}`;
