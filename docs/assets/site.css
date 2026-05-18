@@ -467,7 +467,6 @@ blockquote {
   transition: opacity 160ms cubic-bezier(0.25, 0.8, 0.25, 1), 
               transform 160ms cubic-bezier(0.25, 0.8, 0.25, 1), 
               visibility 160ms cubic-bezier(0.25, 0.8, 0.25, 1);
-  pointer-events: none;
 }
 
 .reference-tooltip.is-visible {
@@ -486,6 +485,16 @@ blockquote {
   margin: 0;
   font-size: 0.84rem;
   color: #333333;
+}
+
+.reference-tooltip a {
+  color: #0f62fe;
+  text-decoration: underline;
+  transition: color 150ms ease;
+}
+
+.reference-tooltip a:hover {
+  color: #0043ce;
 }
 
 .reference-tooltip p strong {

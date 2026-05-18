@@ -116,9 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let activeTimeout = null;
 
-  document.addEventListener('mouseover', async (e) => {
-    const link = e.target.closest('a');
-    if (!link) return;
+  const showTooltip = async (link) => {
+    clearTimeout(activeTimeout);
+    
     const href = link.getAttribute('href');
     if (!href || !href.includes('references.html#')) return;
 
@@ -174,18 +174,35 @@ document.addEventListener('DOMContentLoaded', () => {
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
 
-    clearTimeout(activeTimeout);
     tooltip.classList.add('is-visible');
+  };
+
+  const hideTooltip = () => {
+    clearTimeout(activeTimeout);
+    activeTimeout = setTimeout(() => {
+      tooltip.classList.remove('is-visible');
+    }, 200);
+  };
+
+  document.addEventListener('mouseover', (e) => {
+    const link = e.target.closest('a');
+    if (link && link.getAttribute('href') && link.getAttribute('href').includes('references.html#')) {
+      showTooltip(link);
+    }
   });
 
   document.addEventListener('mouseout', (e) => {
     const link = e.target.closest('a');
-    if (!link) return;
-    const href = link.getAttribute('href');
-    if (!href || !href.includes('references.html#')) return;
+    if (link && link.getAttribute('href') && link.getAttribute('href').includes('references.html#')) {
+      hideTooltip();
+    }
+  });
 
-    activeTimeout = setTimeout(() => {
-      tooltip.classList.remove('is-visible');
-    }, 200);
+  tooltip.addEventListener('mouseenter', () => {
+    clearTimeout(activeTimeout);
+  });
+
+  tooltip.addEventListener('mouseleave', () => {
+    hideTooltip();
   });
 });
