@@ -364,15 +364,29 @@ class CABSTask(metaclass=ABCMeta):
         if self.gauss and self.gauss_iterations:
             utils.GAUSS_MAX_ITER = self.gauss_iterations
 
-        allowed_modes = ["rigid", "plddt", "manual", "flexible", "none", "unleashed", "no-protein-restraints"]
+        allowed_modes = ["rigid", "plddt", "manual", "flexible", "ss1", "none", "unleashed", "no-protein-restraints"]
         if not self.no_protein_restraints:
             args = self.protein_restraints
             if isinstance(args, str):
                 args = [args]
                 
             mode = args[0]
+            mode_lower = mode.lower()
+            if mode_lower == "all":
+                logger.warning(
+                    _name,
+                    "Protein restraints mode 'all' is legacy. Mapping to the new equivalent 'rigid'.",
+                )
+                mode = "rigid"
+            elif mode_lower == "ss2":
+                logger.warning(
+                    _name,
+                    "Protein restraints mode 'ss2' is legacy. Mapping to the new equivalent 'flexible'.",
+                )
+                mode = "flexible"
+
             if len(args) == 4:
-                mode, gap, min_d, max_d = args
+                _, gap, min_d, max_d = args
                 gap = int(gap)
                 min_d = float(min_d)
                 max_d = float(max_d)
@@ -381,7 +395,7 @@ class CABSTask(metaclass=ABCMeta):
                 if self.__class__.__name__ == "DockTask":
                     gap, min_d, max_d = 5, 5.0, 15.0
                 else:  # FlexTask
-                    if mode.lower() == "flexible":
+                    if mode.lower() in ["flexible", "ss1"]:
                         gap, min_d, max_d = 3, 3.8, 11.5
                     elif mode.lower() == "rigid":
                         gap, min_d, max_d = 5, 5.0, 15.0
@@ -408,10 +422,6 @@ class CABSTask(metaclass=ABCMeta):
                 or mode.lower() == "no-protein-restraints"
             ):
                 self.no_protein_restraints = True
-            elif mode.lower() == "all":
-                self.protein_restraints = ("rigid", gap, min_d, max_d)
-            elif mode.lower() == "ss2":
-                self.protein_restraints = ("flexible", gap, min_d, max_d)
             elif mode not in allowed_modes:
                 # Use the predefined default for this task type
                 parser = opt_parser.dock_parser if self.__class__.__name__ == "DockTask" else opt_parser.flex_parser
@@ -423,7 +433,7 @@ class CABSTask(metaclass=ABCMeta):
         if self.no_protein_restraints:
             self.category_mode = "unleashed"
         else:
-            if self.protein_restraints[0].lower() == "flexible":
+            if self.protein_restraints[0].lower() in ["flexible", "ss1"]:
                 self.category_mode = "flexible"
             else:
                 self.category_mode = "rigid"

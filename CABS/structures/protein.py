@@ -35,7 +35,7 @@ class Protein(Atoms):
         weights: Optional[Dict[str, float]] = None,
         plddt: Optional[Dict[str, float]] = None,
         mode: Literal[
-            "rigid", "flexible", "no-protein-restraints", "unleashed", "none"
+            "rigid", "flexible", "ss1", "no-protein-restraints", "unleashed", "none"
         ] = "rigid",
         work_dir: str = ".",
         receptor_ss: Optional[Dict[str, str]] = None,
@@ -555,6 +555,8 @@ class Protein(Atoms):
                     a2 = self.atoms[j]
                     ssj = int(a2.occ) % 2
                     if mode == "flexible" and ssj:
+                        continue
+                    if mode == "ss1" and (ssi * ssj):
                         continue
                     d = (a1.coord - a2.coord).length()
                     if min_d < d < max_d:

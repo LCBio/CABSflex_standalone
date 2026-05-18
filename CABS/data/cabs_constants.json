@@ -40,7 +40,7 @@
     "bfac_output": "ABCPRSN",
     "csv_output": "ABCPSN"
   },
-  "protein_restraints_modes": ["rigid", "plddt", "manual", "flexible"],
+  "protein_restraints_modes": ["rigid", "plddt", "manual", "flexible", "ss1"],
   "protein_category_modes": ["rigid", "flexible", "unleashed"],
   "unleashed_aliases": ["none", "unleashed", "no-protein-restraints"],
   "allowed_aa_methods": ["modeller", "cg2all"],

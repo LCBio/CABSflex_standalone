@@ -244,12 +244,12 @@ class Atom:
     def set_category(
         self,
         mode: Literal[
-            "rigid", "flexible", "no-protein-restraints", "unleashed", "none"
+            "rigid", "flexible", "ss1", "no-protein-restraints", "unleashed", "none"
         ] = "rigid",
     ) -> None:
         category = 0
 
-        if mode == "flexible":
+        if mode in ["flexible", "ss1"]:
             if self.occ == 2 or self.occ == 4:
                 category = 3
         elif mode == "no-protein-restraints" or mode == "unleashed" or mode == "none":

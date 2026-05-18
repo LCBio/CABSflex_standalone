@@ -87,3 +87,46 @@ class TestJobOrchestration:
 
         # 3. Assert that the unique Docking analysis method was called
         mock_mk_cmaps.assert_called_once()
+
+    def test_legacy_and_native_restraint_modes(self):
+        """
+        Verify that:
+        1. Native ss1 mode is correctly accepted and preserves ss1 settings.
+        2. Legacy 'all' alias maps to 'rigid' and issues a warning.
+        3. Legacy 'ss2' alias maps to 'flexible' and issues a warning.
+        """
+        # 1. Test native ss1 mode
+        flex_task_ss1 = FlexTask(
+            input_protein="mock_rec",
+            protein_restraints=["ss1", "3", "3.8", "11.5"],
+            work_dir="."
+        )
+        assert flex_task_ss1.protein_restraints == ("ss1", 3, 3.8, 11.5)
+        assert flex_task_ss1.category_mode == "flexible"
+
+        # 2. Test legacy 'all' alias
+        with patch('CABS.io.logger.warning') as mock_warn:
+            flex_task_all = FlexTask(
+                input_protein="mock_rec",
+                protein_restraints=["all", "5", "5.0", "15.0"],
+                work_dir="."
+            )
+            assert flex_task_all.protein_restraints == ("rigid", 5, 5.0, 15.0)
+            mock_warn.assert_any_call(
+                "CABS",
+                "Protein restraints mode 'all' is legacy. Mapping to the new equivalent 'rigid'."
+            )
+
+        # 3. Test legacy 'ss2' alias
+        with patch('CABS.io.logger.warning') as mock_warn:
+            flex_task_ss2 = FlexTask(
+                input_protein="mock_rec",
+                protein_restraints=["ss2", "3", "3.8", "11.5"],
+                work_dir="."
+            )
+            assert flex_task_ss2.protein_restraints == ("flexible", 3, 3.8, 11.5)
+            mock_warn.assert_any_call(
+                "CABS",
+                "Protein restraints mode 'ss2' is legacy. Mapping to the new equivalent 'flexible'."
+            )
+
