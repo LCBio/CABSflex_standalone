@@ -464,9 +464,9 @@ blockquote {
   opacity: 0;
   visibility: hidden;
   transform: translateY(6px);
-  transition: opacity 160ms cubic-bezier(0.25, 0.8, 0.25, 1), 
-              transform 160ms cubic-bezier(0.25, 0.8, 0.25, 1), 
-              visibility 160ms cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: opacity 160ms cubic-bezier(0.25, 0.8, 0.25, 1),
+    transform 160ms cubic-bezier(0.25, 0.8, 0.25, 1),
+    visibility 160ms cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .reference-tooltip.is-visible {
@@ -475,8 +475,8 @@ blockquote {
   transform: translateY(0);
 }
 
-.reference-tooltip > strong {
-  color: magenta;
+.reference-tooltip>strong {
+  color: #000000;
   font-weight: 600;
   display: block;
 }
@@ -513,11 +513,13 @@ blockquote {
     box-shadow: 0 0 0 10px rgba(15, 98, 254, 0.28);
     border-radius: 8px;
   }
+
   20% {
     background-color: rgba(15, 98, 254, 0.18);
     box-shadow: 0 0 0 8px rgba(15, 98, 254, 0.18);
     border-radius: 8px;
   }
+
   100% {
     background-color: transparent;
     box-shadow: none;
