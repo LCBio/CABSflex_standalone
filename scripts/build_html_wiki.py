@@ -204,6 +204,17 @@ def preprocess_markdown(text: str) -> str:
     text = rewrite_internal_links(text)
     text = rewrite_bitbucket_images(text)
     text = rewrite_github_alerts(text)
+    
+    # Support common emoji shortcodes (like GitLab/GitHub wiki)
+    emoji_map = {
+        ":arrow_up:": "⬆",
+        ":arrow_down:": "⬇",
+        ":arrow_left:": "⬅",
+        ":arrow_right:": "➡",
+    }
+    for shortcode, glyph in emoji_map.items():
+        text = text.replace(shortcode, glyph)
+        
     return text
 
 
