@@ -87,6 +87,7 @@
                 [
                     "aa-rebuild",
                     "aa-method",
+                    "aa-rebuild-workers",
                     "cg2all-representation",
                     "cg2all-env-prefix",
                     "modeller-iterations"
@@ -239,6 +240,7 @@
                 [
                     "aa-rebuild",
                     "aa-method",
+                    "aa-rebuild-workers",
                     "cg2all-representation",
                     "cg2all-env-prefix",
                     "modeller-iterations"
@@ -312,6 +314,12 @@
             "type": "str",
             "metavar": "MODE",
             "help": "Rebuild models to all-atom representation. Supported modes:\n\n[1] 'M' (default) - rebuild Medoids (model_?.pdb) sequentially\n[2] 'C' - rebuild Clusters (cluster_?.pdb) in parallel\n[3] 'T' - rebuild Trajectories (replica_?.pdb) in batch DCD\n[4] 'A' - rebuild ALL of the above\n"
+        },
+        "aa-rebuild-workers": {
+            "default": null,
+            "type": "int",
+            "metavar": "NUM",
+            "help": "Set the number of parallel workers (processes/CPUs) for all-atom reconstruction. If not specified, defaults to the allocated system CPU count (up to 4)."
         },
         "add-peptide": {
             "flag": "-P",
