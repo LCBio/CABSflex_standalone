@@ -6,11 +6,9 @@ import mdtraj as md
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from CABS.io import logger
-from CABS.utils.utils import convert_cg_to_all
-
+from CABS.reconstruction.cg2all import convert_cg_to_all, sync_residues_with_template, sync_residues, minimize_pdb_energy
 from CABS.utils.utils import CG2ALL_REPRESENTATIONS
 from CABS.reconstruction.cg2all import _read_calpha_atoms, _write_calpha_sc_segment, _format_cg_pdb_line
-from CABS.reconstruction.cg2all import sync_residues_with_template, sync_residues
 
 def _task_wrapper(kwargs):
     """Simple wrapper for parallel execution of convert_cg_to_all."""
@@ -56,6 +54,7 @@ def _write_single_model_cg2all_topology(
     if segment:
         _write_calpha_sc_segment(output_file, segment, serial)
 
+
 def reconstruct_trajectory(
     topology_pdb: str,
     trajectory_file: str,
@@ -68,6 +67,7 @@ def reconstruct_trajectory(
     device: str = "cpu",
     renumber_flag: bool = False,
     reference_pdb: Optional[str] = None,
+    minimize_flag: bool = True,
 ) -> None:
     """
     Reconstructs an entire trajectory in one optimized DCD batch call.
@@ -193,6 +193,10 @@ def reconstruct_trajectory(
                         input_pdb_path=Path(trajectory_file),
                         output_pdb_path=Path(output_pdb),
                     )
+            
+            if minimize_flag and output_pdb and os.path.exists(output_pdb):
+                minimize_pdb_energy(Path(output_pdb))
+                
             if os.path.exists(output_dcd):
                 os.remove(output_dcd)
             if os.path.exists(temp_output_pdb):
@@ -217,7 +221,8 @@ def reconstruct_parallel(
     cg_model: str = "CalphaBasedModel",
     renumber: bool = False,
     reference_pdb: Optional[str] = None,
-    work_dir: str = "."
+    work_dir: str = ".",
+    minimize: bool = True,
 ) -> None:
     """
     Parallel batch processor for individual PDB files (clusters or replicas).
@@ -236,7 +241,8 @@ def reconstruct_parallel(
             "renumber_flag": renumber,
             "env_prefix": env_prefix,
             "output_filename": out_name,
-            "cg2all_representation": cg_model
+            "cg2all_representation": cg_model,
+            "minimize_flag": minimize,
         })
 
     logger.info(module_name="CG2ALL", msg=f"Launching {len(tasks)} parallel reconstruction tasks with {workers} workers.")
@@ -260,6 +266,7 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
     
     import glob
     mode = str(job.aa_rebuild).upper()
+    minimize_flag = (getattr(job, "aa_minimize", None) is True)
 
     # 1. Parallel Cluster Reconstruction (Mode C or A)
     # Map internal CABS representation names to cg2all ones
@@ -294,6 +301,7 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
                     n_proc=getattr(job, "aa_rebuild_workers", None),
                     renumber_flag=job.renumber,
                     reference_pdb=getattr(job, "input_protein", None),
+                    minimize_flag=minimize_flag,
                 )
 
     # 2. Optimized Trajectory Reconstruction (DCD Native Path) (Mode T or A)
@@ -334,4 +342,5 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
                     n_proc=getattr(job, "aa_rebuild_workers", None),
                     renumber_flag=job.renumber,
                     reference_pdb=getattr(job, "input_protein", None),
+                    minimize_flag=minimize_flag,
                 )

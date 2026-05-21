@@ -748,96 +748,25 @@ def convert_cg_to_all(
     output_filename: Optional[str] = None,
     cg2all_representation: str = "calpha",
     aa_method: str = "cg2all",
+    minimize_flag: bool = True,
 ) -> str:
     """
     Convert coarse-grained model to all-atom.
     """
-    # Map internal CABS representation names to cg2all ones
-    rep_map = {
-        "calpha": "CA",
-        "calpha-sc": "CalphaSC"
-    }
-    cg_model = rep_map.get(cg2all_representation, "CalphaSC")
+    from CABS.reconstruction.cg2all import convert_cg_to_all as real_convert
+    return real_convert(
+        filename=filename,
+        work_dir=work_dir,
+        iter=iter,
+        reference_pdb=reference_pdb,
+        renumber_flag=renumber_flag,
+        env_prefix=env_prefix,
+        output_filename=output_filename,
+        cg2all_representation=cg2all_representation,
+        minimize_flag=minimize_flag,
+    )
 
-    with NamedTemporaryFile(
-        prefix=".", suffix=".pdb", dir=work_dir, mode="w", delete=False
-    ) as tmp_file:
-        pdb = tmp_file.name
-        _write_cg2all_input_pdb(filename, tmp_file, cg2all_representation)
-    
-    output_dir = Path(work_dir) / "output_pdbs"
-    fout = output_filename or f"model_{iter}.pdb"
-    cg_model = CG2ALL_REPRESENTATIONS[cg2all_representation]
-    
-    # Modify the subprocess call to use micromamba run if an environment prefix is provided.
-    # This ensures all environment variables and dependencies (like torch, dgl) are correctly set up.
-    if env_prefix:
-        # Try to find micromamba executable
-        mamba_exe = os.environ.get("MAMBA_EXE") or os.path.expanduser("~/.local/bin/micromamba")
-        if not os.path.exists(mamba_exe):
-            mamba_exe = "micromamba"  # Fallback to PATH
 
-        command_parts = [
-            mamba_exe, "run", "-p", env_prefix,
-            "convert_cg2all",
-            "-p", str(pdb),
-            "-o", str(output_dir / fout),
-            "--cg", cg_model,
-            "--fix",
-            "--device", "cpu"
-        ]
-    else:
-        # Fallback to the default path if no specific env is passed
-        command_parts = [
-            "convert_cg2all",
-            "-p", str(pdb),
-            "-o", str(output_dir / fout),
-            "--cg", cg_model,
-            "--fix",
-            "--device", "cpu"
-        ]
-
-    # Prepare a clean environment for micromamba run
-    env = os.environ.copy()
-    env.pop("PYTHONPATH", None)
-    env.pop("PYTHONHOME", None)
-    env.pop("PYTHONUSERBASE", None)
-
-    try:
-        if "cg2all" in aa_method:
-            result = subprocess.run(
-                command_parts,
-                shell=False,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-            )
-            return result.stdout
-        else:
-            # Modeller support
-            from CABS.reconstruction.ca2all import ca2all
-            with open(pdb) as f_in:
-                ca2all(
-                    f_in, 
-                    output=str(output_dir / fout), 
-                    work_dir=work_dir,
-                    iterations=1
-                )
-    except subprocess.CalledProcessError as e:
-        logger.critical(
-            module_name="CG2ALL",
-            msg=f"CG2ALL failed with exit code: {e.returncode} and error: {e.stderr}",
-        )
-        raise Exception("CG2ALL failed to convert CG model to all-atom model")
-    except Exception as e:
-        logger.warning(module_name="CG2ALL", msg=f"CG2ALL failed with error: {e}")
-        raise Exception("CG2ALL failed to convert CG model to all-atom model")
-    finally:
-        if os.path.exists(pdb):
-            os.remove(pdb)
-    return str(output_dir / fout)
 
 
 def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:

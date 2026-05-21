@@ -90,6 +90,7 @@
                     "aa-rebuild-workers",
                     "cg2all-representation",
                     "cg2all-env-prefix",
+                    "aa-minimize",
                     "modeller-iterations"
                 ]
             ],
@@ -243,6 +244,7 @@
                     "aa-rebuild-workers",
                     "cg2all-representation",
                     "cg2all-env-prefix",
+                    "aa-minimize",
                     "modeller-iterations"
                 ]
             ],
@@ -320,6 +322,13 @@
             "type": "int",
             "metavar": "NUM",
             "help": "Set the number of parallel workers (processes/CPUs) for all-atom reconstruction. If not specified, defaults to the allocated system CPU count (up to 4)."
+        },
+        "aa-minimize": {
+            "type": "bool",
+            "nargs": "?",
+            "const": true,
+            "default": null,
+            "help": "If true, performs a quick vacuum energy minimization on reconstructed all-atom structures using OpenMM (if installed) to resolve clashes. (default: %(default)s)"
         },
         "add-peptide": {
             "flag": "-P",

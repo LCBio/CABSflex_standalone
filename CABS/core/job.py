@@ -41,7 +41,7 @@ from CABS.structures.protein import ProteinComplex
 from CABS.utils import utils
 from CABS.utils.align import AlignError, align_to, save_csv
 from CABS.utils.filter import Filter
-from CABS.utils.utils import convert_cg_to_all
+from CABS.reconstruction.cg2all import convert_cg_to_all
 from CABS.reconstruction.cg2all_trajectory import reconstruct_job_outputs
 from CABS.utils import chimerax as chimerax_utils
 from CABS.utils import notebook as notebook_utils
@@ -60,6 +60,7 @@ class CABSTask(metaclass=ABCMeta):
             "aa_method"
         )
         self.aa_rebuild: str = str(kwargs.get("aa_rebuild", "M"))
+        self.aa_minimize: Optional[bool] = kwargs.get("aa_minimize")
         self.add_peptide: Optional[str] = kwargs.get("add_peptide")
         self.align: Optional[bool] = kwargs.get("align")
         self.align_options: Dict[str, Any] = dict(kwargs.get("align_options", []))
@@ -991,6 +992,7 @@ class CABSTask(metaclass=ABCMeta):
                                 renumber_flag=self.renumber,
                                 env_prefix=self.cg2all_env_prefix,
                                 cg2all_representation=self.cg2all_representation,
+                                minimize_flag=(self.aa_minimize is not False),
                             )
                             if attempt_cyclization:
                                 pth_tmp = os.path.join(
@@ -1141,6 +1143,7 @@ class CABSTask(metaclass=ABCMeta):
                             env_prefix=self.cg2all_env_prefix,
                             output_filename=aa_name,
                             cg2all_representation=self.cg2all_representation,
+                            minimize_flag=(self.aa_minimize is True),
                         )
 
                         if attempt_cyclization:

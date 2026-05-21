@@ -420,6 +420,85 @@ def sync_residues_with_template(
     return "Residues synchronized using topology template"
 
 
+def minimize_pdb_energy(pdb_path: Path) -> None:
+    """
+    Perform a quick vacuum energy minimization on the given PDB file using OpenMM
+    to resolve steric clashes and improve clashscores. Supports both single-model
+    and multi-model trajectory structures.
+    """
+    try:
+        from openmm.app import PDBFile, ForceField, Simulation, Modeller, NoCutoff
+        from openmm import LangevinIntegrator
+        from openmm.unit import nanometer, picosecond, kelvin
+    except ImportError:
+        logger.warning(
+            module_name="CG2ALL",
+            msg="openmm package not found. Skipping energy minimization for reconstructed structure.",
+        )
+        return
+
+    try:
+        # Load PDB file
+        pdb = PDBFile(str(pdb_path))
+        num_frames = pdb.getNumFrames()
+        
+        forcefield = ForceField('amber14-all.xml')
+        
+        if num_frames > 1:
+            logger.debug(
+                module_name="CG2ALL",
+                msg=f"Performing vacuum energy minimization frame-by-frame on multi-model PDB: {pdb_path} ({num_frames} models)",
+            )
+            all_minimized_positions = []
+            minimized_topology = None
+            
+            for i in range(num_frames):
+                modeller = Modeller(pdb.topology, pdb.getPositions(frame=i))
+                modeller.addHydrogens(forcefield)
+                
+                system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff, constraints=None)
+                integrator = LangevinIntegrator(300*kelvin, 1/picosecond, 0.002*picosecond)
+                simulation = Simulation(modeller.topology, system, integrator)
+                simulation.context.setPositions(modeller.positions)
+                
+                simulation.minimizeEnergy(maxIterations=500)
+                
+                pos = simulation.context.getState(getPositions=True).getPositions()
+                all_minimized_positions.append(pos)
+                if minimized_topology is None:
+                    minimized_topology = modeller.topology
+            
+            # Save the multi-model structure back to the same path
+            with open(str(pdb_path), 'w') as f:
+                PDBFile.writeHeader(minimized_topology, f)
+                for idx, pos in enumerate(all_minimized_positions):
+                    PDBFile.writeModel(minimized_topology, pos, f, modelIndex=idx+1)
+                PDBFile.writeFooter(minimized_topology, f)
+                
+            logger.debug(module_name="CG2ALL", msg=f"Successfully minimized energy and resolved clashes for multi-model PDB: {pdb_path}")
+        else:
+            logger.debug(module_name="CG2ALL", msg=f"Performing vacuum energy minimization on: {pdb_path}")
+            modeller = Modeller(pdb.topology, pdb.positions)
+            modeller.addHydrogens(forcefield)
+            
+            system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff, constraints=None)
+            integrator = LangevinIntegrator(300*kelvin, 1/picosecond, 0.002*picosecond)
+            simulation = Simulation(modeller.topology, system, integrator)
+            simulation.context.setPositions(modeller.positions)
+            
+            simulation.minimizeEnergy(maxIterations=500)
+            
+            with open(str(pdb_path), 'w') as f:
+                PDBFile.writeFile(modeller.topology, simulation.context.getState(getPositions=True).getPositions(), f)
+                
+            logger.debug(module_name="CG2ALL", msg=f"Successfully minimized energy and resolved clashes for: {pdb_path}")
+    except Exception as e:
+        logger.warning(
+            module_name="CG2ALL",
+            msg=f"OpenMM energy minimization failed with error: {e}. Reconstructed structure was kept as-is.",
+        )
+
+
 def convert_cg_to_all(
     filename: Union[str, TextIO],
     work_dir: str = ".",
@@ -429,6 +508,7 @@ def convert_cg_to_all(
     env_prefix: Optional[str] = None,
     output_filename: Optional[str] = None,
     cg2all_representation: str = "calpha",
+    minimize_flag: bool = True,
 ) -> str:
     """
     Convert coarse-grained model to all-atom
@@ -513,7 +593,7 @@ def convert_cg_to_all(
         output_file_path = output_dir / fout
         if output_file_path.exists():
             # Pass 1: Sync to CABS assignments (using original filename as reference)
-            ref_path = Path(filename) if isinstance(filename, str) else Path(filename.name)
+            ref_path = Path(pdb)
             sync_residues(input_pdb_path=ref_path, output_pdb_path=output_file_path)
             
             # Pass 2: Sync to original PDB numbering (using reference_path and start_all.pdb as template)
@@ -528,6 +608,9 @@ def convert_cg_to_all(
                 else:
                     # Fallback to sync_residues if template is missing
                     sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
+            
+            if minimize_flag:
+                minimize_pdb_energy(output_file_path)
             
         return result.stdout
     except subprocess.CalledProcessError as e:

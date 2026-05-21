@@ -233,9 +233,13 @@ def if_nargs(option_name, value):
     """Handles options that come as lists"""
     try:
         nargs = options[option_name]["nargs"]
-        return (
-            "\n" + option_name + " : " + " ".join([str(i).strip("#") for i in value])
-        )  # "#" for contact maps colors
+        # When nargs="?" the value may be a scalar (e.g. bool), not a list
+        if isinstance(value, (list, tuple)):
+            return (
+                "\n" + option_name + " : " + " ".join([str(i).strip("#") for i in value])
+            )  # "#" for contact maps colors
+        else:
+            return "\n" + option_name + " : " + str(value)
     except KeyError:
         raise
 
