@@ -1026,6 +1026,27 @@ class CABSTask(metaclass=ABCMeta):
                     module_name=_name, msg="Saving final models (in CA representation)."
                 )
                 self.medoids.to_pdb(mode="models", to_dir=output_folder, name="model", sc=sc_flag)
+                if self.renumber and self.input_protein:
+                    start_all_path = os.path.join(self.work_dir, "output_pdbs", "start_all.pdb")
+                    if not os.path.exists(start_all_path):
+                        start_all_path = os.path.join(self.work_dir, "output_pdbs", "start.pdb")
+                    if os.path.exists(start_all_path):
+                        from CABS.reconstruction.cg2all import sync_residues_with_template
+                        from pathlib import Path
+                        for i in range(self.clustering_medoids):
+                            model_path = os.path.join(output_folder, f"model_{i}.pdb")
+                            if os.path.exists(model_path):
+                                try:
+                                    sync_residues_with_template(
+                                        input_pdb_path=Path(self.input_protein.split(":")[0]),
+                                        topology_pdb_path=Path(start_all_path),
+                                        output_pdb_path=Path(model_path)
+                                    )
+                                except Exception as e:
+                                    logger.warning(
+                                        _name,
+                                        msg=f"Could not renumber CA model {i}: {e}"
+                                    )
 
             if self.json_output:
                 json_file = os.path.join(self.work_dir, "output_data", "medoid.json")
@@ -1889,9 +1910,20 @@ class DockTask(CABSTask):
         rchs = self.initial_complex.protein_chains
         lchs = self.initial_complex.peptide_chains
 
-        targ_cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
+        # Map to sequential chain IDs for the sequential trajectory template ca_traj.template
+        all_orig = (self.initial_complex.protein_chains or []) + (self.initial_complex.peptide_chains or [])
+        all_temp = sorted(list(ca_traj.template.list_chains().keys()))
+        chain_map = {}
+        for i, orig_ch in enumerate(all_orig):
+            if i < len(all_temp):
+                chain_map[orig_ch] = all_temp[i]
 
-        cmfs = {lig: ContactMapFactory(rchs, lig, ca_traj.template) for lig in lchs}
+        rchs_seq = [chain_map.get(ch, ch) for ch in rchs]
+        lchs_seq = [chain_map.get(ch, ch) for ch in lchs]
+
+        targ_cmf = ContactMapFactory(rchs_seq, rchs_seq, ca_traj.template)
+
+        cmfs = {lig: ContactMapFactory(rchs_seq, lig, ca_traj.template) for lig in lchs_seq}
         # cmap10ktarg = self._add_cmaps(targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
@@ -2074,7 +2106,17 @@ class FlexTask(CABSTask):
 
         rchs = self.initial_complex.protein_chains or self.initial_complex.peptide_chains
 
-        cmf = ContactMapFactory(rchs, rchs, ca_traj.template)
+        # Map to sequential chain IDs for the sequential trajectory template ca_traj.template
+        all_orig = (self.initial_complex.protein_chains or []) + (self.initial_complex.peptide_chains or [])
+        all_temp = sorted(list(ca_traj.template.list_chains().keys()))
+        chain_map = {}
+        for i, orig_ch in enumerate(all_orig):
+            if i < len(all_temp):
+                chain_map[orig_ch] = all_temp[i]
+
+        rchs_seq = [chain_map.get(ch, ch) for ch in rchs]
+
+        cmf = ContactMapFactory(rchs_seq, rchs_seq, ca_traj.template)
         if self.aa_rebuild:
             cmft = ContactMapFactory(rchs, rchs, self.medoids.template)
         else:

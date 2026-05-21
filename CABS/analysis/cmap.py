@@ -154,6 +154,12 @@ class ContactMap:
         break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
         """
 
+        if self.cmtx.shape[0] == 0 or self.cmtx.shape[1] == 0 or len(self.s1) == 0 or len(self.s2) == 0:
+            fig = plt.figure()
+            plt.savefig(fname + "." + fmt, format=fmt)
+            plt.close(fig)
+            return
+
         wdh_cnst = 60
         wdth = self.cmtx.shape[0]
         chunks = (
@@ -210,10 +216,11 @@ class ContactMap:
             for lbls, n_tcks, tck_loc, tck_lab in settings:
                 nloc = break_long_x if break_long_x else wdh_cnst
                 ntcks = n_tcks if n_tcks < nloc else nloc // 2
-                inds = np.linspace(0, len(lbls) - 1, ntcks).astype(int)
-                locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
-                tck_loc(inds)
-                tck_lab(list(np.array(lbls)[inds,]))
+                if ntcks > 0 and len(lbls) > 0:
+                    inds = np.linspace(0, len(lbls) - 1, ntcks).astype(int)
+                    locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
+                    tck_loc(inds)
+                    tck_lab(list(np.array(lbls)[inds,]))
 
             sfig.tick_params(
                 labelsize=label_size,
@@ -276,6 +283,12 @@ class ContactMap:
         titles -- dict int: str; keys are indexes of histos, values are title to be set.
         all_inds_stc2 -- bool; True by default
         """
+        if self.cmtx.shape[0] == 0 or self.cmtx.shape[1] == 0 or len(self.s1) == 0 or len(self.s2) == 0:
+            fig = plt.figure()
+            plt.savefig(fname + "." + fmt, format=fmt)
+            plt.close(fig)
+            return
+
         max_bars = 15
 
         trg_vls_all = self.cmtx.sum(axis=1) / float(self.n)

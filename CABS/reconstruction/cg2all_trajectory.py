@@ -28,6 +28,18 @@ def _write_single_model_cg2all_topology(
         raise ValueError("No CA atoms found in coarse-grained model.")
 
     ca_atoms = models[0]
+    # Renumber residues sequentially per-chain and strip insertion codes.
+    # Chain IDs are preserved so cg2all can detect chain breaks in multichain structures.
+    cur_chain = None
+    r_idx = 0
+    for atom in ca_atoms:
+        if atom["chain"] != cur_chain:
+            cur_chain = atom["chain"]
+            r_idx = 0
+        r_idx += 1
+        atom["resnum"] = r_idx
+        atom["icode"] = " "
+
     serial = 1
     if cg_model == "CalphaBasedModel":
         for atom in ca_atoms:
@@ -55,6 +67,7 @@ def reconstruct_trajectory(
     n_proc: Optional[int] = None,
     device: str = "cpu",
     renumber_flag: bool = False,
+    reference_pdb: Optional[str] = None,
 ) -> None:
     """
     Reconstructs an entire trajectory in one optimized DCD batch call.
@@ -150,12 +163,36 @@ def reconstruct_trajectory(
             
             # If renumbering to original PDB is requested, perform a second pass with the topology template.
             if renumber_flag:
-                # Use topology_pdb as the AA template for precise renumbering
-                sync_residues_with_template(
-                    input_pdb_path=Path(trajectory_file),
-                    topology_pdb_path=Path(topology_pdb),
-                    output_pdb_path=Path(output_pdb),
-                )
+                # Use start_all.pdb as the AA template for precise renumbering
+                start_all_path = Path(output_pdb).parent / "start_all.pdb"
+                
+                # Resolve reference path
+                reference_path = None
+                if start_all_path.exists():
+                    reference_path = start_all_path
+                elif reference_pdb:
+                    candidate = Path(str(reference_pdb).split(":")[0])
+                    if candidate.exists():
+                        reference_path = candidate
+                
+                if start_all_path.exists() and reference_path:
+                    sync_residues_with_template(
+                        input_pdb_path=reference_path,
+                        topology_pdb_path=start_all_path,
+                        output_pdb_path=Path(output_pdb),
+                    )
+                elif reference_path:
+                    # Fallback to sync_residues if start_all.pdb is missing
+                    sync_residues(
+                        input_pdb_path=reference_path,
+                        output_pdb_path=Path(output_pdb),
+                    )
+                else:
+                    # Final fallback to standard synchronization with trajectory file
+                    sync_residues(
+                        input_pdb_path=Path(trajectory_file),
+                        output_pdb_path=Path(output_pdb),
+                    )
             if os.path.exists(output_dcd):
                 os.remove(output_dcd)
             if os.path.exists(temp_output_pdb):
@@ -256,6 +293,7 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
                     batch_size=getattr(job, "batch_size", None),
                     n_proc=getattr(job, "aa_rebuild_workers", None),
                     renumber_flag=job.renumber,
+                    reference_pdb=getattr(job, "input_protein", None),
                 )
 
     # 2. Optimized Trajectory Reconstruction (DCD Native Path) (Mode T or A)
@@ -295,4 +333,5 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
                     batch_size=getattr(job, "batch_size", None),
                     n_proc=getattr(job, "aa_rebuild_workers", None),
                     renumber_flag=job.renumber,
+                    reference_pdb=getattr(job, "input_protein", None),
                 )

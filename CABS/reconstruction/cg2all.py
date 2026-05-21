@@ -109,6 +109,19 @@ def _write_cg2all_input_pdb(
     if cg2all_representation not in CG2ALL_REPRESENTATIONS:
         raise ValueError(f"Unsupported cg2all representation: {cg2all_representation}")
 
+    # Renumber residues sequentially per-chain and strip insertion codes.
+    # Chain IDs are preserved so cg2all can detect chain breaks in multichain structures.
+    for ca_atoms in models:
+        cur_chain = None
+        r_idx = 0
+        for atom in ca_atoms:
+            if atom["chain"] != cur_chain:
+                cur_chain = atom["chain"]
+                r_idx = 0
+            r_idx += 1
+            atom["resnum"] = r_idx
+            atom["icode"] = " "
+
     for i, ca_atoms in enumerate(models):
         if len(models) > 1:
             output_file.write(f"MODEL     {i+1:4d}\n")
@@ -241,6 +254,25 @@ def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:
         if block_start is not None:
             residue_blocks.append((block_start, model_end))
 
+        logger.debug(
+            module_name="sync",
+            msg=f"Model {model_idx}: {len(residue_blocks)} blocks, {len(input_ca_data)} expected CAs, {len(output_ca_indices)} output CAs"
+        )
+        if len(residue_blocks) < len(input_ca_data):
+            ca_set = set(output_ca_indices)
+            split_blocks: List[tuple[int, int]] = []
+            for bs, be in residue_blocks:
+                cas_in_block = [i for i in range(bs, be) if i in ca_set]
+                if len(cas_in_block) <= 1:
+                    split_blocks.append((bs, be))
+                else:
+                    # Split at midpoints between consecutive CAs
+                    for k in range(len(cas_in_block)):
+                        sub_start = bs if k == 0 else (cas_in_block[k - 1] + cas_in_block[k]) // 2
+                        sub_end = be if k == len(cas_in_block) - 1 else (cas_in_block[k] + cas_in_block[k + 1]) // 2
+                        split_blocks.append((sub_start, sub_end))
+            residue_blocks = split_blocks
+
         if len(residue_blocks) != len(input_ca_data):
             raise ValueError(
                 "Residue block mismatch during synchronization: "
@@ -274,53 +306,34 @@ def sync_residues_with_template(
     if not input_models:
         raise ValueError("No CA atoms found in reference PDB for residue synchronization.")
 
-    topology_lines = topology_pdb_path.read_text().splitlines()
-    residue_atom_counts: List[int] = []
-    current_residue = None
-    current_count = 0
-
-    for line in topology_lines:
-        if not line.startswith(("ATOM", "HETATM")):
-            continue
-        resid = (line[21], line[22:26], line[26], line[17:21])
-        if current_residue is None:
-            current_residue = resid
-            current_count = 1
-        elif resid == current_residue:
-            current_count += 1
-        else:
-            residue_atom_counts.append(current_count)
-            current_residue = resid
-            current_count = 1
-    if current_residue is not None:
-        residue_atom_counts.append(current_count)
-
-    if not residue_atom_counts:
-        raise ValueError("No atom residues found in topology helper PDB for residue synchronization.")
-
     output_lines = output_pdb_path.read_text().splitlines(keepends=True)
-    output_models: List[List[int]] = []
-    current_atom_indices: List[int] = []
+    output_models: List[tuple[int, int, List[int]]] = []
+    current_ca_indices: List[int] = []
+    model_start = 0
     saw_output_models = False
 
     for idx, line in enumerate(output_lines):
         if line.startswith("MODEL"):
             saw_output_models = True
-            current_atom_indices = []
+            model_start = idx
+            current_ca_indices = []
             continue
         if line.startswith("ENDMDL"):
-            if current_atom_indices:
-                output_models.append(current_atom_indices)
-            current_atom_indices = []
+            if current_ca_indices:
+                output_models.append((model_start, idx, current_ca_indices))
+            current_ca_indices = []
             continue
-        if line.startswith(("ATOM", "HETATM")):
-            current_atom_indices.append(idx)
+        if line.startswith("ATOM") and line[12:16].strip() == "CA":
+            current_ca_indices.append(idx)
 
-    if current_atom_indices:
-        output_models.append(current_atom_indices)
+    if current_ca_indices:
+        output_models.append((model_start, len(output_lines), current_ca_indices))
 
     if not output_models:
-        raise ValueError("No atom records found in reconstructed PDB for residue synchronization.")
+        raise ValueError("No CA atoms found in reconstructed PDB for residue synchronization.")
+
+    if not saw_output_models:
+        output_models = [(0, len(output_lines), output_models[0][2])]
 
     if len(input_models) == 1 and len(output_models) > 1:
         input_models = [input_models[0] for _ in output_models]
@@ -334,36 +347,74 @@ def sync_residues_with_template(
         module_name="sync",
         msg=(
             f"Syncing {len(output_models)} model(s) from {input_pdb_path.name} "
-            f"to {output_pdb_path.name} using topology {topology_pdb_path.name}"
+            f"to {output_pdb_path.name} using template {topology_pdb_path.name}"
         ),
     )
 
-    atoms_per_model = sum(residue_atom_counts)
-    for model_idx, (input_ca_data, atom_indices) in enumerate(zip(input_models, output_models), start=1):
-        if len(input_ca_data) != len(residue_atom_counts):
+    for model_idx, ((model_start, model_end, output_ca_indices), input_ca_data) in enumerate(zip(output_models, input_models), start=1):
+        if len(input_ca_data) != len(output_ca_indices):
             raise ValueError(
-                "Residue count mismatch during synchronization: "
-                f"reference model {model_idx} has {len(input_ca_data)} residues, "
-                f"topology has {len(residue_atom_counts)}."
-            )
-        if len(atom_indices) != atoms_per_model:
-            raise ValueError(
-                "Atom count mismatch during synchronization: "
-                f"output model {model_idx} has {len(atom_indices)} atoms, "
-                f"topology expects {atoms_per_model}."
+                "Residue count mismatch during template synchronization: "
+                f"reference model {model_idx} has {len(input_ca_data)} CA atoms, "
+                f"output model {model_idx} has {len(output_ca_indices)}."
             )
 
-        cursor = 0
-        for residue_info, atom_count in zip(input_ca_data, residue_atom_counts):
-            target_resnum = residue_info["resnum"]
-            target_chid = residue_info["chain"]
-            target_icode = residue_info["icode"]
-            for atom_idx in atom_indices[cursor:cursor + atom_count]:
-                line = output_lines[atom_idx]
-                output_lines[atom_idx] = (
-                    f"{line[:21]}{target_chid}{target_resnum:4d}{target_icode}{line[27:]}"
-                )
-            cursor += atom_count
+        residue_blocks: List[tuple[int, int]] = []
+        block_start = None
+        current_resid = None
+
+        for idx in range(model_start, model_end):
+            line = output_lines[idx]
+            if line.startswith(("ATOM", "HETATM")):
+                resid = (line[21], line[22:26], line[26], line[17:21])
+                if block_start is None:
+                    block_start = idx
+                    current_resid = resid
+                elif resid != current_resid:
+                    residue_blocks.append((block_start, idx))
+                    block_start = idx
+                    current_resid = resid
+            else:
+                if block_start is not None:
+                    residue_blocks.append((block_start, idx))
+                    block_start = None
+                    current_resid = None
+
+        if block_start is not None:
+            residue_blocks.append((block_start, model_end))
+
+        if len(residue_blocks) < len(input_ca_data):
+            ca_set = set(output_ca_indices)
+            split_blocks: List[tuple[int, int]] = []
+            for bs, be in residue_blocks:
+                cas_in_block = [i for i in range(bs, be) if i in ca_set]
+                if len(cas_in_block) <= 1:
+                    split_blocks.append((bs, be))
+                else:
+                    for k in range(len(cas_in_block)):
+                        sub_start = bs if k == 0 else (cas_in_block[k - 1] + cas_in_block[k]) // 2
+                        sub_end = be if k == len(cas_in_block) - 1 else (cas_in_block[k] + cas_in_block[k + 1]) // 2
+                        split_blocks.append((sub_start, sub_end))
+            residue_blocks = split_blocks
+
+        if len(residue_blocks) != len(input_ca_data):
+            raise ValueError(
+                "Residue block mismatch during template synchronization: "
+                f"reference model {model_idx} has {len(input_ca_data)} residues, "
+                f"output model {model_idx} has {len(residue_blocks)} residue blocks."
+            )
+
+        for (block_start, block_end), target in zip(residue_blocks, input_ca_data):
+            target_resnum = target["resnum"]
+            target_chid = target["chain"]
+            target_icode = target["icode"]
+
+            for idx in range(block_start, block_end):
+                line = output_lines[idx]
+                if line.startswith(("ATOM", "HETATM", "TER")):
+                    output_lines[idx] = (
+                        f"{line[:21]}{target_chid}{target_resnum:4d}{target_icode}{line[27:]}"
+                    )
 
     output_pdb_path.write_text("".join(output_lines))
     return "Residues synchronized using topology template"
@@ -390,12 +441,12 @@ def convert_cg_to_all(
 
     if renumber_flag:
         reference_path = None
-        start_path = Path(work_dir) / "output_pdbs" / "start.pdb"
         start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
-        if start_path.exists():
-            reference_path = start_path
-        elif start_all_path.exists():
+        start_path = Path(work_dir) / "output_pdbs" / "start.pdb"
+        if start_all_path.exists():
             reference_path = start_all_path
+        elif start_path.exists():
+            reference_path = start_path
         elif reference_pdb:
             candidate = Path(str(reference_pdb).split(":")[0])
             if candidate.exists():
@@ -461,8 +512,9 @@ def convert_cg_to_all(
         # We always sync from the input CG file first to ensure chains are preserved.
         output_file_path = output_dir / fout
         if output_file_path.exists():
-            # Pass 1: Sync to CABS assignments (using input_pdb as reference)
-            sync_residues(input_pdb_path=input_pdb, output_pdb_path=output_file_path)
+            # Pass 1: Sync to CABS assignments (using original filename as reference)
+            ref_path = Path(filename) if isinstance(filename, str) else Path(filename.name)
+            sync_residues(input_pdb_path=ref_path, output_pdb_path=output_file_path)
             
             # Pass 2: Sync to original PDB numbering (using reference_path and start_all.pdb as template)
             if renumber_flag and reference_path:
