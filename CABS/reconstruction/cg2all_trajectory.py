@@ -130,7 +130,8 @@ def reconstruct_trajectory(
         "--fix"
     ])
 
-    logger.info(module_name="CG2ALL", msg=f"Running batch trajectory reconstruction: {' '.join(command_parts)}")
+    logger.info(module_name="CG2ALL", msg=f"Reconstructing: {os.path.basename(trajectory_file)}")
+    logger.debug(module_name="CG2ALL", msg=f"Running batch trajectory reconstruction: {' '.join(command_parts)}")
     
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)

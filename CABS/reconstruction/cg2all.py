@@ -428,7 +428,7 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
     """
     try:
         from openmm.app import PDBFile, ForceField, Simulation, Modeller, NoCutoff
-        from openmm import LangevinIntegrator
+        from openmm import LangevinIntegrator, Platform
         from openmm.unit import nanometer, picosecond, kelvin
     except ImportError:
         logger.warning(
@@ -442,7 +442,13 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
         pdb = PDBFile(str(pdb_path))
         num_frames = pdb.getNumFrames()
         
-        forcefield = ForceField('amber14-all.xml')
+        forcefield = ForceField('amber19-all.xml')
+        
+        # Force the CPU platform for robustness, avoiding GPU memory/driver limits under concurrent workers
+        try:
+            platform = Platform.getPlatformByName('CPU')
+        except Exception:
+            platform = None
         
         if num_frames > 1:
             logger.debug(
@@ -458,7 +464,12 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
                 
                 system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff, constraints=None)
                 integrator = LangevinIntegrator(300*kelvin, 1/picosecond, 0.002*picosecond)
-                simulation = Simulation(modeller.topology, system, integrator)
+                
+                if platform:
+                    simulation = Simulation(modeller.topology, system, integrator, platform)
+                else:
+                    simulation = Simulation(modeller.topology, system, integrator)
+                    
                 simulation.context.setPositions(modeller.positions)
                 
                 simulation.minimizeEnergy(maxIterations=500)
@@ -483,7 +494,12 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
             
             system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff, constraints=None)
             integrator = LangevinIntegrator(300*kelvin, 1/picosecond, 0.002*picosecond)
-            simulation = Simulation(modeller.topology, system, integrator)
+            
+            if platform:
+                simulation = Simulation(modeller.topology, system, integrator, platform)
+            else:
+                simulation = Simulation(modeller.topology, system, integrator)
+                
             simulation.context.setPositions(modeller.positions)
             
             simulation.minimizeEnergy(maxIterations=500)

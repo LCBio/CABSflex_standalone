@@ -474,6 +474,8 @@ class Atoms:
         Returns a list of Atoms objects representing models.
         :return: [Atoms]
         """
+        if not self.atoms:
+            return []
         mdl = []
         model = Atoms()
         model.append(self.atoms[0])

@@ -984,6 +984,10 @@ class CABSTask(metaclass=ABCMeta):
                         pdb_medoids = self.medoids.to_pdb(sc=False)
                         original_chains = "".join(self.medoids.template.list_chains())
                         for i, fname in enumerate(pdb_medoids):
+                            logger.info(
+                                module_name="CG2ALL",
+                                msg=f"Reconstructing model_{i}...",
+                            )
                             convert_cg_to_all(
                                 fname,
                                 work_dir=self.work_dir,
@@ -1134,6 +1138,10 @@ class CABSTask(metaclass=ABCMeta):
                                     msg="Modeller not found. Skipping backbone and/or disulfide cyclization for replica reconstruction.",
                                 )
                         
+                        logger.info(
+                            module_name="CG2ALL",
+                            msg=f"Reconstructing replica frame: {aa_name}...",
+                        )
                         convert_cg_to_all(
                             ca_path,
                             work_dir=self.work_dir,

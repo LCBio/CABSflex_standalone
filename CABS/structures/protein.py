@@ -151,6 +151,11 @@ class Protein(Atoms):
                     else:
                         pdb.save_initial_pdb(work_dir=work_dir)
                 pdb.atoms = pdb.atoms.select("name CA")
+                if not pdb.atoms:
+                    raise Exception(
+                        "No protein alpha carbon (CA) atoms were found in the input structure. "
+                        "Please make sure the input PDB/mmCIF contains a valid protein structure."
+                    )
                 self.atoms = pdb.atoms.models()[0]
 
         if receptor_ss:
@@ -612,7 +617,7 @@ class Peptide(Atoms):
             # OPTIMIZATION: Heuristic to detect sequences vs PDBs/files
             # If not a file, not 4-char ID, and no special chars commonly used in IDs/files, treat as sequence.
             identifier = source.split(":")[0]
-            if (not os.path.exists(identifier) and 
+            if (not os.path.isfile(identifier) and 
                 len(identifier) != 4 and 
                 "_" not in identifier and 
                 "." not in identifier):
@@ -623,6 +628,8 @@ class Peptide(Atoms):
             )
             ss = pdb.dssp(work_dir=work_dir)
             pdb.atoms = pdb.atoms.select("name CA")
+            if not pdb.atoms:
+                raise Pdb.InvalidPdbInput("No protein alpha carbon (CA) atoms found in structure.")
             atoms = pdb.atoms.models()[0]
             atoms.update_sec(ss)
         except Pdb.InvalidPdbInput:

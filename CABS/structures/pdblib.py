@@ -86,7 +86,7 @@ class Pdb:
 
         # 2. Resolve structure path (Local file vs RCSB fetch)
         try:
-            if os.path.exists(identifier):
+            if os.path.isfile(identifier):
                 self.source_file = identifier
             else:
                 self.source_file = self.fetch(identifier, pdb_cache)
