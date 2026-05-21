@@ -337,7 +337,6 @@ def exit_program(
 class ProgressBar:
     """Progress bar for long-running operations with modern Python features."""
 
-    WIDTH: int = 65
     FORMAT: str = "{:<20} {:<19}[{}] {:.1f}%\r"
     BAR0: str = " "
     BAR1: str = "#"
@@ -373,6 +372,13 @@ class ProgressBar:
         else:
             self.mode = "silent"
             self.stream = open(os.devnull, "w")
+        
+        import shutil
+        columns, _ = shutil.get_terminal_size()
+        # Adapt progress bar width dynamically based on terminal width.
+        # Format width: prefix (20) + module_name (19) + brackets (2) + percentage/r (7) = 48 chars.
+        self.width = max(10, min(65, columns - 48))
+
         self.total = total
         self.current = 0.0
         self.job_name = job_name
@@ -398,7 +404,7 @@ class ProgressBar:
     def write(self) -> None:
         """Write the current progress bar state."""
         percent = 1.0 * self.current / self.total
-        num = int(self.WIDTH * percent)
+        num = int(self.width * percent)
         percent = round(100.0 * percent, 1)
         if self.mode == "compact":
             while percent >= self.next_report_percent and self.next_report_percent < 100.0:
@@ -408,7 +414,7 @@ class ProgressBar:
                 )
                 self.next_report_percent += self.COMPACT_STEP
             return
-        bar = self.BAR1 * num + self.BAR0 * (self.WIDTH - num)
+        bar = self.BAR1 * num + self.BAR0 * (self.width - num)
         self.stream.write(
             self.FORMAT.format(
                 self.prefix, coloring(msg=f"{self.module_name}:"), bar, percent
@@ -454,7 +460,7 @@ class ProgressBar:
             if self.mode == "compact":
                 info(module_name=self.module_name, msg=f"{self.job_name} progress: 100.0%")
             if self.mode == "tty":
-                self.stream.write(" " * 80 + "\r")
+                self.stream.write(" " * (self.width + 48) + "\r")
             if show_time:
                 t = gmtime(time() - self.start_time)
                 info(

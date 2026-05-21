@@ -177,23 +177,51 @@ def reconstruct_trajectory(
                         reference_path = candidate
                 
                 if start_all_path.exists() and reference_path:
-                    sync_residues_with_template(
-                        input_pdb_path=reference_path,
-                        topology_pdb_path=start_all_path,
-                        output_pdb_path=Path(output_pdb),
-                    )
+                    try:
+                        sync_residues_with_template(
+                            input_pdb_path=reference_path,
+                            topology_pdb_path=start_all_path,
+                            output_pdb_path=Path(output_pdb),
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            module_name="CG2ALL",
+                            msg=f"Trajectory template-based residue synchronization warning: {e}. Falling back to standard synchronization."
+                        )
+                        try:
+                            sync_residues(
+                                input_pdb_path=reference_path,
+                                output_pdb_path=Path(output_pdb),
+                            )
+                        except Exception as e2:
+                            logger.warning(
+                                module_name="CG2ALL",
+                                msg=f"Fallback trajectory synchronization also failed: {e2}. Keeping default numbering."
+                            )
                 elif reference_path:
                     # Fallback to sync_residues if start_all.pdb is missing
-                    sync_residues(
-                        input_pdb_path=reference_path,
-                        output_pdb_path=Path(output_pdb),
-                    )
+                    try:
+                        sync_residues(
+                            input_pdb_path=reference_path,
+                            output_pdb_path=Path(output_pdb),
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            module_name="CG2ALL",
+                            msg=f"Standard trajectory synchronization failed: {e}. Keeping default numbering."
+                        )
                 else:
                     # Final fallback to standard synchronization with trajectory file
-                    sync_residues(
-                        input_pdb_path=Path(trajectory_file),
-                        output_pdb_path=Path(output_pdb),
-                    )
+                    try:
+                        sync_residues(
+                            input_pdb_path=Path(trajectory_file),
+                            output_pdb_path=Path(output_pdb),
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            module_name="CG2ALL",
+                            msg=f"Standard trajectory synchronization failed: {e}. Keeping default numbering."
+                        )
             
             if minimize_flag and output_pdb and os.path.exists(output_pdb):
                 minimize_pdb_energy(Path(output_pdb))

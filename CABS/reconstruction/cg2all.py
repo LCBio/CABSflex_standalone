@@ -223,7 +223,16 @@ def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:
     )
 
     for model_idx, ((model_start, model_end, output_ca_indices), input_ca_data) in enumerate(zip(output_models, input_models), start=1):
-        if len(input_ca_data) != len(output_ca_indices):
+        if len(input_ca_data) < len(output_ca_indices):
+            logger.debug(
+                module_name="sync",
+                msg=(
+                    f"Reference model {model_idx} has fewer CA atoms ({len(input_ca_data)}) "
+                    f"than output model ({len(output_ca_indices)}). Syncing prefix only."
+                )
+            )
+            output_ca_indices = output_ca_indices[:len(input_ca_data)]
+        elif len(input_ca_data) > len(output_ca_indices):
             raise ValueError(
                 "Residue renumbering mismatch: "
                 f"reference model {model_idx} has {len(input_ca_data)} CA atoms, "
@@ -272,6 +281,9 @@ def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:
                         sub_end = be if k == len(cas_in_block) - 1 else (cas_in_block[k] + cas_in_block[k + 1]) // 2
                         split_blocks.append((sub_start, sub_end))
             residue_blocks = split_blocks
+
+        if len(residue_blocks) > len(input_ca_data):
+            residue_blocks = residue_blocks[:len(input_ca_data)]
 
         if len(residue_blocks) != len(input_ca_data):
             raise ValueError(
@@ -352,7 +364,16 @@ def sync_residues_with_template(
     )
 
     for model_idx, ((model_start, model_end, output_ca_indices), input_ca_data) in enumerate(zip(output_models, input_models), start=1):
-        if len(input_ca_data) != len(output_ca_indices):
+        if len(input_ca_data) < len(output_ca_indices):
+            logger.debug(
+                module_name="sync",
+                msg=(
+                    f"Reference model {model_idx} has fewer CA atoms ({len(input_ca_data)}) "
+                    f"than output model ({len(output_ca_indices)}). Syncing prefix only."
+                )
+            )
+            output_ca_indices = output_ca_indices[:len(input_ca_data)]
+        elif len(input_ca_data) > len(output_ca_indices):
             raise ValueError(
                 "Residue count mismatch during template synchronization: "
                 f"reference model {model_idx} has {len(input_ca_data)} CA atoms, "
@@ -396,6 +417,9 @@ def sync_residues_with_template(
                         sub_end = be if k == len(cas_in_block) - 1 else (cas_in_block[k] + cas_in_block[k + 1]) // 2
                         split_blocks.append((sub_start, sub_end))
             residue_blocks = split_blocks
+
+        if len(residue_blocks) > len(input_ca_data):
+            residue_blocks = residue_blocks[:len(input_ca_data)]
 
         if len(residue_blocks) != len(input_ca_data):
             raise ValueError(
@@ -610,20 +634,45 @@ def convert_cg_to_all(
         if output_file_path.exists():
             # Pass 1: Sync to CABS assignments (using original filename as reference)
             ref_path = Path(pdb)
-            sync_residues(input_pdb_path=ref_path, output_pdb_path=output_file_path)
+            try:
+                sync_residues(input_pdb_path=ref_path, output_pdb_path=output_file_path)
+            except Exception as e:
+                logger.warning(
+                    module_name="CG2ALL",
+                    msg=f"Initial CABS assignment residue synchronization warning: {e}. Keeping default assignments."
+                )
             
             # Pass 2: Sync to original PDB numbering (using reference_path and start_all.pdb as template)
             if renumber_flag and reference_path:
                 start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
                 if start_all_path.exists():
-                    sync_residues_with_template(
-                        input_pdb_path=reference_path,
-                        topology_pdb_path=start_all_path,
-                        output_pdb_path=output_file_path
-                    )
+                    try:
+                        sync_residues_with_template(
+                            input_pdb_path=reference_path,
+                            topology_pdb_path=start_all_path,
+                            output_pdb_path=output_file_path
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            module_name="CG2ALL",
+                            msg=f"Template-based residue synchronization warning: {e}. Falling back to standard synchronization."
+                        )
+                        try:
+                            sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
+                        except Exception as e2:
+                            logger.warning(
+                                module_name="CG2ALL",
+                                msg=f"Fallback synchronization also failed: {e2}. Structure was kept with default numbering."
+                            )
                 else:
                     # Fallback to sync_residues if template is missing
-                    sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
+                    try:
+                        sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
+                    except Exception as e:
+                        logger.warning(
+                            module_name="CG2ALL",
+                            msg=f"Standard synchronization failed: {e}. Structure was kept with default numbering."
+                        )
             
             if minimize_flag:
                 minimize_pdb_energy(output_file_path)
