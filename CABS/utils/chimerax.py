@@ -87,7 +87,7 @@ def _generate_restraints_script(scripts_dir: Path, restraints_file: str, start_p
                         res1, chain1 = rc1
                         res2, chain2 = rc2
                         # ChimeraX distance command between CA atoms
-                        cmd = f"distance rest_{idx} #0:{chain1}:{res1}@CA #0:{chain2}:{res2}@CA"
+                        cmd = f"distance #1:{chain1}:{res1}@CA #1:{chain2}:{res2}@CA"
                         restraints_lines.append(cmd)
     except Exception:
         return None
