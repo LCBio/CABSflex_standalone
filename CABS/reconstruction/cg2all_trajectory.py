@@ -135,6 +135,11 @@ def reconstruct_trajectory(
     
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
+    env["OMP_NUM_THREADS"] = str(n_proc)
+    env["MKL_NUM_THREADS"] = str(n_proc)
+    env["OPENBLAS_NUM_THREADS"] = str(n_proc)
+    env["VECLIB_MAXIMUM_THREADS"] = str(n_proc)
+    env["NUMEXPR_NUM_THREADS"] = str(n_proc)
     
     try:
         subprocess.run(

@@ -549,6 +549,7 @@ def convert_cg_to_all(
     output_filename: Optional[str] = None,
     cg2all_representation: str = "calpha",
     minimize_flag: bool = True,
+    n_proc: Optional[int] = None,
 ) -> str:
     """
     Convert coarse-grained model to all-atom
@@ -585,6 +586,11 @@ def convert_cg_to_all(
     input_pdb = Path(pdb)
     fout = output_filename or f"model_{iter}.pdb"
     cg_model = CG2ALL_REPRESENTATIONS[cg2all_representation]
+
+    # Resolve thread count: cap to 4 unless user overrides via aa-rebuild-workers
+    if n_proc is None or n_proc <= 0:
+        n_proc = min(4, os.cpu_count() or 1)
+
     # Modify the subprocess call to use micromamba run if an environment prefix is provided.
     # This ensures all environment variables and dependencies (like torch, dgl) are correctly set up.
     if env_prefix:
@@ -599,7 +605,8 @@ def convert_cg_to_all(
             "-p", str(input_pdb),
             "-o", str(output_dir / fout),
             "--cg", cg_model,
-            "--device", "cpu"
+            "--device", "cpu",
+            "--proc", str(n_proc),
         ]
     else:
         # Fallback to the default path if no specific env is passed
@@ -608,7 +615,8 @@ def convert_cg_to_all(
             "-p", str(input_pdb),
             "-o", str(output_dir / fout),
             "--cg", cg_model,
-            "--device", "cpu"
+            "--device", "cpu",
+            "--proc", str(n_proc),
         ]
 
     # Prepare a clean environment for micromamba run
@@ -616,6 +624,11 @@ def convert_cg_to_all(
     env.pop("PYTHONPATH", None)
     env.pop("PYTHONHOME", None)
     env.pop("PYTHONUSERBASE", None)
+    env["OMP_NUM_THREADS"] = str(n_proc)
+    env["MKL_NUM_THREADS"] = str(n_proc)
+    env["OPENBLAS_NUM_THREADS"] = str(n_proc)
+    env["VECLIB_MAXIMUM_THREADS"] = str(n_proc)
+    env["NUMEXPR_NUM_THREADS"] = str(n_proc)
 
     try:
         result = subprocess.run(

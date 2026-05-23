@@ -749,6 +749,7 @@ def convert_cg_to_all(
     cg2all_representation: str = "calpha",
     aa_method: str = "cg2all",
     minimize_flag: bool = True,
+    n_proc: Optional[int] = None,
 ) -> str:
     """
     Convert coarse-grained model to all-atom.
@@ -764,6 +765,7 @@ def convert_cg_to_all(
         output_filename=output_filename,
         cg2all_representation=cg2all_representation,
         minimize_flag=minimize_flag,
+        n_proc=n_proc,
     )
 
 

@@ -60,6 +60,7 @@ class CABSTask(metaclass=ABCMeta):
             "aa_method"
         )
         self.aa_rebuild: str = str(kwargs.get("aa_rebuild", "M"))
+        self.aa_rebuild_workers: Optional[int] = kwargs.get("aa_rebuild_workers")
         self.aa_minimize: Optional[bool] = kwargs.get("aa_minimize")
         self.add_peptide: Optional[str] = kwargs.get("add_peptide")
         self.align: Optional[bool] = kwargs.get("align")
@@ -997,6 +998,7 @@ class CABSTask(metaclass=ABCMeta):
                                 env_prefix=self.cg2all_env_prefix,
                                 cg2all_representation=self.cg2all_representation,
                                 minimize_flag=(self.aa_minimize is not False),
+                                n_proc=self.aa_rebuild_workers,
                             )
                             if attempt_cyclization:
                                 pth_tmp = os.path.join(
@@ -1152,6 +1154,7 @@ class CABSTask(metaclass=ABCMeta):
                             output_filename=aa_name,
                             cg2all_representation=self.cg2all_representation,
                             minimize_flag=(self.aa_minimize is True),
+                            n_proc=self.aa_rebuild_workers,
                         )
 
                         if attempt_cyclization:
