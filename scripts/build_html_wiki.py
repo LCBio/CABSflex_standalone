@@ -207,7 +207,7 @@ def preprocess_markdown(text: str) -> str:
     lines = text.splitlines()
     cleaned_lines = []
     for line in lines:
-        if "Preprint" in line and ("biorxiv" in line.lower() or "biorxiv_logo" in line) and "Code" in line:
+        if "Preprint" in line and "Code" in line and ("Code Mirror" in line or "biorxiv" in line.lower() or "biorxiv_logo" in line):
             continue
         cleaned_lines.append(line)
     text = "\n".join(cleaned_lines)
