@@ -29,8 +29,8 @@ Recommended for local machines (Linux, macOS, WSL 2). The installer automaticall
 
 ```bash
 # Clone from GitHub
-git clone https://github.com/LCBio/CABSflex_standalone.git cabsflex
-# OR from GitLab mirror:
+git clone https://github.com/LCBio/cabsflex.git
+# OR from GitLab mirror (specifying folder name 'cabsflex'):
 # git clone https://gitlab.com/lcbio1/CABSflex_standalone.git cabsflex
 
 # Enter the cloned directory
