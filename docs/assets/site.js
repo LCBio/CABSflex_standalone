@@ -196,6 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (link && link.getAttribute('href')) {
       const href = link.getAttribute('href');
       if (href.includes('references.html#') || href.includes('project-links.html#')) {
+        // If the mouse was already inside the same link, do nothing
+        if (e.relatedTarget && link.contains(e.relatedTarget)) {
+          return;
+        }
         showTooltip(link);
       }
     }
@@ -206,6 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (link && link.getAttribute('href')) {
       const href = link.getAttribute('href');
       if (href.includes('references.html#') || href.includes('project-links.html#')) {
+        // If the mouse is moving to a target that is still within the same link, do not hide
+        if (e.relatedTarget && link.contains(e.relatedTarget)) {
+          return;
+        }
         hideTooltip(link);
       }
     }

@@ -87,7 +87,6 @@ SECTION_LABELS = {
         "Options-Reference",
         "Advanced-Data",
         "References",
-        "Project-Links",
     ],
 }
 
@@ -219,8 +218,7 @@ def preprocess_markdown(text: str) -> str:
         'height="22" style="vertical-align: middle;"> Code**](Project-Links#GitHub) | '
         '[**<img src="https://img.icons8.com/color/24/gitlab.png" height="22" '
         'style="vertical-align: middle;"> Code Mirror**](Project-Links#GitLab) | '
-        '[**<img src="https://upload.wikimedia.org/wikipedia/commons/d/db/BioRxiv_logo.png" '
-        'height="12" style="vertical-align: middle;"> Preprint**](References#Preprint)\n\n'
+        '[**Preprint**](References#Preprint)\n\n'
     )
     
     # If the page starts with the banner image, put the header nav right under the banner
