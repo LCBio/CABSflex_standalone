@@ -39,6 +39,7 @@ PAGE_ORDER = [
     "Visualization-Guide",
     "Advanced-Data",
     "References",
+    "Project-Links",
 ]
 
 PAGE_LABELS = {
@@ -59,6 +60,7 @@ PAGE_LABELS = {
     "Visualization-Guide": "Visualization Guide",
     "Advanced-Data": "Internal Data Structures",
     "References": "References",
+    "Project-Links": "Project Links",
 }
 
 SECTION_LABELS = {
@@ -85,6 +87,7 @@ SECTION_LABELS = {
         "Options-Reference",
         "Advanced-Data",
         "References",
+        "Project-Links",
     ],
 }
 
@@ -201,6 +204,33 @@ def rewrite_github_alerts(text: str) -> str:
 
 
 def preprocess_markdown(text: str) -> str:
+    # Remove any existing manually defined header navigation line
+    lines = text.splitlines()
+    cleaned_lines = []
+    for line in lines:
+        if "Preprint" in line and ("biorxiv" in line.lower() or "biorxiv_logo" in line) and "Code" in line:
+            continue
+        cleaned_lines.append(line)
+    text = "\n".join(cleaned_lines)
+
+    # Prepend the standardized header navigation at the top of the body
+    header_nav = (
+        '[**<img src="https://img.icons8.com/material-outlined/24/000000/github.png" '
+        'height="22" style="vertical-align: middle;"> Code**](Project-Links#GitHub) | '
+        '[**<img src="https://img.icons8.com/color/24/gitlab.png" height="22" '
+        'style="vertical-align: middle;"> Code Mirror**](Project-Links#GitLab) | '
+        '[**<img src="https://upload.wikimedia.org/wikipedia/commons/d/db/BioRxiv_logo.png" '
+        'height="12" style="vertical-align: middle;"> Preprint**](References#Preprint)\n\n'
+    )
+    
+    # If the page starts with the banner image, put the header nav right under the banner
+    banner_match = re.match(r'^\s*(!\[.*?\]\(images/[^)]+\))(\s*\n+)?', text)
+    if banner_match:
+        insert_pos = banner_match.end()
+        text = text[:insert_pos] + header_nav + text[insert_pos:]
+    else:
+        text = header_nav + text
+
     text = rewrite_internal_links(text)
     text = rewrite_bitbucket_images(text)
     text = rewrite_github_alerts(text)
