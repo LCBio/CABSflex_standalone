@@ -27,6 +27,7 @@ PAGE_ORDER = [
     "Modeling-Scheme",
     "CABS-Model",
     "Restraints",
+    "Sampling-Temperature",
     "Flexibility-Modes",
     "All-Atom-Reconstruction",
     "Protein-Flexibility",
@@ -48,6 +49,7 @@ PAGE_LABELS = {
     "Modeling-Scheme": "Modeling Scheme",
     "CABS-Model": "CABS Model",
     "Restraints": "Restraints",
+    "Sampling-Temperature": "Sampling and Temperature",
     "Flexibility-Modes": "Flexibility Modes",
     "All-Atom-Reconstruction": "All-Atom Reconstruction",
     "Protein-Flexibility": "Protein Flexibility",
@@ -72,6 +74,7 @@ SECTION_LABELS = {
         "Modeling-Scheme",
         "CABS-Model",
         "Restraints",
+        "Sampling-Temperature",
         "Flexibility-Modes",
         "All-Atom-Reconstruction",
     ],
@@ -449,7 +452,11 @@ def build_site() -> None:
     for page in PAGE_ORDER:
         src = WIKI_ROOT / f"{page}.md"
         if not src.exists():
-            raise SystemExit(f"Missing wiki page: {src}")
+            src_upper = WIKI_ROOT / f"{page}.MD"
+            if src_upper.exists():
+                src = src_upper
+            else:
+                raise SystemExit(f"Missing wiki page: {src}")
         text = preprocess_markdown(src.read_text(encoding="utf-8"))
         title, toc, body = markdown_to_html(text)
         out = OUTPUT_ROOT / page_output_name(page)
