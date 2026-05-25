@@ -91,20 +91,20 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(highlightTarget, 400);
   }
 
+
   // --- Reference Hover Previews ---
-  let referencesDoc = null;
-  const fetchReferences = async () => {
-    if (referencesDoc) return referencesDoc;
+  const docCache = {};
+  const fetchDoc = async (pageName) => {
+    if (docCache[pageName]) return docCache[pageName];
     try {
-      // Find relative path to references.html (handles different pages in root docs dir)
-      const response = await fetch('references.html');
-      if (!response.ok) throw new Error('Failed to fetch references.html');
+      const response = await fetch(pageName);
+      if (!response.ok) throw new Error(`Failed to fetch ${pageName}`);
       const htmlText = await response.text();
       const parser = new DOMParser();
-      referencesDoc = parser.parseFromString(htmlText, 'text/html');
-      return referencesDoc;
+      docCache[pageName] = parser.parseFromString(htmlText, 'text/html');
+      return docCache[pageName];
     } catch (err) {
-      console.error('Error loading reference previews:', err);
+      console.error(`Error loading page previews for ${pageName}:`, err);
       return null;
     }
   };
@@ -120,11 +120,18 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(activeTimeout);
     
     const href = link.getAttribute('href');
-    if (!href || !href.includes('references.html#')) return;
+    if (!href) return;
 
-    const hashIndex = href.indexOf('#');
-    const hash = decodeURIComponent(href.substring(hashIndex));
-    const doc = await fetchReferences();
+    // Find the html file and hash from the link
+    const match = href.match(/^([^#]*\.html)#(.*)$/);
+    if (!match) return;
+
+    const pageName = match[1];
+    const hash = '#' + decodeURIComponent(match[2]);
+
+    if (pageName !== 'references.html' && pageName !== 'project-links.html') return;
+
+    const doc = await fetchDoc(pageName);
     if (!doc) return;
 
     let targetHeading = doc.querySelector(hash);
@@ -186,15 +193,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('mouseover', (e) => {
     const link = e.target.closest('a');
-    if (link && link.getAttribute('href') && link.getAttribute('href').includes('references.html#')) {
-      showTooltip(link);
+    if (link && link.getAttribute('href')) {
+      const href = link.getAttribute('href');
+      if (href.includes('references.html#') || href.includes('project-links.html#')) {
+        showTooltip(link);
+      }
     }
   });
 
   document.addEventListener('mouseout', (e) => {
     const link = e.target.closest('a');
-    if (link && link.getAttribute('href') && link.getAttribute('href').includes('references.html#')) {
-      hideTooltip();
+    if (link && link.getAttribute('href')) {
+      const href = link.getAttribute('href');
+      if (href.includes('references.html#') || href.includes('project-links.html#')) {
+        hideTooltip(link);
+      }
     }
   });
 
@@ -206,3 +219,4 @@ document.addEventListener('DOMContentLoaded', () => {
     hideTooltip();
   });
 });
+
