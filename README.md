@@ -84,7 +84,7 @@ CABSdock -i receptor.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
 
 *   📚 **[Full Documentation (Wiki)](https://github.com/LCBio/CABSflex_standalone/wiki)**
 *   📖 **[Examples & Case Studies](https://github.com/LCBio/CABSflex_standalone/wiki/Examples)**
-*   ⚙️ **[Options Reference](https://github.com/LCBio/CABSflex_standalone/wiki/Options-Reference)**
+*   ⚙️ **[Options Reference](https://github.com/LCBio/CABSflex_standalone/wiki/Options)**
 *   🐛 **[Issue Tracker](https://github.com/LCBio/CABSflex_standalone/issues)**
 
 ---
