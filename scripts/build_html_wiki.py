@@ -223,7 +223,7 @@ def preprocess_markdown(text: str) -> str:
         'style="vertical-align: middle;"> Code Mirror**](Project-Links#GitLab) | '
         '[**Preprint**](References#Preprint) | '
         '[**<img src="https://img.icons8.com/color/24/linkedin.png" height="22" '
-        'style="vertical-align: middle;"> LinkedIn**](https://www.linkedin.com/company/lcbio/)\n\n'
+        'style="vertical-align: middle;"> LinkedIn**](Project-Links#LinkedIn)\n\n'
     )
     
     # If the page starts with the banner image, put the header nav right under the banner

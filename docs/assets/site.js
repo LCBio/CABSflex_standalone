@@ -31,6 +31,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const href = link.getAttribute('href');
     if (!href) return;
 
+    if (href.includes('#LinkedIn')) {
+      e.preventDefault();
+      window.open('https://www.linkedin.com/company/lcbio/', '_blank');
+      return;
+    }
+    if (href.includes('#GitHub')) {
+      e.preventDefault();
+      window.open('https://github.com/LCBio/CABSflex_standalone', '_blank');
+      return;
+    }
+    if (href.includes('#GitLab')) {
+      e.preventDefault();
+      window.open('https://gitlab.com/lcbio1/CABSflex_standalone', '_blank');
+      return;
+    }
+
     if (href === '#' || href === '#top' || href === '#site-top') {
       e.preventDefault();
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
@@ -60,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
           target.classList.remove('target-highlight');
           void target.offsetWidth; // Trigger reflow to restart animation
           target.classList.add('target-highlight');
-          
+
           // Also highlight the actual citation paragraph if it's a reference page section
           if (target.tagName === 'H2') {
             let nextPara = target.nextElementSibling;
@@ -118,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const showTooltip = async (link) => {
     clearTimeout(activeTimeout);
-    
+
     const href = link.getAttribute('href');
     if (!href) return;
 
@@ -150,12 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const paraHTML = nextPara && nextPara.tagName === 'P' ? nextPara.innerHTML : '';
 
     tooltip.innerHTML = `<strong>${headingText}</strong><hr style="margin:8px 0; border:0; border-top:1px solid rgba(15, 98, 254, 0.15);"><p>${paraHTML}</p>`;
-    
+
     // Position tooltip relative to hovered link
     const rect = link.getBoundingClientRect();
     const tooltipWidth = 340;
     tooltip.style.width = `${tooltipWidth}px`;
-    
+
     // Pre-show with opacity 0 to calculate offsetHeight
     tooltip.style.left = '-9999px';
     tooltip.style.top = '-9999px';
