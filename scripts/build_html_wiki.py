@@ -40,6 +40,7 @@ PAGE_ORDER = [
     "Visualization-Guide",
     "Report-notebook",
     "Advanced-Data",
+    "Contact-and-Updates",
     "References",
     "Project-Links",
 ]
@@ -63,6 +64,7 @@ PAGE_LABELS = {
     "Visualization-Guide": "Visualization Guide",
     "Report-notebook": "Report Notebook",
     "Advanced-Data": "Internal Data Structures",
+    "Contact-and-Updates": "Contact and Updates",
     "References": "References",
     "Project-Links": "Project Links",
 }
@@ -92,6 +94,7 @@ SECTION_LABELS = {
         "Report-notebook",
         "Options",
         "Advanced-Data",
+        "Contact-and-Updates",
         "References",
     ],
 }
@@ -213,20 +216,19 @@ def preprocess_markdown(text: str) -> str:
     lines = text.splitlines()
     cleaned_lines = []
     for line in lines:
-        if "Preprint" in line and "Code" in line and ("Code Mirror" in line or "biorxiv" in line.lower() or "biorxiv_logo" in line):
+        if "Preprint" in line and ("GitHub" in line or "GitLab mirror" in line or "Code" in line):
             continue
         cleaned_lines.append(line)
     text = "\n".join(cleaned_lines)
 
     # Prepend the standardized header navigation at the top of the body
     header_nav = (
+        '<span style="font-size: 1.15em;">'
         '[**<img src="https://img.icons8.com/material-outlined/24/000000/github.png" '
-        'height="22" style="vertical-align: middle;"> Code**](Project-Links#GitHub) | '
-        '[**<img src="https://img.icons8.com/color/24/gitlab.png" height="22" '
-        'style="vertical-align: middle;"> Code Mirror**](Project-Links#GitLab) | '
-        '[**Preprint**](References#Preprint) | '
-        '[**<img src="https://img.icons8.com/color/24/linkedin.png" height="22" '
-        'style="vertical-align: middle;"> LinkedIn**](Project-Links#LinkedIn)\n\n'
+        'height="24" style="vertical-align: middle;"> GitHub**](Project-Links#GitHub) | '
+        '[**<img src="https://img.icons8.com/color/24/gitlab.png" height="24" '
+        'style="vertical-align: middle;"> GitLab mirror**](Project-Links#GitLab) | '
+        '[**Preprint**](References#Preprint)</span>\n\n'
     )
     
     # If the page starts with the banner image, put the header nav right under the banner
