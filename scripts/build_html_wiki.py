@@ -216,7 +216,7 @@ def preprocess_markdown(text: str) -> str:
     lines = text.splitlines()
     cleaned_lines = []
     for line in lines:
-        if "Preprint" in line and ("GitHub" in line or "GitLab mirror" in line or "Code" in line):
+        if "hero-video-card" not in text and "Preprint" in line and ("GitHub" in line or "GitLab mirror" in line or "Code" in line):
             continue
         cleaned_lines.append(line)
     text = "\n".join(cleaned_lines)
@@ -233,7 +233,10 @@ def preprocess_markdown(text: str) -> str:
     
     # If the page starts with the banner image, put the header nav right under the banner
     banner_match = re.match(r'^\s*(!\[.*?\]\(images/[^)]+\))(\s*\n+)?', text)
-    if banner_match:
+    if "hero-video-card" in text:
+        # Custom hero block has its own layout and links, do not prepend standardized links
+        pass
+    elif banner_match:
         insert_pos = banner_match.end()
         text = text[:insert_pos] + header_nav + text[insert_pos:]
     else:
@@ -408,8 +411,8 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{html.escape(page_title)}</title>
-    <link rel="stylesheet" href="{SITE_CSS}?v=1.5">
-    <script src="{SITE_JS}?v=1.5"></script>
+    <link rel="stylesheet" href="{SITE_CSS}?v=2.4">
+    <script src="{SITE_JS}?v=2.4"></script>
   </head>
   <body id="site-top">
     <div class="site-shell">
