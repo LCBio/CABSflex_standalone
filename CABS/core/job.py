@@ -208,13 +208,16 @@ class CABSTask(metaclass=ABCMeta):
         if self.generate_visualizations:
             if not self.aa_rebuild:
                 self.aa_rebuild = "M"
-            elif "M" not in self.aa_rebuild and "A" not in self.aa_rebuild:
+            elif "M" not in self.aa_rebuild and "A" not in self.aa_rebuild and "N" not in self.aa_rebuild:
                 self.aa_rebuild += "M"
             self.pdb_output = "A"
             self.pdb_bfac_output = "A"
             self.restraints_output = True
             self.contact_maps = True
             self.ss_output = True
+
+        if "N" in self.aa_rebuild:
+            self.aa_rebuild = ""
 
         if "T" in self.aa_rebuild or "A" in self.aa_rebuild:
             if not self.pdb_output or "N" in self.pdb_output:
