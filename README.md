@@ -2,7 +2,7 @@
 
 [![GitHub](https://img.shields.io/badge/repo-GitHub-brightgreen.svg)](https://github.com/LCBio/CABSflex_standalone)
 [![GitLab Mirror](https://img.shields.io/badge/mirror-GitLab-orange.svg)](https://gitlab.com/lcbio1/CABSflex_standalone.git)
-[![Wiki](https://img.shields.io/badge/docs-Wiki-blue.svg)](https://github.com/LCBio/CABSflex_standalone/wiki)
+[![Documentation](https://img.shields.io/badge/docs-Wiki-blue.svg)](https://cabsflex.lcbio.pl/)
 
 **CABS-flex standalone 3** is a unified command-line environment for coarse-grained protein modeling and simulation. It brings together protein flexibility simulations, de novo peptide modeling, and flexible peptide–protein docking into a single Python 3-based framework.
 
@@ -16,7 +16,7 @@ CABS-flex 3 supports three main modeling pipelines:
 *   **Peptide Modeling**: *De novo* structure prediction of linear and cyclic peptides (including backbone-cyclized and disulfide-bonded peptides).
 *   **Peptide–Protein Docking**: Flexible docking of peptides to protein receptors, supporting cases with unknown binding sites or significant receptor flexibility.
 
-For a detailed explanation of the methodology, see the **[Modeling Scheme](https://github.com/LCBio/CABSflex_standalone/wiki/Modeling-Scheme)**.
+For a detailed explanation of the methodology, see the **[Modeling Scheme](https://cabsflex.lcbio.pl/modeling-scheme.html)**.
 
 ---
 
@@ -59,8 +59,7 @@ bash install-hpc-micromamba.sh
 bash install-hpc.sh
 ```
 
-> [!TIP]
-> See the **[Installation Guide](https://github.com/LCBio/CABSflex_standalone/wiki/Installation)** for detailed configuration tips for specific HPC environments.
+> See the **[Installation Guide](https://cabsflex.lcbio.pl/installation.html)** for detailed configuration tips for specific HPC environments.
 
 ---
 
@@ -82,9 +81,9 @@ CABSdock -i receptor.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
 
 ## 🔗 Resources & Documentation
 
-*   📚 **[Full Documentation (Wiki)](https://github.com/LCBio/CABSflex_standalone/wiki)**
-*   📖 **[Examples & Case Studies](https://github.com/LCBio/CABSflex_standalone/wiki/Examples)**
-*   ⚙️ **[Options Reference](https://github.com/LCBio/CABSflex_standalone/wiki/Options)**
+*   📚 **[Full Documentation (Wiki)](https://cabsflex.lcbio.pl/)**
+*   📖 **[Examples & Case Studies](https://cabsflex.lcbio.pl/examples.html)**
+*   ⚙️ **[Options Reference](https://cabsflex.lcbio.pl/options.html)**
 *   🐛 **[Issue Tracker](https://github.com/LCBio/CABSflex_standalone/issues)**
 
 ---
