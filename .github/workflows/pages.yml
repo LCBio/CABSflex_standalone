@@ -22,28 +22,37 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Clone wiki repository
+      - name: Create redirect pages
         run: |
-          git clone https://gitlab.com/lcbio1/CABSflex_standalone.wiki.git /tmp/CABSflex_standalone.wiki
-
-      - name: Build docs from wiki source
-        run: |
-          python -m pip install --upgrade pip
-          pip install markdown
-          CABSFLEX_WIKI_ROOT=/tmp/CABSflex_standalone.wiki python scripts/build_html_wiki.py
+          mkdir -p /tmp/redirect-site
+          cat << 'EOF' > /tmp/redirect-site/index.html
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Redirecting...</title>
+              <link rel="canonical" href="https://cabsflex.lcbio.pl/">
+              <meta http-equiv="refresh" content="0; url=https://cabsflex.lcbio.pl/">
+              <script>
+                const repoPrefix = '/CABSflex_standalone';
+                let path = window.location.pathname;
+                if (path.toLowerCase().startsWith(repoPrefix.toLowerCase())) {
+                  path = path.substring(repoPrefix.length);
+                }
+                window.location.replace('https://cabsflex.lcbio.pl' + path + window.location.search + window.location.hash);
+              </script>
+            </head>
+            <body>
+              Redirecting you to <a href="https://cabsflex.lcbio.pl/">https://cabsflex.lcbio.pl/</a>...
+            </body>
+          </html>
+          EOF
+          cp /tmp/redirect-site/index.html /tmp/redirect-site/404.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: /tmp/redirect-site
 
       - name: Deploy to GitHub Pages
         id: deployment
