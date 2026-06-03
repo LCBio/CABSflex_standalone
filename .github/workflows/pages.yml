@@ -1,1 +1,60 @@
 
+name: Deploy Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Create redirect pages
+        run: |
+          mkdir -p /tmp/redirect-site
+          cat << 'EOF' > /tmp/redirect-site/index.html
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>Redirecting...</title>
+              <link rel="canonical" href="https://cabsflex.lcbio.pl/">
+              <meta http-equiv="refresh" content="0; url=https://cabsflex.lcbio.pl/">
+              <script>
+                const repoPrefix = '/CABSflex_standalone';
+                let path = window.location.pathname;
+                if (path.toLowerCase().startsWith(repoPrefix.toLowerCase())) {
+                  path = path.substring(repoPrefix.length);
+                }
+                window.location.replace('https://cabsflex.lcbio.pl' + path + window.location.search + window.location.hash);
+              </script>
+            </head>
+            <body>
+              Redirecting you to <a href="https://cabsflex.lcbio.pl/">https://cabsflex.lcbio.pl/</a>...
+            </body>
+          </html>
+          EOF
+          cp /tmp/redirect-site/index.html /tmp/redirect-site/404.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: /tmp/redirect-site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
