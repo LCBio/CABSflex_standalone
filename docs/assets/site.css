@@ -115,7 +115,9 @@ blockquote {
   position: sticky;
   top: 0;
   align-self: start;
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1.4rem 1rem 1.8rem;
   border-right: 1px solid var(--line);
   background: #fff;
@@ -301,6 +303,10 @@ blockquote {
 .doc-toc {
   position: sticky;
   top: 1rem;
+  align-self: start;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .toc-card {
@@ -356,22 +362,27 @@ blockquote {
   margin: 1.5rem 0;
 }
 
-.video-embed iframe,
-.video-embed video {
+.video-embed iframe {
   display: block;
   width: 100%;
   border: 0;
   border-radius: 18px;
-  background: #0f1114;
+  background: transparent;
   box-shadow: var(--shadow);
-}
-
-.video-embed iframe {
   aspect-ratio: 16 / 9;
 }
 
 .video-embed video {
+  display: block;
+  margin: 0 auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
   max-height: min(70vh, 760px);
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: var(--shadow);
 }
 
 .video-gallery {
@@ -587,4 +598,26 @@ article.doc-content h1,
 .hero-logo-container {
   position: relative;
   z-index: 2;
+}
+
+/* --- Premium Thin Scrollbar Styling --- */
+.sidebar::-webkit-scrollbar,
+.doc-toc::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.doc-toc::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.doc-toc::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+}
+
+.sidebar:hover::-webkit-scrollbar-thumb,
+.doc-toc:hover::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
 }

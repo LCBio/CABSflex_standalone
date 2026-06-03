@@ -242,5 +242,29 @@ document.addEventListener('DOMContentLoaded', () => {
   tooltip.addEventListener('mouseleave', () => {
     hideTooltip();
   });
+
+  // --- Prevent scroll propagation to body from sidebar and toc ---
+  const preventScrollChaining = (el) => {
+    if (!el) return;
+    el.addEventListener('wheel', (e) => {
+      const delta = e.deltaY;
+      const scrollTop = el.scrollTop;
+      const scrollHeight = el.scrollHeight;
+      const clientHeight = el.clientHeight;
+
+      if (scrollHeight > clientHeight) {
+        if (delta < 0 && scrollTop <= 0) {
+          e.preventDefault();
+        } else if (delta > 0 && scrollTop + clientHeight >= scrollHeight) {
+          e.preventDefault();
+        }
+      } else {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  };
+
+  preventScrollChaining(document.getElementById('sidebar'));
+  preventScrollChaining(document.querySelector('.doc-toc'));
 });
 
