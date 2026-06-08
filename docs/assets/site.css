@@ -443,6 +443,16 @@ blockquote {
 
   .topbar {
     justify-content: flex-start;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding: 0.5rem 1rem;
+    margin-top: -0.9rem;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 1.5rem;
   }
 
   .nav-toggle {

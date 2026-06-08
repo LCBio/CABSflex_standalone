@@ -145,6 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
         }
+        // Close mobile sidebar if open (e.g. clicking nested TOC item on mobile)
+        if (sidebar && sidebar.classList.contains('is-open')) {
+          sidebar.classList.remove('is-open');
+          if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        }
       } else {
         loadPage(targetUrl, targetHash, true);
       }
