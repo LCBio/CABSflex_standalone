@@ -199,7 +199,7 @@ blockquote {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -620,4 +620,52 @@ article.doc-content h1,
 .sidebar:hover::-webkit-scrollbar-thumb,
 .doc-toc:hover::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.18);
+}
+
+/* --- Sidebar TOC Integration --- */
+.sidebar-toc {
+  margin: 0.25rem 0 0.5rem 0.7rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--line-strong);
+}
+
+.sidebar-toc .toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sidebar-toc .toc li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-toc .toc a {
+  display: inline-block;
+  padding: 0.15rem 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 120ms ease;
+  line-height: 1.35;
+}
+
+.sidebar-toc .toc a:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+.sidebar-toc .toc a.is-active-anchor {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Hide H3 and deeper sub-headings in the sidebar TOC */
+.sidebar-toc .toc ul ul ul {
+  display: none;
+}
+
+/* Hide the redundant top-level H1 link (page title) inside the sidebar TOC */
+.sidebar-toc .toc > ul > li > a {
+  display: none;
 }

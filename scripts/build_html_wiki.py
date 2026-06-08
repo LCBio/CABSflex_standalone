@@ -141,7 +141,7 @@ def youtube_embed_url(url: str) -> str | None:
     )
 
 
-def build_sidebar(current_page: str) -> str:
+def build_sidebar(current_page: str, toc: str) -> str:
     parts = ['<nav class="sidebar-nav" aria-label="Documentation">']
     for section, pages in SECTION_LABELS.items():
         parts.append(f"<section><h2>{html.escape(section)}</h2><ul>")
@@ -150,8 +150,11 @@ def build_sidebar(current_page: str) -> str:
             cls = ' class="is-current"' if page == current_page else ""
             label = PAGE_LABELS.get(page, page)
             parts.append(
-                f'<li><a{cls} href="{href}">{html.escape(label)}</a></li>'
+                f'<li><a{cls} href="{href}">{html.escape(label)}</a>'
             )
+            if page == current_page and toc and "toc-empty" not in toc:
+                parts.append(f'<div class="sidebar-toc">{toc}</div>')
+            parts.append('</li>')
         parts.append("</ul></section>")
     parts.append("</nav>")
     return "".join(parts)
@@ -418,7 +421,7 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
     <div class="site-shell">
       <aside class="sidebar" id="sidebar">
         <a class="brand" href="index.html">CABS-flex Standalone 3 Docs</a>
-        {build_sidebar(page)}
+        {build_sidebar(page, toc)}
       </aside>
       <main class="main-content">
         <header class="topbar">
@@ -428,12 +431,6 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
           <article class="doc-content">
             {body}
           </article>
-          <aside class="doc-toc">
-            <div class="toc-card">
-              <h2>On this page</h2>
-              {toc}
-            </div>
-          </aside>
         </div>
       </main>
     </div>

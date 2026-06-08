@@ -24,7 +24,85 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Handle links to top or internal anchors
+  // Restore sidebar scroll position from sessionStorage
+  if (sidebar) {
+    const savedScroll = sessionStorage.getItem('sidebar-scroll');
+    if (savedScroll) {
+      sidebar.scrollTop = parseInt(savedScroll, 10);
+    }
+    sidebar.addEventListener('scroll', () => {
+      sessionStorage.setItem('sidebar-scroll', sidebar.scrollTop);
+    });
+  }
+
+  // Check if link is a local HTML page transition
+  const isLocalHTMLTransition = (link) => {
+    if (link.target === '_blank') return false;
+    const href = link.getAttribute('href');
+    if (!href) return false;
+    if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:') || href.startsWith('javascript:')) {
+      return false;
+    }
+    const urlPath = href.split('#')[0];
+    if (urlPath === '' || urlPath.endsWith('.html')) {
+      return true;
+    }
+    return false;
+  };
+
+  // Main PJAX page loading function
+  const loadPage = async (urlStr, targetHash = '', pushHistory = true) => {
+    try {
+      const response = await fetch(urlStr);
+      if (!response.ok) throw new Error(`Status: ${response.status}`);
+      const htmlText = await response.text();
+      const parser = new DOMParser();
+      const newDoc = parser.parseFromString(htmlText, 'text/html');
+
+      // Update Page Title
+      document.title = newDoc.title;
+
+      // Swap Document Content
+      const currentDocContent = document.querySelector('.doc-content');
+      const newDocContent = newDoc.querySelector('.doc-content');
+      if (currentDocContent && newDocContent) {
+        currentDocContent.innerHTML = newDocContent.innerHTML;
+      }
+
+      // Swap Sidebar Navigation (preserving scroll position)
+      const currentSidebarNav = document.querySelector('.sidebar-nav');
+      const newSidebarNav = newDoc.querySelector('.sidebar-nav');
+      if (currentSidebarNav && newSidebarNav) {
+        const scrollTop = sidebar ? sidebar.scrollTop : 0;
+        currentSidebarNav.innerHTML = newSidebarNav.innerHTML;
+        if (sidebar) sidebar.scrollTop = scrollTop;
+      }
+
+      // Close mobile sidebar if open
+      if (sidebar && sidebar.classList.contains('is-open')) {
+        sidebar.classList.remove('is-open');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      }
+
+      // Update History State
+      if (pushHistory) {
+        history.pushState({ url: urlStr }, '', urlStr);
+      }
+
+      // Highlight target and scroll
+      if (targetHash) {
+        window.location.hash = targetHash;
+        highlightTarget();
+      } else {
+        window.scrollTo({ top: 0, left: 0 });
+      }
+    } catch (err) {
+      console.error('PJAX failed, falling back to full navigation:', err);
+      window.location.href = urlStr + (targetHash ? targetHash : '');
+    }
+  };
+
+  // Handle link click events (delegated)
   document.addEventListener('click', (e) => {
     const link = e.target.closest('a');
     if (!link) return;
@@ -51,7 +129,33 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       history.pushState(null, null, ' ');
+      return;
     }
+
+    if (isLocalHTMLTransition(link)) {
+      e.preventDefault();
+      const parts = href.split('#');
+      const targetUrl = parts[0] || window.location.pathname.split('/').pop() || 'index.html';
+      const targetHash = parts[1] ? '#' + parts[1] : '';
+
+      const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+      if (targetUrl === currentPage) {
+        if (targetHash) {
+          window.location.hash = targetHash;
+        } else {
+          window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        }
+      } else {
+        loadPage(targetUrl, targetHash, true);
+      }
+    }
+  });
+
+  // Listen to browser Back/Forward navigation
+  window.addEventListener('popstate', () => {
+    const pageUrl = window.location.pathname.split('/').pop() || 'index.html';
+    const targetHash = window.location.hash;
+    loadPage(pageUrl, targetHash, false);
   });
 
   // Final fallback for page load
