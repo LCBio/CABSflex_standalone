@@ -399,6 +399,16 @@ def markdown_to_html(text: str) -> tuple[str, str, str]:
     body = link_pdb_ids(body)
     body = link_uniprot_ids(body)
     toc = md.toc or "<p class=\"toc-empty\">No table of contents for this page.</p>"
+    
+    # Strip the redundant top-level H1 link (page title) from the table of contents
+    toc_match = re.search(
+        r'<div class="toc">\s*<ul>\s*<li><a href="[^"]+">[^<]+</a>\s*<ul>\s*(.*?)\s*</ul>\s*</li>\s*</ul>\s*</div>',
+        toc,
+        re.DOTALL
+    )
+    if toc_match:
+        toc = f'<div class="toc"><ul>{toc_match.group(1)}</ul></div>'
+
     title = "CABS-flex Documentation"
     match = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.DOTALL)
     if match:
