@@ -660,12 +660,7 @@ article.doc-content h1,
   font-weight: 500;
 }
 
-/* Hide H3 and deeper sub-headings in the sidebar TOC */
-.sidebar-toc .toc ul ul ul {
-  display: none;
-}
-
-/* Hide the redundant top-level H1 link (page title) inside the sidebar TOC */
-.sidebar-toc .toc > ul > li > a {
+/* Hide H3 and deeper sub-headings in the sidebar TOC (since H1 is stripped in HTML, H3 is at ul ul level) */
+.sidebar-toc .toc ul ul {
   display: none;
 }
