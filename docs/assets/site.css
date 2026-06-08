@@ -187,6 +187,15 @@ blockquote {
   margin-bottom: 1rem;
 }
 
+.mobile-brand {
+  display: none;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
 .nav-toggle {
   display: none;
   border: 1px solid var(--line-strong);
@@ -442,7 +451,7 @@ blockquote {
   }
 
   .topbar {
-    justify-content: flex-start;
+    justify-content: space-between;
     position: sticky;
     top: 0;
     z-index: 5;
@@ -453,6 +462,10 @@ blockquote {
     margin-top: -0.9rem;
     border-bottom: 1px solid var(--line);
     margin-bottom: 1.5rem;
+  }
+
+  .mobile-brand {
+    display: inline-block;
   }
 
   .nav-toggle {

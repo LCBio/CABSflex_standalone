@@ -330,7 +330,7 @@ def normalize_media_blocks(html_text: str) -> str:
     )
     html_text = re.sub(
         r'^<p><img alt="CABS-flex logo" src="([^"]+)"></p>',
-        r'<figure class="page-banner"><img alt="CABS-flex logo" src="\1"></figure>',
+        r'<figure class="page-banner"><a href="index.html"><img alt="CABS-flex logo" src="\1"></a></figure>',
         html_text,
         count=1,
         flags=re.MULTILINE,
@@ -435,6 +435,7 @@ def page_template(page: str, title: str, toc: str, body: str) -> str:
       </aside>
       <main class="main-content">
         <header class="topbar">
+          <a class="mobile-brand" href="index.html">CABS-flex Docs</a>
           <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="sidebar">Menu</button>
         </header>
         <div class="content-grid">
