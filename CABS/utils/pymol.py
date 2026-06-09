@@ -20,11 +20,13 @@ show cartoon
 
 PML_COLOR_SS_TEMPLATE = Template('''\
 # Color by CABS secondary structure values stored in start_secstr.pdb B-factors
+# (1=Coil/gray, 2=Helix/purple, 3=Turn/green, 4=Sheet/orange)
+# dss is intentionally omitted: it would overwrite the CABS B-factor SS codes
+# with PyMOL's own geometry-based assignment.
 load $target_pdb, secondary_structure_parameters
 hide all
-dss
 show cartoon
-spectrum b, blue_white_red, secondary_structure_parameters
+spectrum b, blue_white_red, secondary_structure_parameters, minimum=1, maximum=4
 ''')
 
 PML_COLOR_RMSF_TEMPLATE = Template('''\
@@ -43,7 +45,7 @@ hide all
 dss
 show cartoon
 smooth
-mset 1 x10
+mset 1 -$n_states
 mplay
 ''')
 
@@ -138,14 +140,18 @@ def _generate_color_rmsf_script(scripts_dir, models_pdbs):
         f.write(content)
 
 def _generate_animate_script(scripts_dir, models_pdbs):
+    # Load each model into the same object without an explicit state index so
+    # PyMOL appends them sequentially.  Specifying state=N is unreliable across
+    # PyMOL versions and can leave gaps when models_pdbs is not contiguous.
     load_states_lines = []
-    # To animate, we load them into the same object 'movie'
-    for i, model_path in enumerate(models_pdbs):
+    for model_path in models_pdbs:
         rel_path = os.path.relpath(model_path, scripts_dir)
-        load_states_lines.append(f"load {rel_path}, animation_sequence, state={i+1}")
-        
+        load_states_lines.append(f"load {rel_path}, animation_sequence")
+
+    n_states = max(len(models_pdbs), 1)
     content = PML_ANIMATE_TEMPLATE.substitute(
-        load_states_lines="\n".join(load_states_lines)
+        load_states_lines="\n".join(load_states_lines),
+        n_states=n_states,
     )
     with open(os.path.join(scripts_dir, "animate_models.pml"), "w") as f:
         f.write(content)

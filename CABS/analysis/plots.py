@@ -7,9 +7,10 @@ import matplotlib.pyplot as plt
 plt.switch_backend("agg")
 from itertools import chain
 import json
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from matplotlib.axes import Axes
+from matplotlib.patches import Patch
 from matplotlib.ticker import EngFormatter, FuncFormatter, MaxNLocator
 import numpy as np
 import numpy.typing as npt
@@ -18,6 +19,32 @@ try:
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#666666", "#ff4000"])
 except AttributeError:
     pass
+
+# CABS SS code → (hex color, display label), matching webserver palette
+# 1=Coil, 2=Helix, 3=Turn, 4=Sheet
+_SS_COLORS: Dict[int, Tuple[str, str]] = {
+    1: ("#AAAAAA", "Coil"),
+    2: ("#AA00AA", "Helix"),
+    3: ("#00AA00", "Turn"),
+    4: ("#FF8800", "Sheet"),
+}
+
+
+def _draw_ss_band(ax: Axes, ss_vals: List[int]) -> None:
+    """Fill *ax* with a secondary-structure colour strip (one colour block per run)."""
+    n = len(ss_vals)
+    ax.set_xlim(-0.5, n - 0.5)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    i = 0
+    while i < n:
+        ss = ss_vals[i]
+        j = i
+        while j < n and ss_vals[j] == ss:
+            j += 1
+        color, _ = _SS_COLORS.get(ss, ("#AAAAAA", "Coil"))
+        ax.broken_barh([(i - 0.5, j - i)], (0, 1), facecolors=color, edgecolors="none")
+        i = j
 
 
 def set_fixed_ar(plt_axes: Axes, ratio: float) -> None:
@@ -249,9 +276,11 @@ def plot_RMSD_N(rmsds, fname, fmt="svg"):
 
 
 def graph_RMSF(trajectory, chains, fname, fmt="svg"):
+    atoms = [i for i in trajectory.template.atoms if i.chid in chains]
     rmsf_vals = [trajectory.rmsf(chains)]
-    lbls = [i.fmt() for i in trajectory.template.atoms if i.chid in chains]
-    plot_RMSF_seq(rmsf_vals, lbls, fname + "_seq", fmt)
+    lbls = [i.fmt() for i in atoms]
+    ss_vals = [int(i.occ) for i in atoms]
+    plot_RMSF_seq(rmsf_vals, lbls, fname + "_seq", fmt, ss_vals=ss_vals)
     drop_csv_file(fname, (lbls, tuple(chain(*rmsf_vals))), fmts=("%s", "%.3f"))
     rmsf_min = np.min(rmsf_vals[0])
     rmsf_max = np.max(rmsf_vals[0])
@@ -267,28 +296,73 @@ def graph_RMSF(trajectory, chains, fname, fmt="svg"):
         json.dump(stats_dict, f)
 
 
-def plot_RMSF_seq(series, labels, fname, fmt="svg"):
+def plot_RMSF_seq(series, labels, fname, fmt="svg", ss_vals=None):
     """
     Arguments:
-    series -- list of sequences of data to be plotted.
-    labels -- corresponding ticks labels.
-    fname -- file name to be created.
-    fmt -- format of file to be created; 'svg' byt default.
-    See plt.savefig for more formats.
+    series   -- list of sequences of data to be plotted.
+    labels   -- corresponding tick labels (strings like "A:1:MET").
+    fname    -- file name to be created (without extension).
+    fmt      -- image format; 'svg' by default.
+    ss_vals  -- optional list of int CABS SS codes (1=Coil, 2=Helix, 3=Turn,
+                4=Sheet) per residue. When supplied, coloured secondary-structure
+                bands are drawn above and below the RMSF trace, matching the
+                webserver style.
     """
-    fig, sfig = plt.subplots(1)
-    xvals = [range(len(series[0]))]
-    mk_discrete_plot(
-        sfig, xvals, series, xlim=(min(xvals[0]), max(xvals[0])), joined=True
-    )
+    n = len(series[0])
+    x = np.arange(n)
+
+    if ss_vals is not None and len(ss_vals) == n:
+        fig = plt.figure(figsize=(12, 5), constrained_layout=True)
+        gs = fig.add_gridspec(
+            3, 1, height_ratios=[0.06, 1, 0.06], hspace=0.02
+        )
+        ax_top = fig.add_subplot(gs[0])
+        sfig = fig.add_subplot(gs[1], sharex=ax_top)
+        ax_bot = fig.add_subplot(gs[2], sharex=ax_top)
+
+        _draw_ss_band(ax_top, ss_vals)
+        _draw_ss_band(ax_bot, ss_vals)
+
+        plt.setp(ax_top.get_xticklabels(), visible=False)
+        plt.setp(sfig.get_xticklabels(), visible=False)
+
+        sfig.set_title("RMSF with Secondary Structure")
+
+        legend_handles = [
+            Patch(facecolor=c, label=name)
+            for _, (c, name) in sorted(_SS_COLORS.items())
+        ]
+        sfig.legend(
+            handles=legend_handles,
+            loc="upper right",
+            fontsize=8,
+            title="Secondary Structure",
+            title_fontsize=8,
+        )
+        ax_x = ax_bot
+    else:
+        fig, sfig = plt.subplots(1, figsize=(10, 4))
+        ax_x = sfig
+
+    # RMSF trace
+    sfig.plot(x, series[0], "-o", color="#1f77b4", markersize=2, linewidth=1)
     sfig.set_ylabel("RMSF")
-    sfig.set_xlabel("Residue index")
-    sfig.xaxis.set_major_locator(MaxNLocator(25, integer=True))
-    sfig.xaxis.set_major_formatter(
-        FuncFormatter(lambda x, p: labels[min(int(x), len(labels) - 1)])
+    sfig.set_xlim(x[0] - 0.5, x[-1] + 0.5)
+
+    # X-axis ticks: show just the residue number part of "A:1:MET"
+    ax_x.xaxis.set_major_locator(MaxNLocator(25, integer=True))
+    ax_x.xaxis.set_major_formatter(
+        FuncFormatter(
+            lambda v, p: labels[min(int(v), n - 1)].split(":")[1]
+            if 0 <= int(v) < n
+            else ""
+        )
     )
-    for tick in sfig.get_xticklabels():
+    for tick in ax_x.get_xticklabels():
         tick.set_rotation(90)
-    fig.tight_layout()
-    plt.savefig(fname + "." + fmt, format=fmt)
+    ax_x.set_xlabel("Residue Number")
+
+    if not (ss_vals is not None and len(ss_vals) == n):
+        fig.tight_layout()
+    plt.savefig(fname + "." + fmt, format=fmt, dpi=150, bbox_inches="tight")
     plt.close(fig)
