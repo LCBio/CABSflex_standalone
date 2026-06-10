@@ -230,6 +230,7 @@ temp_cg2all_in.pdb
 test_complex.pdb
 scratch/
 tests/run_1jbu_dock/
+test_debug_eq
 
 cabsflex_analysis.md
 .claude

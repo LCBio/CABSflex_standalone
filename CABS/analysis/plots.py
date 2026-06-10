@@ -30,12 +30,19 @@ _SS_COLORS: Dict[int, Tuple[str, str]] = {
 }
 
 
-def _draw_ss_band(ax: Axes, ss_vals: List[int]) -> None:
+def _draw_ss_band(ax: Axes, ss_vals: List[int], show_x_axis: bool = False) -> None:
     """Fill *ax* with a secondary-structure colour strip (one colour block per run)."""
     n = len(ss_vals)
     ax.set_xlim(-0.5, n - 0.5)
     ax.set_ylim(0, 1)
-    ax.axis("off")
+    if show_x_axis:
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        ax.get_yaxis().set_visible(False)
+    else:
+        ax.axis("off")
     i = 0
     while i < n:
         ss = ss_vals[i]
@@ -311,19 +318,28 @@ def plot_RMSF_seq(series, labels, fname, fmt="svg", ss_vals=None):
     n = len(series[0])
     x = np.arange(n)
 
+    unique_chains = set()
+    for lbl in labels:
+        if ":" in lbl:
+            unique_chains.add(lbl.split(":")[0])
+        else:
+            for i, c in enumerate(lbl):
+                if c.isdigit():
+                    unique_chains.add(lbl[:i])
+                    break
+    show_chain = len(unique_chains) > 1
+
     if ss_vals is not None and len(ss_vals) == n:
         fig = plt.figure(figsize=(12, 5), constrained_layout=True)
         gs = fig.add_gridspec(
-            3, 1, height_ratios=[0.06, 1, 0.06], hspace=0.02
+            2, 1, height_ratios=[1, 0.06], hspace=0.02
         )
-        ax_top = fig.add_subplot(gs[0])
-        sfig = fig.add_subplot(gs[1], sharex=ax_top)
-        ax_bot = fig.add_subplot(gs[2], sharex=ax_top)
+        sfig = fig.add_subplot(gs[0])
+        ax_bot = fig.add_subplot(gs[1], sharex=sfig)
 
-        _draw_ss_band(ax_top, ss_vals)
-        _draw_ss_band(ax_bot, ss_vals)
+        _draw_ss_band(ax_bot, ss_vals, show_x_axis=True)
 
-        plt.setp(ax_top.get_xticklabels(), visible=False)
+        # sfig shares X-axis with ax_bot, we keep sfig xticklabels hidden and let ax_bot show them.
         plt.setp(sfig.get_xticklabels(), visible=False)
 
         sfig.set_title("RMSF with Secondary Structure")
@@ -332,12 +348,15 @@ def plot_RMSF_seq(series, labels, fname, fmt="svg", ss_vals=None):
             Patch(facecolor=c, label=name)
             for _, (c, name) in sorted(_SS_COLORS.items())
         ]
-        sfig.legend(
+        ax_bot.legend(
             handles=legend_handles,
-            loc="upper right",
+            loc="upper left",
+            bbox_to_anchor=(0.0, -1.5),
+            ncol=4,
             fontsize=8,
             title="Secondary Structure",
             title_fontsize=8,
+            frameon=False,
         )
         ax_x = ax_bot
     else:
@@ -351,15 +370,23 @@ def plot_RMSF_seq(series, labels, fname, fmt="svg", ss_vals=None):
 
     # X-axis ticks: show just the residue number part of "A:1:MET"
     ax_x.xaxis.set_major_locator(MaxNLocator(25, integer=True))
-    ax_x.xaxis.set_major_formatter(
-        FuncFormatter(
-            lambda v, p: labels[min(int(v), n - 1)].split(":")[1]
-            if 0 <= int(v) < n
-            else ""
-        )
-    )
+    def format_label(v, p):
+        idx = int(round(v))
+        if 0 <= idx < len(labels):
+            lbl = labels[idx]
+            if ":" in lbl:
+                parts = lbl.split(":")
+                return f"{parts[0]}:{parts[1]}" if show_chain else parts[1]
+            for i, c in enumerate(lbl):
+                if c.isdigit():
+                    return lbl if show_chain else lbl[i:]
+            return lbl
+        return ""
+
+    ax_x.xaxis.set_major_formatter(FuncFormatter(format_label))
+
     for tick in ax_x.get_xticklabels():
-        tick.set_rotation(90)
+        tick.set_rotation(0)
     ax_x.set_xlabel("Residue Number")
 
     if not (ss_vals is not None and len(ss_vals) == n):

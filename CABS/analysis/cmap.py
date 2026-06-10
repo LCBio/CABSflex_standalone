@@ -142,137 +142,119 @@ class ContactMap:
         fname,
         fmt="svg",
         norm_n=False,
-        break_long_x=50,
-        colors_lst=["#ffffff", "#f2d600", "#4b8f24", "#666666", "#e80915", "#000000"],
+        break_long_x=0,  # We default to 0 for a single continuous map
+        colors_lst=None,
     ):
-        """Saves cmap as matrix plot.
-
-        Arguments:
-        fname -- str; file name.
-        fmt -- str; by default 'svg'. See plt.savefig for more information.
-        norm_n -- bool; if True cmap will be normalized by contact map number of frames.
-        break_long_x -- int; 50 by default. If not set to 0 -- chunks long x axis into fragments of given length.
-        """
-
+        """Saves cmap as matrix plot resembling the webserver style."""
         if self.cmtx.shape[0] == 0 or self.cmtx.shape[1] == 0 or len(self.s1) == 0 or len(self.s2) == 0:
             fig = plt.figure()
             plt.savefig(fname + "." + fmt, format=fmt)
             plt.close(fig)
             return
 
-        wdh_cnst = 60
-        wdth = self.cmtx.shape[0]
-        chunks = (
-            _chunk_lst(range(wdth), break_long_x) if break_long_x else [range(wdth)]
-        )
-        lngst = max(map(len, chunks))
-        label_size = min(lngst, wdh_cnst) / float(wdh_cnst) * 10
-        size = (
-            min(lngst, wdh_cnst) / 5.0,
-            len(chunks) * min(len(self.s2), wdh_cnst) / 5.0 + 2,
-        )
-        fig = plt.figure(figsize=size)
-        grid_wdth = min(lngst, wdh_cnst)
-        grid = plt.GridSpec(
-            len(chunks) + 1,
-            1,
-            height_ratios=([len(self.s2) for i in chunks] + [len(self.s2) * 0.25]),
-        )
-        vmax = self.n if norm_n else (np.max(self.cmtx) if self.cmtx.size > 0 else 0)
-        if vmax < 5:
-            vmax = 1 if norm_n else 5
+        # Always use the premium blue gradient for contact maps
+        colors_lst = ["#ffffff", "#e0eafc", "#bfe3fd", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8", "#1e3a8a", "#0b2c7a"]
+
+        fig, sfig = plt.subplots(figsize=(6.5, 5.5), constrained_layout=True)
+
+        if norm_n and self.n > 0:
+            plot_mtx = self.cmtx.T / float(self.n)
+            vmax = 1.0
+        else:
+            plot_mtx = self.cmtx.T
+            vmax = np.max(self.cmtx) if self.cmtx.size > 0 else 1.0
+            if vmax < 1:
+                vmax = 1.0
 
         colors = matplotlib.colors.LinearSegmentedColormap.from_list(
-            "bambi",
+            "blue_gradient",
             ["#" + color if "#" not in color else color for color in colors_lst],
         )
 
-        for n, chunk in enumerate(chunks):
-            sfig = plt.subplot(grid[n : n + 1, 0])
-            mtx = self.cmtx.T[:, chunk]
-            if mtx.shape[1] < grid_wdth:
-                zrs = np.zeros((mtx.shape[0], grid_wdth))
-                zrs[:, : len(chunk)] = mtx
-                mtx = zrs
-            sfig.matshow(
-                mtx,
-                cmap=colors,
-                vmin=0.0,
-                vmax=vmax,
-            )
-
-            if sfig.get_data_ratio() < 1.0:
-                aratio = mtx.shape[1] / mtx.shape[0]
-                sfig.set_aspect(sfig.get_data_ratio() ** -1 * aratio)
-            settings = (
-                (
-                    list(np.array(self.s1)[chunk,]),
-                    len(chunk),
-                    sfig.set_xticks,
-                    sfig.set_xticklabels,
-                ),
-                (self.s2, len(self.s2), sfig.set_yticks, sfig.set_yticklabels),
-            )
-            for lbls, n_tcks, tck_loc, tck_lab in settings:
-                nloc = break_long_x if break_long_x else wdh_cnst
-                ntcks = n_tcks if n_tcks < nloc else nloc // 2
-                if ntcks > 0 and len(lbls) > 0:
-                    inds = np.linspace(0, len(lbls) - 1, ntcks).astype(int)
-                    locator = matplotlib.ticker.MultipleLocator(len(lbls) / ntcks)
-                    tck_loc(inds)
-                    tck_lab(list(np.array(lbls)[inds,]))
-
-            sfig.tick_params(
-                labelsize=label_size,
-                bottom=True,
-                top=False,
-                labelbottom=True,
-                labeltop=False,
-            )
-            for tick in sfig.get_xticklabels():
-                tick.set_rotation(90)
-
-        if norm_n:
-            n_ticks = 5
-            vls = np.linspace(0.0, 1.0, 256)
-            tcks = np.linspace(0.0, 1.0, n_ticks)
-            vmax = 1.0
-        else:
-            vls = np.arange(0, int(vmax), 1)
-            n_ticks = 15 if len(vls) > 30 else int(vmax)
-            tcks = np.linspace(0, len(vls) - 1, n_ticks).astype(int)
-        tcks_loc = np.linspace(0.0, len(vls) - 1, n_ticks).astype(int)
-        if self.n > 1:
-            ax2 = plt.subplot(grid[-1, 0])
-            ax2.matshow(
-                vls.reshape(1, len(vls)),
-                cmap=colors,
-                vmin=0,
-                vmax=vmax,
-                interpolation="bilinear",
-            )
-            ax2.set_aspect(ax2.get_data_ratio() ** -1 * 0.5 / grid_wdth)
-            ax2.tick_params(
-                axis="x",
-                bottom=True,
-                top=False,
-                labelbottom=True,
-                labeltop=False,
-                labelsize=label_size,
-                direction="out",
-            )
-            ax2.tick_params(
-                axis="y", left=False, right=False, labelright=False, labelleft=False
-            )
-            ax2.set_xticks(tcks_loc)
-            ax2.set_xticklabels(tcks)
-
-        fig.get_axes()[0].set_title(
-            "Contacts frequency" if self.n > 1 else "Contact map"
+        # Plot matrix with origin='lower' to get diagonal from bottom-left to top-right
+        im = sfig.imshow(
+            plot_mtx,
+            cmap=colors,
+            vmin=0.0,
+            vmax=vmax,
+            origin="lower",
+            aspect="equal",
         )
-        grid.tight_layout(fig)
-        plt.savefig(fname + "." + fmt, format=fmt)
-        plt.close()
+
+        # Extract unique chains in s1 and s2
+        def get_unique_chains(labels_list):
+            if not labels_list:
+                return []
+            chains = []
+            for lbl in labels_list:
+                ch = lbl.split(":")[0] if ":" in lbl else (lbl[0] if lbl else "A")
+                if ch not in chains:
+                    chains.append(ch)
+            return chains
+
+        chains1 = get_unique_chains(self.s1)
+        chains2 = get_unique_chains(self.s2)
+        show_chain_x = len(chains1) > 1
+        show_chain_y = len(chains2) > 1
+
+        # Configure X and Y ticks to show clean residue numbers (with chain ID if multiple chains exist)
+        def clean_ticks(labels_list, show_chain_id, n_ticks=6):
+            if not labels_list:
+                return [], []
+            inds = np.linspace(0, len(labels_list) - 1, n_ticks).astype(int)
+            short_labels = []
+            for idx in inds:
+                lbl = labels_list[idx]
+                if ":" in lbl:
+                    parts = lbl.split(":")
+                    short_labels.append(f"{parts[0]}:{parts[1]}" if show_chain_id else parts[1])
+                else:
+                    for i, c in enumerate(lbl):
+                        if c.isdigit():
+                            short_labels.append(lbl if show_chain_id else lbl[i:])
+                            break
+                    else:
+                        short_labels.append(lbl)
+            return inds, short_labels
+
+        x_inds, x_lbls = clean_ticks(self.s1, show_chain_x)
+        y_inds, y_lbls = clean_ticks(self.s2, show_chain_y)
+
+        sfig.set_xticks(x_inds)
+        sfig.set_xticklabels(x_lbls)
+        sfig.set_yticks(y_inds)
+        sfig.set_yticklabels(y_lbls)
+
+        sfig.tick_params(
+            bottom=True,
+            top=False,
+            labelbottom=True,
+            labeltop=False,
+            labelsize=9,
+        )
+
+        # Dynamic axis labels supporting single or multiple chains
+        ch1_str = ", ".join(chains1)
+        ch2_str = ", ".join(chains2)
+        xlabel_prefix = "Chains" if len(chains1) > 1 else "Chain"
+        ylabel_prefix = "Chains" if len(chains2) > 1 else "Chain"
+        sfig.set_xlabel(f"Residues in {xlabel_prefix} {ch1_str}", fontsize=10, labelpad=8)
+        sfig.set_ylabel(f"Residues in {ylabel_prefix} {ch2_str}", fontsize=10, labelpad=8)
+
+        # Set title
+        sfig.set_title(f"Contact Map: {ch1_str} vs. {ch2_str}" if ch1_str != ch2_str else f"Contact Map: {ch1_str} vs. {ch1_str}", fontsize=11, pad=10)
+
+        # Remove top/right spines
+        sfig.spines["top"].set_visible(False)
+        sfig.spines["right"].set_visible(False)
+
+        # Add clean vertical colorbar on the right
+        cbar = fig.colorbar(im, ax=sfig, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(labelsize=9)
+        cbar.ax.set_title("Frequency" if self.n > 1 else "Contact", fontsize=9, pad=8)
+
+        plt.savefig(fname + "." + fmt, format=fmt, dpi=150)
+        plt.close(fig)
 
     def save_histo(self, fname, all_inds_stc2=True, fmt="svg"):
         """
