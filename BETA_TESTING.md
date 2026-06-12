@@ -24,9 +24,9 @@ Please include:
 - **Error messages** (full traceback)
 - **Expected vs actual behavior**
 
-## � Contact
+## 💬 Contact
 
-- **Email**: k.wroblewski7@uw.edu.pl
-- **Issues**: Use GitHub Issues for bugs
+- **Issues**: Use the [GitHub Issue Tracker](https://github.com/LCBio/CABSflex_standalone/issues) for bugs and feedback.
+- **General Inquiries**: Visit our [Contact Page](https://lcbio.pl/contact-us/).
 
 Thank you for helping improve CABS-flex! 🧬

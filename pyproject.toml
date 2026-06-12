@@ -7,7 +7,7 @@ name = "CABS"
 dynamic = ["version"]
 description = "CABS-flex: Coarse-grained protein modeling and simulation package"
 authors = [
-    { name = "Laboratory of Computational Biology", email = "k.wroblewski7@uw.edu.pl" }
+    { name = "Laboratory of Computational Biology" }
 ]
 license = { text = "MIT" }
 readme = "README.md"
@@ -65,6 +65,7 @@ Homepage = "https://cabsflex.lcbio.pl/"
 Documentation = "https://cabsflex.lcbio.pl/"
 Repository = "https://github.com/LCBio/CABSflex_standalone.git"
 "Bug Tracker" = "https://github.com/LCBio/CABSflex_standalone/issues"
+Contact = "https://lcbio.pl/contact-us/"
 
 [project.scripts]
 CABSdock = "CABS.__main__:run_dock"

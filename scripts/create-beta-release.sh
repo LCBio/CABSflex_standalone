@@ -61,7 +61,7 @@ Thank you for participating in the CABS-flex beta testing!
 
 - Check BETA_TESTING.md for detailed instructions
 - Report issues on GitHub (private repo)
-- Contact: k.wroblewski7@uw.edu.pl
+- Contact: https://lcbio.pl/contact-us/
 
 Happy testing! 🧬
 EOF

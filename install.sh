@@ -19,9 +19,6 @@ MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
 # Root directory for Micromamba environments. Change this if you want Micromamba installed elsewhere.
 export MAMBA_ROOT_PREFIX="$HOME/micromamba"
 
-# Email for bug reporting and support.
-REPORTING_EMAIL="k.wroblewski7@uw.edu.pl"
-
 
 # Colors for output
 RED='\033[0;31m'
@@ -165,7 +162,7 @@ else
     echo -e "${YELLOW}🔐 Validating beta token...${NC}"
     if ! git ls-remote https://$BETA_TOKEN@github.com/LCBio/CABSflex_standalone.git &> /dev/null; then
         echo -e "${RED}❌ Error: Invalid beta token or no repository access${NC}"
-        echo "Please check your token or contact $REPORTING_EMAIL"
+        echo "Please check your token or contact the developers at $REPO_URL/issues"
         exit 1
     fi
     echo -e "${GREEN}✅ Token validated${NC}"
@@ -494,6 +491,5 @@ echo "  CABSflex --help"
 echo "  CABSdock --help"
 echo ""
 echo -e "${BLUE}For help and bug reports:${NC}"
-echo "  📧 Email: $REPORTING_EMAIL"
 echo "  🐛 Issues: $REPO_URL/issues"
 echo ""

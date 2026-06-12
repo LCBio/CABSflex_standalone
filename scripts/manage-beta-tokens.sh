@@ -110,7 +110,6 @@ show_instructions() {
     echo "CABSflex --help"
     echo ""
     echo "Report issues: https://github.com/LCBio/CABSflex_standalone/issues"
-    echo "Contact: k.wroblewski7@uw.edu.pl"
     echo "---"
 }
 
