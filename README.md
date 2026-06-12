@@ -29,12 +29,12 @@ Recommended for local machines (Linux, macOS, WSL 2). The installer automaticall
 
 ```bash
 # Clone from GitHub
-git clone https://github.com/LCBio/cabsflex.git
-# OR from GitLab mirror (specifying folder name 'cabsflex'):
-# git clone https://gitlab.com/lcbio1/CABSflex_standalone.git cabsflex
+git clone https://github.com/LCBio/CABSflex_standalone.git
+# OR from GitLab mirror:
+# git clone https://gitlab.com/lcbio1/CABSflex_standalone.git
 
 # Enter the cloned directory
-cd cabsflex
+cd CABSflex_standalone
 
 # Run the installer
 bash install.sh
@@ -44,13 +44,13 @@ bash install.sh
 Optimized for High-Performance Computing clusters using environment modules or standard virtual environments.
 
 ```bash
-# Clone from GitHub (specifying folder name 'cabsflex')
-git clone https://github.com/LCBio/CABSflex_standalone.git cabsflex
-# OR from GitLab mirror (specifying folder name 'cabsflex'):
-# git clone https://gitlab.com/lcbio1/CABSflex_standalone.git cabsflex
+# Clone from GitHub
+git clone https://github.com/LCBio/CABSflex_standalone.git
+# OR from GitLab mirror:
+# git clone https://gitlab.com/lcbio1/CABSflex_standalone.git
 
 # Enter the cloned directory
-cd cabsflex
+cd CABSflex_standalone
 
 # Option A: HPC Micromamba installer (Recommended)
 bash install-hpc-micromamba.sh

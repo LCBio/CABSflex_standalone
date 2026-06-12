@@ -208,7 +208,7 @@ class Pdb:
                         coord=Vector3d(atom.get_coord()),
                         occ=atom.get_occupancy(),
                         bfac=atom.get_bfactor(),
-                        hetatm=(residue.id[0] != " ")
+                        hetatm=is_hetero and (resname not in AA_NAMES.values())
                         )
                     )
 

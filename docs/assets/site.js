@@ -248,11 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!href) return;
 
     // Find the html file and hash from the link
-    const match = href.match(/^([^#]*\.html)#(.*)$/);
-    if (!match) return;
-
-    const pageName = match[1];
-    const hash = '#' + decodeURIComponent(match[2]);
+    const hashIdx = href.indexOf('#');
+    if (hashIdx === -1) return;
+    const urlPart = href.substring(0, hashIdx);
+    const hash = '#' + decodeURIComponent(href.substring(hashIdx + 1));
+    const pageName = urlPart.split('/').pop();
 
     if (pageName !== 'references.html' && pageName !== 'project-links.html') return;
 

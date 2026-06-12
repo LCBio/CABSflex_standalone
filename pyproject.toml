@@ -61,10 +61,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LCBio/cabsflex"
-Documentation = "https://github.com/LCBio/cabsflex/wiki"
-Repository = "https://github.com/LCBio/cabsflex.git"
-"Bug Tracker" = "https://github.com/LCBio/cabsflex/issues"
+Homepage = "https://cabsflex.lcbio.pl/"
+Documentation = "https://cabsflex.lcbio.pl/"
+Repository = "https://github.com/LCBio/CABSflex_standalone.git"
+"Bug Tracker" = "https://github.com/LCBio/CABSflex_standalone/issues"
 
 [project.scripts]
 CABSdock = "CABS.__main__:run_dock"

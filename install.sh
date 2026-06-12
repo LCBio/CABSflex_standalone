@@ -1,6 +1,6 @@
 #!/bin/bash
 # CABS-flex Beta Installer
-# Usage: curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install-beta.sh | bash -s YOUR_BETA_TOKEN
+# Usage: curl -sSL https://raw.githubusercontent.com/LCBio/CABSflex_standalone/main/install-beta.sh | bash -s YOUR_BETA_TOKEN
 
 set -e
 
@@ -9,12 +9,18 @@ set -e
 # ---------------------------------------------------------
 # Power user configuration
 BETA_TOKEN=$1
-REPO_URL="https://github.com/LCBio/cabsflex"
+REPO_URL="https://github.com/LCBio/CABSflex_standalone"
 ENV_NAME="cabs"
 INSTALL_SRC=$(pwd)
 IS_LOCAL=false
 INSTALL_MODELLER="TRUE"
 MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
+
+# Root directory for Micromamba environments. Change this if you want Micromamba installed elsewhere.
+export MAMBA_ROOT_PREFIX="$HOME/micromamba"
+
+# Email for bug reporting and support.
+REPORTING_EMAIL="k.wroblewski7@uw.edu.pl"
 
 
 # Colors for output
@@ -111,7 +117,7 @@ setup_micromamba() {
 
         chmod +x "$BIN_DIR/micromamba"
         export MAMBA_EXE="$BIN_DIR/micromamba"
-        export MAMBA_ROOT_PREFIX="$HOME/micromamba"
+        export MAMBA_ROOT_PREFIX="$MAMBA_ROOT_PREFIX"
 
         # Initialize shell
         eval "$($MAMBA_EXE shell hook -s bash)"
@@ -157,9 +163,9 @@ else
     cd "$TEMP_DIR"
     # Test token by trying to access the repo
     echo -e "${YELLOW}🔐 Validating beta token...${NC}"
-    if ! git ls-remote https://$BETA_TOKEN@github.com/LCBio/cabsflex.git &> /dev/null; then
+    if ! git ls-remote https://$BETA_TOKEN@github.com/LCBio/CABSflex_standalone.git &> /dev/null; then
         echo -e "${RED}❌ Error: Invalid beta token or no repository access${NC}"
-        echo "Please check your token or contact k.wroblewski7@uw.edu.pl"
+        echo "Please check your token or contact $REPORTING_EMAIL"
         exit 1
     fi
     echo -e "${GREEN}✅ Token validated${NC}"
@@ -168,7 +174,7 @@ else
     echo -e "${YELLOW}📥 Downloading environment configuration...${NC}"
     if ! curl -H "Authorization: token $BETA_TOKEN" \
          -H "Accept: application/vnd.github.v3.raw" \
-         -L "https://api.github.com/repos/LCBio/cabsflex/contents/environment.yml" \
+         -L "https://api.github.com/repos/LCBio/CABSflex_standalone/contents/environment.yml" \
          -o environment.yml --fail; then
         echo -e "${RED}❌ Error: Failed to download environment file${NC}"
         exit 1
@@ -280,7 +286,7 @@ CG2ALL_ENV_PATH="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}/envs/$CG2ALL_ENV_NAME"
 if [ "$IS_LOCAL" = false ]; then
     echo -e "${YELLOW}📥 Cloning repository for configuration injection...${NC}"
     INSTALL_SRC="$TEMP_DIR/cabs_src"
-    [ -d "$INSTALL_SRC" ] || git clone https://$BETA_TOKEN@github.com/LCBio/cabsflex.git "$INSTALL_SRC"
+    [ -d "$INSTALL_SRC" ] || git clone https://$BETA_TOKEN@github.com/LCBio/CABSflex_standalone.git "$INSTALL_SRC"
 fi
 
 DATA_DIR="$INSTALL_SRC/CABS/data"
@@ -488,6 +494,6 @@ echo "  CABSflex --help"
 echo "  CABSdock --help"
 echo ""
 echo -e "${BLUE}For help and bug reports:${NC}"
-echo "  📧 Email: k.wroblewski7@uw.edu.pl"
+echo "  📧 Email: $REPORTING_EMAIL"
 echo "  🐛 Issues: $REPO_URL/issues"
 echo ""

@@ -2,7 +2,7 @@
     "dock_dict": {
         "prog": "CABSdock",
         "description": "CABSdock application is a versatile tool for molecular docking of peptides to proteins. It allows for flexible docking (also with large-scale conformational changes) and without the knowledge about the binding site. CABSdock enables peptide docking using only information about the peptide sequence and the protein protein structure. Additionally many advanced options are available that allow for manipulation of the simulation setup, the degree of protein flexibility or guiding the peptide binding etc.\n\nCABSdock method has been first made available as a web server [Nucleic Acids Research, 43(W1): W419-W424, 2015; web server website: http://biocomp.chem.uw.edu.pl/CABSdock]. The standalone application [submitted to publication] provides the same modeling methodology equipped with many additional features and customizable options.",
-        "epilog": "CABSdock repository: https://bitbucket.org/lcbio/cabsdock",
+        "epilog": "CABSdock repository: https://github.com/LCBio/CABSflex_standalone",
         "defaults": {
             "temperature": [
                 2.0,
@@ -156,7 +156,7 @@
     "flex_dict": {
         "prog": "CABSflex",
         "description": "CABSflex: versatile tool for the simulation of structure flexibility of folded globular proteins.",
-        "epilog": "CABSflex repository: https://bitbucket.org/lcbio/cabsflex",
+        "epilog": "CABSflex repository: https://github.com/LCBio/CABSflex_standalone",
         "defaults": {
             "temperature": [
                 1.4,

@@ -44,7 +44,7 @@ generate_token() {
     echo -e "${BLUE}Token: $token${NC}"
     echo ""
     echo "Installation instructions:"
-    echo "curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install-beta.sh | bash -s $token"
+    echo "curl -sSL https://raw.githubusercontent.com/LCBio/CABSflex_standalone/main/install-beta.sh | bash -s $token"
 }
 
 list_tokens() {
@@ -98,7 +98,7 @@ show_instructions() {
     echo ""
     echo "To install CABS-flex Beta, run this single command:"
     echo ""
-    echo "curl -sSL https://raw.githubusercontent.com/LCBio/cabsflex/main/install-beta.sh | bash -s $token"
+    echo "curl -sSL https://raw.githubusercontent.com/LCBio/CABSflex_standalone/main/install-beta.sh | bash -s $token"
     echo ""
     echo "Prerequisites:"
     echo "- Anaconda or Miniconda installed"
@@ -109,7 +109,7 @@ show_instructions() {
     echo "conda activate cabs"
     echo "CABSflex --help"
     echo ""
-    echo "Report issues: https://github.com/LCBio/cabsflex/issues"
+    echo "Report issues: https://github.com/LCBio/CABSflex_standalone/issues"
     echo "Contact: k.wroblewski7@uw.edu.pl"
     echo "---"
 }

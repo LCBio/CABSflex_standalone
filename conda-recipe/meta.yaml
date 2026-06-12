@@ -44,7 +44,7 @@ test:
     - pytest-cov
 
 about:
-  home: https://github.com/LCBio/cabsflex
+  home: https://cabsflex.lcbio.pl/
   license: MIT
   license_family: MIT
   license_file: LICENSE
@@ -53,8 +53,8 @@ about:
     CABS-flex is a Python package for coarse-grained modeling and simulation 
     of protein structures. It provides tools for protein flexibility analysis,
     docking simulations, and structural predictions using the CABS force field.
-  doc_url: https://github.com/LCBio/cabsflex/wiki
-  dev_url: https://github.com/LCBio/cabsflex
+  doc_url: https://cabsflex.lcbio.pl/
+  dev_url: https://github.com/LCBio/CABSflex_standalone
 
 extra:
   recipe-maintainers:
