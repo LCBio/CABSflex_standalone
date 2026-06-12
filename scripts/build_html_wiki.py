@@ -24,7 +24,7 @@ VIDEO_EXTENSIONS = {".mp4", ".webm", ".ogg"}
 PAGE_ORDER = [
     "Home",
     "Installation",
-    "Modeling-Scheme",
+    "Modeling-Workflow",
     "CABS-Model",
     "Restraints",
     "Sampling-Temperature",
@@ -48,7 +48,7 @@ PAGE_ORDER = [
 PAGE_LABELS = {
     "Home": "Overview",
     "Installation": "Installation",
-    "Modeling-Scheme": "Modeling Scheme",
+    "Modeling-Workflow": "Modeling Workflow",
     "CABS-Model": "CABS Model",
     "Restraints": "Restraints",
     "Sampling-Temperature": "Sampling and Temperature",
@@ -75,7 +75,7 @@ SECTION_LABELS = {
         "Installation",
     ],
     "Core Concepts": [
-        "Modeling-Scheme",
+        "Modeling-Workflow",
         "CABS-Model",
         "Restraints",
         "Sampling-Temperature",

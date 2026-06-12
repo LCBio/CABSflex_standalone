@@ -16,7 +16,7 @@ CABS-flex 3 supports three main modeling pipelines:
 *   **Peptide Modeling**: *De novo* structure prediction of linear and cyclic peptides (including backbone-cyclized and disulfide-bonded peptides).
 *   **Peptide–Protein Docking**: Flexible docking of peptides to protein receptors, supporting cases with unknown binding sites or significant receptor flexibility.
 
-For a detailed explanation of the methodology, see the **[Modeling Scheme](https://cabsflex.lcbio.pl/modeling-scheme.html)**.
+For a detailed explanation of the methodology, see the **[Modeling Workflow](https://cabsflex.lcbio.pl/modeling-workflow.html)**.
 
 ---
 
