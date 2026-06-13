@@ -81,7 +81,7 @@ class CABSTask(metaclass=ABCMeta):
         self.contact_map_colors: Optional[List[ColorHex]] = kwargs.get(
             "contact_map_colors"
         )
-        self.contact_maps: Optional[bool] = kwargs.get("contact_maps")
+        self.contact_maps: Optional[bool] = kwargs.get("contact_maps", True)
         self.contact_threshold: Optional[float] = kwargs.get("contact_threshold")
         self.contact_threshold_aa: Optional[float] = kwargs.get("contact_threshold_aa")
         self.csv_output: Optional[bool] = kwargs.get("csv_output")
