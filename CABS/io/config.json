@@ -755,8 +755,11 @@
             "help": "Load reference complex structure. This option allows for comparison with the reference complex structure and triggers additional analysis features.\n\nREF must be either:\n\n[1] [pdb code]:[protein chains]:[peptide1 chain][peptide2 chain]...\n[2] [pdb file]:[protein chains]:[peptide1 chain][peptide2 chain]...\n\ni.e 1abc:AB:C, 1abc:AB:CD, myfile.pdb:AB:C, myfile.pdb.gz:AB:CDE"
         },
         "renumber-residues-to-original": {
-            "action": "store_true",
-            "help": "Renumber residues to original numbering in the input pdb file."
+            "type": "bool",
+            "nargs": "?",
+            "const": true,
+            "default": true,
+            "help": "Renumber residues to original numbering in the input pdb file. (default: true)"
         },
         "replicas": {
             "flag": "-r",

@@ -8,7 +8,7 @@ for protein folding, flexibility analysis, and protein-protein docking simulatio
 from pathlib import Path
 from typing import List
 
-__version__ = "3.0.10"
+__version__ = "3.0.12"
 __title__ = "CABS"
 __author__ = "Laboratory of Computational Biology"
 __license__ = "MIT"

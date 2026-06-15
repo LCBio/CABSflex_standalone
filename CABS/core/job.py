@@ -44,11 +44,29 @@ from CABS.utils.filter import Filter
 from CABS.reconstruction.cg2all import convert_cg_to_all
 from CABS.reconstruction.cg2all_trajectory import reconstruct_job_outputs
 from CABS.utils import chimerax as chimerax_utils
+from CABS.utils import movie_script as movie_script_utils
 from CABS.utils import notebook as notebook_utils
 from CABS.utils import pymol as pymol_utils
 from CABS.config_loader import get_config_section, get_cg2all_env_prefix
 
 _name = "JOB"
+
+
+def _derive_peptide_chains(model_pdb_path, receptor_chains, min_atoms=10):
+    """Return peptide chain letters by reading the output PDB and excluding receptor chains and tiny artifact chains."""
+    chain_sizes = {}
+    try:
+        with open(model_pdb_path) as _f:
+            for _line in _f:
+                if _line.startswith(("ATOM", "HETATM")) and len(_line) >= 22:
+                    _c = _line[21].strip()
+                    if _c:
+                        chain_sizes[_c] = chain_sizes.get(_c, 0) + 1
+    except OSError:
+        return []
+    rec_set = set(receptor_chains)
+    pep = [c for c, n in chain_sizes.items() if c not in rec_set and n >= min_atoms]
+    return pep
 
 
 class CABSTask(metaclass=ABCMeta):
@@ -471,7 +489,7 @@ class CABSTask(metaclass=ABCMeta):
         if with_cabs:
             self.setup_cabs_run()
             self.execute_cabs_run()
-        if self.save_cabs_files:
+        if with_cabs and self.save_cabs_files:
             self.save_cabs_res()
         self.load_output(file_traf, file_seq)
         if self.reference_pdb:
@@ -2001,6 +2019,31 @@ class DockTask(CABSTask):
         except (ValueError, pdblib.Pdb.InvalidPdbInput):
             logger.warning(_name, f"Invalid reference {ref}")
             self.reference = None
+
+    def generate_analysis_visualizations(self):
+        super().generate_analysis_visualizations()
+        if self.generate_chimera_visualizations:
+            try:
+                ref_pdb_path = ""
+                if self.reference and self.reference_pdb:
+                    ref_pdb_path = os.path.abspath(self.reference_pdb.split(":")[0])
+                receptor_ch = list(self.initial_complex.protein_chains)
+                peptide_ch = _derive_peptide_chains(
+                    os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"),
+                    receptor_ch,
+                )
+                movie_script_utils.write_make_movies_script(
+                    work_dir=self.work_dir,
+                    n_models=self.clustering_medoids,
+                    frames_per_replica=self.trajectory.coordinates.shape[1],
+                    model0_replica_id=self.medoids.headers[0].replica,
+                    peptide_chains=peptide_ch,
+                    receptor_chains=receptor_ch,
+                    has_reference=bool(self.reference),
+                    reference_pdb=ref_pdb_path,
+                )
+            except Exception as e:
+                logger.warning(_name, f"Failed to generate make_movies.py: {e}")
 
 
 class FlexTask(CABSTask):

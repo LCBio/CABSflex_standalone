@@ -444,6 +444,20 @@ def sync_residues_with_template(
     return "Residues synchronized using topology template"
 
 
+def _strip_hydrogens(pdb_path: Path) -> None:
+    """Remove hydrogen atoms from a PDB file in-place."""
+    with open(pdb_path, "r") as f:
+        lines = f.readlines()
+    with open(pdb_path, "w") as f:
+        for line in lines:
+            if line.startswith(("ATOM", "HETATM")):
+                atom_name = line[12:16].strip()
+                first_letter = next((c for c in atom_name if c.isalpha()), "")
+                if first_letter == "H":
+                    continue
+            f.write(line)
+
+
 def minimize_pdb_energy(pdb_path: Path) -> None:
     """
     Perform a quick vacuum energy minimization on the given PDB file using OpenMM
@@ -689,7 +703,9 @@ def convert_cg_to_all(
             
             if minimize_flag:
                 minimize_pdb_energy(output_file_path)
-            
+
+            _strip_hydrogens(output_file_path)
+
         return result.stdout
     except subprocess.CalledProcessError as e:
         logger.critical(
