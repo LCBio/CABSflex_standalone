@@ -3,6 +3,7 @@
 [![GitHub](https://img.shields.io/badge/repo-GitHub-brightgreen.svg)](https://github.com/LCBio/CABSflex_standalone)
 [![GitLab Mirror](https://img.shields.io/badge/mirror-GitLab-orange.svg)](https://gitlab.com/lcbio1/CABSflex_standalone.git)
 [![Documentation](https://img.shields.io/badge/docs-Wiki-blue.svg)](https://cabsflex.lcbio.pl/)
+[![Preprint](https://img.shields.io/badge/arXiv-2606.24487-b31b1b.svg)](https://arxiv.org/abs/2606.24487)
 
 **CABS-flex standalone 3** is a unified command-line environment for coarse-grained protein modeling and simulation. It brings together protein flexibility simulations, de novo peptide modeling, and flexible peptide–protein docking into a single Python 3-based framework.
 
@@ -82,6 +83,7 @@ CABSdock -i receptor.pdb -p PEPTIDESEQUENCE -a 10 -y 20 -w dock_output
 ## 🔗 Resources & Documentation
 
 *   📚 **[Full Documentation (Wiki)](https://cabsflex.lcbio.pl/)**
+*   📄 **[Preprint (arXiv:2606.24487)](https://arxiv.org/abs/2606.24487)**
 *   📖 **[Examples & Case Studies](https://cabsflex.lcbio.pl/examples.html)**
 *   ⚙️ **[Options Reference](https://cabsflex.lcbio.pl/options.html)**
 *   🐛 **[Issue Tracker](https://github.com/LCBio/CABSflex_standalone/issues)**
