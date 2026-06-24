@@ -2025,8 +2025,16 @@ class DockTask(CABSTask):
         if self.generate_chimera_visualizations:
             try:
                 ref_pdb_path = ""
+                ref_receptor_ch: List[str] = []
+                ref_peptide_ch: List[str] = []
                 if self.reference and self.reference_pdb:
                     ref_pdb_path = os.path.abspath(self.reference_pdb.split(":")[0])
+                    # self.reference is (atoms, receptor_chains, peptide_chains) as set by
+                    # parse_reference(), using the reference PDB's OWN chain letters, which
+                    # may differ from the docked output's chain letters (e.g. original PDB
+                    # numbering vs. CABS-assigned chains).
+                    ref_receptor_ch = list(self.reference[1])
+                    ref_peptide_ch = list(self.reference[2])
                 receptor_ch = list(self.initial_complex.protein_chains)
                 peptide_ch = _derive_peptide_chains(
                     os.path.join(self.work_dir, "output_pdbs", "model_0.pdb"),
@@ -2041,6 +2049,8 @@ class DockTask(CABSTask):
                     receptor_chains=receptor_ch,
                     has_reference=bool(self.reference),
                     reference_pdb=ref_pdb_path,
+                    reference_receptor_chains=ref_receptor_ch,
+                    reference_peptide_chains=ref_peptide_ch,
                 )
             except Exception as e:
                 logger.warning(_name, f"Failed to generate make_movies.py: {e}")

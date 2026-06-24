@@ -21,6 +21,11 @@ PEPTIDE_CHAINS = {peptide_chains!r}
 RECEPTOR_CHAINS = {receptor_chains!r}
 REFERENCE_PDB = {reference_pdb!r}
 HAS_REFERENCE = {has_reference}
+# The reference PDB may use different chain letters than the docked output
+# (e.g. original PDB numbering vs. CABS-assigned chains), so its receptor and
+# peptide chains are tracked separately and used for all "#1/..." selections.
+REFERENCE_RECEPTOR_CHAINS = {reference_receptor_chains!r}
+REFERENCE_PEPTIDE_CHAINS = {reference_peptide_chains!r}
 """
 
 _SCRIPT_BODY = '''\
@@ -168,7 +173,7 @@ def _write_rotation_cxc(model_pdbs, script_path, frames_dir, snapshots_dir, help
             for i, p in enumerate(model_pdbs):
                 fh.write(f\'open "{p}" id {i + 2}\\n\')
             fh.write("dssp\\n")
-            rec_spec_ref = "#1/" + ",".join(rec)
+            rec_spec_ref = "#1/" + ",".join(REFERENCE_RECEPTOR_CHAINS)
             for i in range(len(model_pdbs)):
                 match_spec = f"#{i + 2}/" + ",".join(rec)
                 fh.write(f"matchmaker {match_spec} to {rec_spec_ref} pairing ss\\n")
@@ -176,16 +181,18 @@ def _write_rotation_cxc(model_pdbs, script_path, frames_dir, snapshots_dir, help
             fh.write("transparency 0 target c\\n")
             fh.write(f"show {rec_spec_ref} cartoon\\n")
             fh.write(f"color {rec_spec_ref} blue\\n")
-            _write_receptor_surface_explicit(fh, 1, rec)
-            pep_ref_spec = "#1/" + ",".join(pep)
+            _write_receptor_surface_explicit(fh, 1, REFERENCE_RECEPTOR_CHAINS)
+            pep_ref_spec = "#1/" + ",".join(REFERENCE_PEPTIDE_CHAINS)
             fh.write(f"show {pep_ref_spec} cartoon\\n")
             fh.write(f"color {pep_ref_spec} green\\n")
-            fh.write(f"transparency {pep_ref_spec} 50 target c\\n")
             for i in range(len(model_pdbs)):
                 pep_spec = f"#{i + 2}/" + ",".join(pep)
                 fh.write(f"show {pep_spec} cartoon\\n")
                 fh.write(f"color {pep_spec} red\\n")
-            orient_sel = pep_ref_spec
+            # Orient on the whole reference complex (receptor + peptide), not the
+            # peptide alone: the peptide's own principal axes are short/noisy and
+            # don't reflect the receptor's channel/cleft geometry the peptide sits in.
+            orient_sel = "#1"
         else:
             for i, p in enumerate(model_pdbs):
                 fh.write(f\'open "{p}" id {i + 1}\\n\')
@@ -203,7 +210,8 @@ def _write_rotation_cxc(model_pdbs, script_path, frames_dir, snapshots_dir, help
                 pep_spec = f"#{i + 1}/" + ",".join(pep)
                 fh.write(f"show {pep_spec} cartoon\\n")
                 fh.write(f"color {pep_spec} red\\n")
-            orient_sel = "#1/" + ",".join(pep)
+            # Orient on the whole first model (receptor + peptide) for the same reason.
+            orient_sel = "#1"
 
         _write_tight_camera(fh, orient_sel, facing_cmd)
         _write_standard_views(fh, snapshots_dir, "top10_")
@@ -212,7 +220,7 @@ def _write_rotation_cxc(model_pdbs, script_path, frames_dir, snapshots_dir, help
             fh.write(f\'turn y 0.5\\nsave "{frames_dir / f\'frame_{fr:04d}.png\'}" width 800 height 600\\n\')
 
 
-def _write_trajectory_cxc(replica_path, script_path, frames_dir, helper_path):
+def _write_trajectory_cxc(replica_path, script_path, frames_dir, helper_path, flexible_receptor=False):
     frames_dir.mkdir(parents=True, exist_ok=True)
     rec, pep = _resolve_chains(replica_path)
     n_frames = _count_models(replica_path)
@@ -225,22 +233,31 @@ def _write_trajectory_cxc(replica_path, script_path, frames_dir, helper_path):
             fh.write(f\'open "{REFERENCE_PDB}" id 1\\n\')
             fh.write(f\'open "{replica_path}" id 2 coordsets true\\n\')
             fh.write("dssp #1\\n")
-            rec_spec_ref = "#1/" + ",".join(rec)
+            rec_spec_ref = "#1/" + ",".join(REFERENCE_RECEPTOR_CHAINS)
             traj_rec_spec = "#2/" + ",".join(rec)
             fh.write(f"matchmaker {traj_rec_spec} to {rec_spec_ref} pairing ss\\n")
             fh.write("hide atoms\\nhide cartoons\\n")
             fh.write("transparency 0 target c\\n")
-            fh.write(f"show {rec_spec_ref} cartoon\\n")
-            fh.write(f"color {rec_spec_ref} blue\\n")
-            _write_receptor_surface_explicit(fh, 1, rec)
-            pep_ref_spec = "#1/" + ",".join(pep)
+            pep_ref_spec = "#1/" + ",".join(REFERENCE_PEPTIDE_CHAINS)
+            traj_pep_spec = "#2/" + ",".join(pep)
+            if flexible_receptor:
+                # Receptor cartoon/surface from the trajectory itself (model #2), so it
+                # visibly flexes frame-to-frame instead of staying pinned to the reference.
+                fh.write(f"show {traj_rec_spec} cartoon\\n")
+                fh.write(f"color {traj_rec_spec} blue\\n")
+                _write_receptor_surface_explicit(fh, 2, rec)
+                # Orient on the whole trajectory complex (receptor + peptide), not the
+                # peptide alone, so multi-chain receptor clefts/channels are captured.
+                orient_sel = "#2"
+            else:
+                fh.write(f"show {rec_spec_ref} cartoon\\n")
+                fh.write(f"color {rec_spec_ref} blue\\n")
+                _write_receptor_surface_explicit(fh, 1, REFERENCE_RECEPTOR_CHAINS)
+                orient_sel = "#1"
             fh.write(f"show {pep_ref_spec} cartoon\\n")
             fh.write(f"color {pep_ref_spec} green\\n")
-            fh.write(f"transparency {pep_ref_spec} 50 target c\\n")
-            traj_pep_spec = "#2/" + ",".join(pep)
             fh.write(f"show {traj_pep_spec} cartoon\\n")
             fh.write(f"color {traj_pep_spec} red\\n")
-            orient_sel = pep_ref_spec
         else:
             fh.write(f\'open "{replica_path}" id 1 coordsets true\\n\')
             fh.write("hide atoms\\nhide cartoons\\n")
@@ -252,7 +269,8 @@ def _write_trajectory_cxc(replica_path, script_path, frames_dir, helper_path):
             _write_receptor_surface_explicit(fh, 1, rec)
             fh.write(f"show {pep_spec} cartoon\\n")
             fh.write(f"color {pep_spec} red\\n")
-            orient_sel = pep_spec
+            # Orient on the whole complex (receptor + peptide) for the same reason.
+            orient_sel = "#1"
 
         _write_tight_camera(fh, orient_sel, facing_cmd)
         traj_pep = "#2/" + ",".join(pep) if (HAS_REFERENCE and REFERENCE_PDB) else "#1/" + ",".join(pep)
@@ -274,16 +292,22 @@ def _stitch_frames(ffmpeg, frames_dir, output_path, framerate=30):
         pass
 
 
-def _combine_movies(ffmpeg, left, right, output):
+def _combine_movies(ffmpeg, left, right, output, fps=60):
+    # left (trajectory, 30fps) and right (energy plot, 60fps) have matching total
+    # duration but different frame rates. Normalize to 60 (not 30): the fps filter
+    # only duplicates/drops frames to hit the target rate without changing duration,
+    # so 60 keeps the already-smooth energy animation untouched and just duplicates
+    # the trajectory's frames, whereas 30 would needlessly drop half the energy frames.
     subprocess.run(
         [ffmpeg, "-y", "-i", str(left), "-i", str(right),
-         "-filter_complex", "[0:v]scale=-1:1080[v0];[1:v]scale=-1:1080[v1];[v0][v1]hstack=shortest=1",
+         "-filter_complex",
+         f"[0:v]scale=-1:1080,fps={fps}[v0];[1:v]scale=-1:1080,fps={fps}[v1];[v0][v1]hstack=shortest=1",
          "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output)],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
     )
 
 
-def _make_energy_rmsd_animation(csv_path, output_path, ylabel):
+def _make_energy_rmsd_animation(csv_path, output_path, ylabel, replica_id=None, frames_per_replica=None):
     import matplotlib.animation as animation
     import matplotlib.pyplot as plt
     import numpy as np
@@ -292,11 +316,25 @@ def _make_energy_rmsd_animation(csv_path, output_path, ylabel):
     if not rmsds:
         return
 
-    n = len(rmsds)
+    # The CSV holds all replicas concatenated, replica-major (all frames of
+    # replica 0, then replica 1, ...). The moving dot must only trace the
+    # selected replica's slice (matching the single-replica trajectory video's
+    # duration); the full multi-replica dataset stays as static background scatter.
+    if replica_id is not None and frames_per_replica:
+        start = replica_id * frames_per_replica
+        end = start + frames_per_replica
+        traj_rmsds = rmsds[start:end]
+        traj_energies = energies[start:end]
+    else:
+        traj_rmsds, traj_energies = rmsds, energies
+    if not traj_rmsds:
+        return
+
+    n = len(traj_rmsds)
     orig_idx = np.linspace(0, n - 1, n)
     interp_idx = np.linspace(0, n - 1, n * 2)
-    x_interp = np.interp(interp_idx, orig_idx, rmsds)
-    y_interp = np.interp(interp_idx, orig_idx, energies)
+    x_interp = np.interp(interp_idx, orig_idx, traj_rmsds)
+    y_interp = np.interp(interp_idx, orig_idx, traj_energies)
 
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.scatter(rmsds, energies, s=12, alpha=0.4, color="#E83A5D", edgecolors="none")
@@ -343,19 +381,29 @@ def main():
         if _candidate.exists():
             replica_path = _candidate
             break
-    traj_movie = None
+    traj_movies = {}
     if replica_path is not None:
-        print(f"Rendering trajectory animation (replica {replica_id})...")
-        script = movies_dir / f"trajectory_{replica_id}.cxc"
-        frames = movies_dir / f"traj_frames_{replica_id}"
-        _write_trajectory_cxc(replica_path, script, frames, helper_path)
-        subprocess.run([chimerax, "--offscreen", "--exit", str(script)],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-        traj_movie = movies_dir / f"Trajectory_{replica_id}.mp4"
-        _stitch_frames(ffmpeg, frames, traj_movie, framerate=30)
+        # The flexible variant (receptor taken from the trajectory itself) is the
+        # important one — it actually shows receptor motion during sampling.
+        # The static variant (receptor pinned to the reference) is only meaningful
+        # when a reference structure is available for comparison.
+        variants = [("Flexible", True)]
+        if HAS_REFERENCE:
+            variants.append(("", False))
+        for suffix, flexible in variants:
+            label = f"_{suffix}" if suffix else ""
+            print(f"Rendering trajectory animation (replica {replica_id}{label})...")
+            script = movies_dir / f"trajectory_{replica_id}{label.lower()}.cxc"
+            frames = movies_dir / f"traj_frames_{replica_id}{label.lower()}"
+            _write_trajectory_cxc(replica_path, script, frames, helper_path, flexible_receptor=flexible)
+            subprocess.run([chimerax, "--offscreen", "--exit", str(script)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            movie = movies_dir / f"Trajectory_{replica_id}{label}.mp4"
+            _stitch_frames(ffmpeg, frames, movie, framerate=30)
+            traj_movies[suffix] = movie
 
     if HAS_REFERENCE:
-        for energy_type, plot_name, combined_name, ylabel in (
+        for energy_type, plot_name, combined_prefix, ylabel in (
             ("total",       "Total_Energy_vs_RMSD",       f"Combined_Trajectory_{replica_id}_Total_Energy_vs_RMSD",       "Total energy"),
             ("interaction", "Interaction_Energy_vs_RMSD", f"Combined_Trajectory_{replica_id}_Interaction_Energy_vs_RMSD", "Interaction energy"),
         ):
@@ -364,10 +412,18 @@ def main():
                 continue
             print(f"Generating E vs RMSD animation ({energy_type})...")
             plot_movie = movies_dir / f"{plot_name}.mp4"
-            _make_energy_rmsd_animation(csv_files[0], plot_movie, ylabel)
-            if traj_movie and traj_movie.exists() and plot_movie.exists():
-                print(f"Combining trajectory + {energy_type} energy plot...")
-                _combine_movies(ffmpeg, traj_movie, plot_movie, movies_dir / f"{combined_name}.mp4")
+            _make_energy_rmsd_animation(
+                csv_files[0], plot_movie, ylabel,
+                replica_id=replica_id, frames_per_replica=FRAMES_PER_REPLICA,
+            )
+            if not plot_movie.exists():
+                continue
+            for suffix, traj_movie in traj_movies.items():
+                if not traj_movie.exists():
+                    continue
+                label = f"_{suffix}" if suffix else ""
+                print(f"Combining trajectory{label} + {energy_type} energy plot...")
+                _combine_movies(ffmpeg, traj_movie, plot_movie, movies_dir / f"{combined_prefix}{label}.mp4")
 
     print(f"Done. Movies written to {movies_dir}")
 
@@ -386,6 +442,8 @@ def write_make_movies_script(
     receptor_chains: List[str],
     has_reference: bool,
     reference_pdb: str = "",
+    reference_receptor_chains: List[str] | None = None,
+    reference_peptide_chains: List[str] | None = None,
 ) -> Path:
     work_dir = Path(work_dir)
     header = _SCRIPT_HEADER.format(
@@ -396,6 +454,8 @@ def write_make_movies_script(
         receptor_chains=receptor_chains,
         reference_pdb=reference_pdb,
         has_reference=has_reference,
+        reference_receptor_chains=reference_receptor_chains or receptor_chains,
+        reference_peptide_chains=reference_peptide_chains or peptide_chains,
     )
     script_path = work_dir / "make_movies.py"
     script_path.write_text(header + _SCRIPT_BODY, encoding="utf-8")
