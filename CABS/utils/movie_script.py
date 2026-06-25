@@ -307,27 +307,39 @@ def _combine_movies(ffmpeg, left, right, output, fps=60):
     )
 
 
-def _make_energy_rmsd_animation(csv_path, output_path, ylabel, replica_id=None, frames_per_replica=None):
+def _make_energy_rmsd_animation(
+    csv_path, output_path, ylabel, replica_id=None, frames_per_replica=None,
+    show_other_replicas=True, other_replica_color=None, rmsd_log_scale=False,
+):
     import matplotlib.animation as animation
     import matplotlib.pyplot as plt
     import numpy as np
+    from matplotlib.ticker import FixedLocator, ScalarFormatter
 
     rmsds, energies = _read_csv(csv_path)
     if not rmsds:
         return
+    rmsds = np.asarray(rmsds)
+    energies = np.asarray(energies)
 
     # The CSV holds all replicas concatenated, replica-major (all frames of
     # replica 0, then replica 1, ...). The moving dot must only trace the
     # selected replica's slice (matching the single-replica trajectory video's
-    # duration); the full multi-replica dataset stays as static background scatter.
-    if replica_id is not None and frames_per_replica:
+    # duration); the rest of the multi-replica dataset is revealed progressively
+    # as background scatter, synchronized by simulation step across all replicas
+    # (they were sampled in parallel, so step i of every replica lines up in time).
+    n_replicas = None
+    if replica_id is not None and frames_per_replica and len(rmsds) % frames_per_replica == 0:
+        n_replicas = len(rmsds) // frames_per_replica
         start = replica_id * frames_per_replica
         end = start + frames_per_replica
         traj_rmsds = rmsds[start:end]
         traj_energies = energies[start:end]
+        rmsds_by_step = rmsds.reshape(n_replicas, frames_per_replica)
+        energies_by_step = energies.reshape(n_replicas, frames_per_replica)
     else:
         traj_rmsds, traj_energies = rmsds, energies
-    if not traj_rmsds:
+    if len(traj_rmsds) == 0:
         return
 
     n = len(traj_rmsds)
@@ -337,9 +349,32 @@ def _make_energy_rmsd_animation(csv_path, output_path, ylabel, replica_id=None, 
     y_interp = np.interp(interp_idx, orig_idx, traj_energies)
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(rmsds, energies, s=12, alpha=0.4, color="#E83A5D", edgecolors="none")
+    if rmsd_log_scale:
+        ax.set_xscale("log")
+        # Plain, explicit tick positions -- no default log-scale decade formatting.
+        ax.xaxis.set_major_locator(FixedLocator([1, 2.5, 5, 10, 20, 50]))
+        ax.xaxis.set_major_formatter(ScalarFormatter())
+        ax.xaxis.set_minor_locator(FixedLocator([]))
+        x_min = float(rmsds[rmsds > 0].min()) if np.any(rmsds > 0) else 0.01
+        ax.set_xlim(max(x_min * 0.8, 0.01), float(rmsds.max()) * 1.2)
+        xlabel = "RMSD (\\u00c5, log scale)"
+    else:
+        # Default matplotlib linear-axis ticks/formatting.
+        x_pad = 0.05 * (float(rmsds.max()) - float(rmsds.min()) or 1.0)
+        ax.set_xlim(float(rmsds.min()) - x_pad, float(rmsds.max()) + x_pad)
+        xlabel = "RMSD (\\u00c5)"
+    y_pad = 0.05 * (float(energies.max()) - float(energies.min()) or 1.0)
+    ax.set_ylim(float(energies.min()) - y_pad, float(energies.max()) + y_pad)
+
+    own_color = "#E83A5D"
+    other_color = other_replica_color or own_color
+    # Explicit zorder: other-replica points stay behind the selected replica's
+    # own points (and the moving dot), regardless of draw order, so the
+    # highlighted replica is never visually buried under the background.
+    other_points = ax.scatter([], [], s=12, alpha=0.4, color=other_color, edgecolors="none", zorder=1)
+    own_points = ax.scatter([], [], s=12, alpha=0.4, color=own_color, edgecolors="none", zorder=2)
     dot, = ax.plot([], [], "o", color="red", markersize=14, zorder=10)
-    ax.set_xlabel("RMSD (\\u00c5)", fontsize=22)
+    ax.set_xlabel(xlabel, fontsize=22)
     ax.set_ylabel(ylabel, fontsize=22)
     ax.tick_params(axis="both", which="major", labelsize=18)
     ax.grid(True, linestyle=":", alpha=0.5)
@@ -347,14 +382,55 @@ def _make_energy_rmsd_animation(csv_path, output_path, ylabel, replica_id=None, 
 
     def update(frame):
         dot.set_data([x_interp[frame]], [y_interp[frame]])
-        return [dot]
+        if n_replicas is not None:
+            cur_step = min(int(interp_idx[frame]) + 1, frames_per_replica)
+            own_points.set_offsets(np.column_stack([
+                rmsds_by_step[replica_id, :cur_step], energies_by_step[replica_id, :cur_step],
+            ]))
+            if show_other_replicas:
+                other_mask = np.ones(n_replicas, dtype=bool)
+                other_mask[replica_id] = False
+                other_points.set_offsets(np.column_stack([
+                    rmsds_by_step[other_mask, :cur_step].ravel(),
+                    energies_by_step[other_mask, :cur_step].ravel(),
+                ]))
+            else:
+                other_points.set_offsets(np.empty((0, 2)))
+        else:
+            own_points.set_offsets(np.column_stack([rmsds, energies]))
+            other_points.set_offsets(np.empty((0, 2)))
+        return [dot, own_points, other_points]
 
     anim = animation.FuncAnimation(fig, update, frames=len(x_interp), interval=1000 / 60, blit=True)
     anim.save(str(output_path), writer="ffmpeg", fps=60, dpi=100)
     plt.close(fig)
 
 
+_THINGS = [
+    "top10", "traj-flexible", "traj-rigid", "rmsd-vs-tot-eng", "rmsd-vs-int-eng",
+    "combined-tot-eng", "combined-int-eng",
+]
+
+
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--hide-other-replicas", action="store_true",
+                         help="Energy vs RMSD animations: don't show points from replicas other than the selected one")
+    parser.add_argument("--other-replica-color", default=None,
+                         help="Color for other-replica points (default: same color as the selected replica)")
+    parser.add_argument("--rmsd-log-scale", action="store_true",
+                         help="Use a log scale (ticks at 1, 2.5, 5, 10, 20, 50) for the RMSD axis in energy vs "
+                              "RMSD animations. Default: linear scale with standard matplotlib ticks.")
+    parser.add_argument("--generate-only", nargs="+", choices=_THINGS, default=None,
+                         help="Generate only these specific outputs instead of everything. "
+                              f"Choices: {', '.join(_THINGS)}.")
+    args = parser.parse_args()
+    only = args.generate_only
+
+    def want(name):
+        return only is None or name in only
+
     chimerax = _require("chimerax")
     ffmpeg = _require("ffmpeg")
     movies_dir = WORK_DIR / "movies"
@@ -363,16 +439,17 @@ def main():
     helper_path = movies_dir / "check_facing.py"
     helper_path.write_text(_FACING_HELPER_SCRIPT)
 
-    model_pdbs = sorted(WORK_DIR.glob("output_pdbs/model_*.pdb"))[:N_MODELS]
-    if model_pdbs:
-        print("Rendering top-10 model rotation...")
-        script = movies_dir / "top10_rotation.cxc"
-        frames = movies_dir / "top10_frames"
-        snapshots = movies_dir / "snapshots"
-        _write_rotation_cxc(model_pdbs, script, frames, snapshots, helper_path)
-        subprocess.run([chimerax, "--offscreen", "--exit", str(script)],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
-        _stitch_frames(ffmpeg, frames, movies_dir / "Top_10_Models.mp4", framerate=60)
+    if want("top10"):
+        model_pdbs = sorted(WORK_DIR.glob("output_pdbs/model_*.pdb"))[:N_MODELS]
+        if model_pdbs:
+            print("Rendering top-10 model rotation...")
+            script = movies_dir / "top10_rotation.cxc"
+            frames = movies_dir / "top10_frames"
+            snapshots = movies_dir / "snapshots"
+            _write_rotation_cxc(model_pdbs, script, frames, snapshots, helper_path)
+            subprocess.run([chimerax, "--offscreen", "--exit", str(script)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            _stitch_frames(ffmpeg, frames, movies_dir / "Top_10_Models.mp4", framerate=60)
 
     replica_id = _find_best_replica() if HAS_REFERENCE else MODEL0_REPLICA_ID
     replica_path = None
@@ -381,49 +458,63 @@ def main():
         if _candidate.exists():
             replica_path = _candidate
             break
+
+    # The flexible variant (receptor taken from the trajectory itself) is the
+    # important one — it actually shows receptor motion during sampling.
+    # The static/rigid variant (receptor pinned to the reference) is only
+    # meaningful when a reference structure is available for comparison.
     traj_movies = {}
     if replica_path is not None:
-        # The flexible variant (receptor taken from the trajectory itself) is the
-        # important one — it actually shows receptor motion during sampling.
-        # The static variant (receptor pinned to the reference) is only meaningful
-        # when a reference structure is available for comparison.
-        variants = [("Flexible", True)]
+        variants = [("Flexible", True, "traj-flexible")]
         if HAS_REFERENCE:
-            variants.append(("", False))
-        for suffix, flexible in variants:
+            variants.append(("", False, "traj-rigid"))
+        for suffix, flexible, thing in variants:
             label = f"_{suffix}" if suffix else ""
-            print(f"Rendering trajectory animation (replica {replica_id}{label})...")
-            script = movies_dir / f"trajectory_{replica_id}{label.lower()}.cxc"
-            frames = movies_dir / f"traj_frames_{replica_id}{label.lower()}"
-            _write_trajectory_cxc(replica_path, script, frames, helper_path, flexible_receptor=flexible)
-            subprocess.run([chimerax, "--offscreen", "--exit", str(script)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
             movie = movies_dir / f"Trajectory_{replica_id}{label}.mp4"
-            _stitch_frames(ffmpeg, frames, movie, framerate=30)
-            traj_movies[suffix] = movie
+            if want(thing):
+                print(f"Rendering trajectory animation (replica {replica_id}{label})...")
+                script = movies_dir / f"trajectory_{replica_id}{label.lower()}.cxc"
+                frames = movies_dir / f"traj_frames_{replica_id}{label.lower()}"
+                _write_trajectory_cxc(replica_path, script, frames, helper_path, flexible_receptor=flexible)
+                subprocess.run([chimerax, "--offscreen", "--exit", str(script)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                _stitch_frames(ffmpeg, frames, movie, framerate=30)
+                traj_movies[suffix] = movie
+            elif movie.exists():
+                # Not regenerating this run, but reuse it for the combine step below.
+                traj_movies[suffix] = movie
 
     if HAS_REFERENCE:
-        for energy_type, plot_name, combined_prefix, ylabel in (
-            ("total",       "Total_Energy_vs_RMSD",       f"Combined_Trajectory_{replica_id}_Total_Energy_vs_RMSD",       "Total energy"),
-            ("interaction", "Interaction_Energy_vs_RMSD", f"Combined_Trajectory_{replica_id}_Interaction_Energy_vs_RMSD", "Interaction energy"),
+        # Tag the filename when other-replica context points are hidden, so this
+        # doesn't silently overwrite the default (with-others) output under the
+        # same name -- matches the "_SoloReplica" convention used for comparisons.
+        solo_suffix = "_SoloReplica" if args.hide_other_replicas else ""
+        for energy_type, plot_name, combined_prefix, ylabel, thing, combined_thing in (
+            ("total",       "Total_Energy_vs_RMSD",       f"Combined_Trajectory_{replica_id}_Total_Energy_vs_RMSD",       "Total energy",       "rmsd-vs-tot-eng", "combined-tot-eng"),
+            ("interaction", "Interaction_Energy_vs_RMSD", f"Combined_Trajectory_{replica_id}_Interaction_Energy_vs_RMSD", "Interaction energy", "rmsd-vs-int-eng", "combined-int-eng"),
         ):
-            csv_files = sorted(WORK_DIR.glob(f"plots/E_RMSD_*_{energy_type}.csv"))
-            if not csv_files:
-                continue
-            print(f"Generating E vs RMSD animation ({energy_type})...")
-            plot_movie = movies_dir / f"{plot_name}.mp4"
-            _make_energy_rmsd_animation(
-                csv_files[0], plot_movie, ylabel,
-                replica_id=replica_id, frames_per_replica=FRAMES_PER_REPLICA,
-            )
-            if not plot_movie.exists():
+            plot_movie = movies_dir / f"{plot_name}{solo_suffix}.mp4"
+            # A requested combined output needs the plot too, even if the plot
+            # itself wasn't explicitly requested -- generate it if missing.
+            if want(thing) or (want(combined_thing) and not plot_movie.exists()):
+                csv_files = sorted(WORK_DIR.glob(f"plots/E_RMSD_*_{energy_type}.csv"))
+                if csv_files:
+                    print(f"Generating E vs RMSD animation ({energy_type})...")
+                    _make_energy_rmsd_animation(
+                        csv_files[0], plot_movie, ylabel,
+                        replica_id=replica_id, frames_per_replica=FRAMES_PER_REPLICA,
+                        show_other_replicas=not args.hide_other_replicas,
+                        other_replica_color=args.other_replica_color,
+                        rmsd_log_scale=args.rmsd_log_scale,
+                    )
+            if not want(combined_thing) or not plot_movie.exists():
                 continue
             for suffix, traj_movie in traj_movies.items():
                 if not traj_movie.exists():
                     continue
                 label = f"_{suffix}" if suffix else ""
                 print(f"Combining trajectory{label} + {energy_type} energy plot...")
-                _combine_movies(ffmpeg, traj_movie, plot_movie, movies_dir / f"{combined_prefix}{label}.mp4")
+                _combine_movies(ffmpeg, traj_movie, plot_movie, movies_dir / f"{combined_prefix}{solo_suffix}{label}.mp4")
 
     print(f"Done. Movies written to {movies_dir}")
 
