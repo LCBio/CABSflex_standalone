@@ -104,6 +104,7 @@ class CABSTask(metaclass=ABCMeta):
         self.contact_threshold_aa: Optional[float] = kwargs.get("contact_threshold_aa")
         self.csv_output: Optional[bool] = kwargs.get("csv_output")
         self.cyclization: Optional[bool] = kwargs.get("backbone_cyclization")
+        self.debug: Optional[bool] = kwargs.get("debug")
         self.disable_centro: Optional[bool] = kwargs.get("disable_centro")
         self.disulfide_bonds: Optional[bool] = kwargs.get("disulfide_bonds")
         self.dssp_output: Optional[bool] = kwargs.get("dssp_output")
@@ -183,6 +184,10 @@ class CABSTask(metaclass=ABCMeta):
         self.verbose: Optional[int] = kwargs.get("verbose")
         self.work_dir: Optional[str] = kwargs.get("work_dir")
         self.write_sc_start_pdbs = kwargs.get("write_sc_start_pdbs")
+
+        if self.debug:
+            self.verbose = logger.LogLevel.DEBUG.value
+            self.save_cabs_files = True
 
         if self.cg2all_representation == "calpha" and self.disable_side_chain_centers is None:
             self.disable_side_chain_centers = True
@@ -582,9 +587,13 @@ class CABSTask(metaclass=ABCMeta):
         ) as temp_file:
             tar_dir = temp_file.name
 
+        file_names = list(CABS_FILES)
+        if self.verbose is not None and self.verbose >= logger.LogLevel.DEBUG.value:
+            file_names += ["OUT", "PROGRESS", "cabs_source.dat", "cabs"]
+
         with tarfile.open(tar_dir, "w:gz") as tar:
             logger.log_file(_name, "Saving CABS simulation files to: %s" % tar_dir)
-            for file_name in CABS_FILES:
+            for file_name in file_names:
                 try:
                     tar.add(
                         os.path.join(self.cabsrun.cfg["cwd"], file_name),
