@@ -68,12 +68,26 @@ if [ -d "$VENV_DIR" ]; then
 fi
 
 unset PYTHONPATH
+export PYTHONHOME=""
+export PYTHONUSERBASE=""
 export PYTHONNOUSERSITE=1
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 module purge
 module load "$GCC_MODULE"
 module load "$BZIP2_MODULE"
+
+# Load site HDF5/netCDF modules (if configured) and point pip's netcdf4/h5py
+# builds at them, so they don't fall back to building against an old system
+# HDF5 without netCDF-4 support (see requirements-runtime.txt: h5py, netcdf4).
+if [ -n "$HDF5_MODULE" ]; then
+    module load $HDF5_MODULE
+fi
+if [ -n "$NETCDF_MODULE" ]; then
+    module load $NETCDF_MODULE
+fi
+export HDF5_DIR="${EBROOTHDF5:-${HDF5_DIR:-}}"
+export NETCDF4_DIR="${EBROOTNETCDF:-${NETCDF4_DIR:-}}"
 
 cat >> "$VENV_DIR/bin/activate" <<EOF
 
@@ -157,6 +171,8 @@ _install_modeller
 # --- 4. CABS-flex Core ---
 cd "$CABS_FLEX_LOCAL_PATH"
 echo "{\"cg2all_env_prefix\": \"$CG2ALL_VENV_DIR\", \"cabs_env_prefix\": \"$VENV_DIR\"}" > "$CABS_FLEX_LOCAL_PATH/CABS/data/cabs_paths.json"
+echo -e "${YELLOW}🧹 Cleaning up build artifacts from $CABS_FLEX_LOCAL_PATH...${NC}"
+rm -rf "$CABS_FLEX_LOCAL_PATH/tests/test_cli_options" "$CABS_FLEX_LOCAL_PATH/build" "$CABS_FLEX_LOCAL_PATH/dist" "$CABS_FLEX_LOCAL_PATH"/*.egg-info
 echo -e "${YELLOW}📦 Installing CABSflex from local source...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" .
 deactivate
@@ -171,6 +187,8 @@ echo -e "${YELLOW}📦 Creating isolated cg2all environment...${NC}"
 module purge
 module load "$GCC_MODULE" "$PYTHON_MODULE"
 unset PYTHONPATH
+export PYTHONHOME=""
+export PYTHONUSERBASE=""
 export PYTHONNOUSERSITE=1
 python3 -m venv "$CG2ALL_VENV_DIR"
 source "$CG2ALL_VENV_DIR/bin/activate"
@@ -239,6 +257,20 @@ pip install --cache-dir "$PIP_CACHE_DIR" --no-binary :all: .
 deactivate
 
 # --- 6. Final Verification ---
+test_binary() {
+    local bin_path="$1"
+    local bin_name=$(basename "$bin_path")
+    if [ -x "$bin_path" ]; then
+        if "$bin_path" --help > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ $bin_name confirmed and functional.${NC}"
+        else
+            echo -e "${RED}❌ $bin_name exists but failed execution.${NC}"
+        fi
+    else
+        echo -e "${RED}❌ $bin_name binary not found.${NC}"
+    fi
+}
+
 echo -e "${YELLOW}🧪 Verifying Environment...${NC}"
 source "$VENV_DIR/bin/activate"
 python3 <<EOF
@@ -274,6 +306,14 @@ except ImportError:
 
 EOF
 deactivate
+
+echo -e "${BLUE}Checking Main Environment binaries:${NC}"
+test_binary "$VENV_DIR/bin/CABSflex"
+test_binary "$VENV_DIR/bin/CABSdock"
+
+echo -e "${BLUE}Checking Reconstruction Environment binaries:${NC}"
+test_binary "$CG2ALL_VENV_DIR/bin/convert_cg2all"
+
 rm -rf "$TEMP_DIR"
 
 echo -e "${GREEN}🎉 CABS-flex installation complete!${NC}"

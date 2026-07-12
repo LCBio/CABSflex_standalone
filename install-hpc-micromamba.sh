@@ -312,6 +312,18 @@ verify_import() {
     "${env_dir}/bin/python" -c "import ${module_name}" >/dev/null 2>&1
 }
 
+verify_cli() {
+    local bin_path="$1"
+    local bin_name
+    bin_name="$(basename "${bin_path}")"
+    if [ -x "${bin_path}" ] && "${bin_path}" --help >/dev/null 2>&1; then
+        success "${bin_name} confirmed and functional"
+    else
+        echo -e "${RED}❌ ${bin_name} not found or failed to execute${NC}"
+        return 1
+    fi
+}
+
 cleanup_temp_dir() {
     if [ -n "${INSTALL_TEMP_DIR:-}" ] && [ -d "${INSTALL_TEMP_DIR}" ]; then
         rm -rf "${INSTALL_TEMP_DIR}"
@@ -333,6 +345,12 @@ main() {
     load_modules
     bootstrap_micromamba
 
+    # Isolate the build/install from any system or module-loaded Python state.
+    # LD_LIBRARY_PATH is left alone since USE_MODULES / GCC_MODULE may depend on it.
+    export PYTHONPATH=""
+    export PYTHONHOME=""
+    export PYTHONUSERBASE=""
+
     INSTALL_TEMP_DIR="$(mktemp -d -p "${TEMP_ROOT}" "cabs_mamba_install_XXXX")"
     trap cleanup_temp_dir EXIT
     cd "${INSTALL_TEMP_DIR}"
@@ -342,7 +360,12 @@ main() {
 
     configure_cabs_paths
 
-    local main_specs=( "python=${PYTHON_VERSION_MAIN}" "pip" "dssp" "openmm" "pandas" "plotly" "jupyter" "nbconvert" )
+    # gfortran/binutils provide a Fortran toolchain for deps that build from source
+    # (mirrors install.sh). hdf5/libnetcdf/netcdf4/h5py are installed as conda-forge
+    # binaries here so that the pip step below finds them already satisfied instead
+    # of building netcdf4 from source, which fails against clusters' old system HDF5
+    # (no netCDF-4 support).
+    local main_specs=( "python=${PYTHON_VERSION_MAIN}" "pip" "dssp" "openmm" "gfortran" "binutils" "hdf5" "libnetcdf" "netcdf4" "h5py" "pandas" "plotly" "jupyter" "nbconvert" )
     if [ "${INSTALL_MODELLER}" = "TRUE" ]; then
         main_specs+=( "modeller" )
     fi
@@ -357,6 +380,9 @@ main() {
     info "Installing runtime dependencies into main environment"
     run_with_retry "${MAMBA_EXE}" run -p "${MAIN_ENV_DIR}" pip install \
         --cache-dir "${PIP_CACHE_DIR}" -r "${PROJECT_ROOT}/requirements-runtime.txt"
+
+    info "Cleaning stale build artifacts from ${PROJECT_ROOT}"
+    rm -rf "${PROJECT_ROOT}/tests/test_cli_options" "${PROJECT_ROOT}/build" "${PROJECT_ROOT}/dist" "${PROJECT_ROOT}"/*.egg-info
 
     info "Installing local CABS-flex package"
     run_with_retry "${MAMBA_EXE}" run -p "${MAIN_ENV_DIR}" pip install \
@@ -440,6 +466,10 @@ print("cg2all import verified.")
 EOF
 
     [ -x "${CG2ALL_ENV_DIR}/bin/convert_cg2all" ] || die "convert_cg2all binary not found in ${CG2ALL_ENV_DIR}/bin"
+
+    info "Verifying CLI entry points"
+    verify_cli "${MAIN_ENV_DIR}/bin/CABSflex" || true
+    verify_cli "${MAIN_ENV_DIR}/bin/CABSdock" || true
 
     success "Installation complete"
     echo "============================================================"
