@@ -13,9 +13,9 @@ MODELLER_VERSION="10.7"
 MODELLER_ARCH_INDEX="2"      # 2 = x86_64-intel8
 
 BASE_INSTALL_DIR=""   #<<< SET THE PATH TO INSTALL
-VENV_NAME="cabs_021"
+VENV_NAME="cabs"
 VENV_DIR="$BASE_INSTALL_DIR/$VENV_NAME"
-CG2ALL_VENV_DIR="$VENV_DIR/cg2all"
+CG2ALL_VENV_DIR="$BASE_INSTALL_DIR/${VENV_NAME}_reconstruct"
 TEMP_ROOT="$SCRATCH" # Use scratch for high-I/O operations
 
 # HPC Environment Modules
@@ -222,7 +222,7 @@ pip install --upgrade pip setuptools wheel
 echo -e "${YELLOW}📦 Installing dependencies for cg2all package for reconstruction...${NC}"
 
 echo -e "${YELLOW}📦 Installing torch and torchvision ...${NC}"
-pip install --cache-dir "$PIP_CACHE_DIR" torch==2.1.2+cpu torchvision==0.16.2+cpu --index-url https://download.pytorch.org/whl/cpu
+pip install --cache-dir "$PIP_CACHE_DIR" torch==2.2.0+cpu torchvision==0.17.0+cpu --index-url https://download.pytorch.org/whl/cpu
 
 # pip install " --no-deps torchdata==0.6.1
 
@@ -241,7 +241,7 @@ SE3T_SRC="$TEMP_DIR/se3t-src"
 git clone https://github.com/huhlim/SE3Transformer "$SE3T_SRC"
 cd "$SE3T_SRC"
 sed -i 's/python = "[^"]*"/python = ">=3.7"/' pyproject.toml
-sed -i 's/torch = "[^"]*"/torch = "=2.1.2"/' pyproject.toml
+sed -i 's/torch = "[^"]*"/torch = ">=2.1.0"/' pyproject.toml
 pip install --cache-dir "$PIP_CACHE_DIR" .
 
 echo -e "${YELLOW}📦 Installing cg2all package for reconstruction...${NC}"
@@ -250,7 +250,7 @@ CG2ALL_SRC="$TEMP_DIR/cg2all-src"
 git clone https://github.com/huhlim/cg2all.git "$CG2ALL_SRC"
 cd "$CG2ALL_SRC"
 git checkout a789cb5
-sed -i 's/torch = "[^"]*"/torch = "=2.1.2"/' pyproject.toml
+sed -i 's/torch = "[^"]*"/torch = ">=2.1.0"/' pyproject.toml
 sed -i 's/numpy = "[^"]1"/numpy = ">=1.21"/' pyproject.toml
 pip install --cache-dir "$PIP_CACHE_DIR" --no-binary :all: .
 

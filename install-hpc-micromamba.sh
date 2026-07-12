@@ -9,7 +9,7 @@ set -euo pipefail
 # ------------------------------------------------------------------------------
 # Override these with environment variables or edit this block for site defaults.
 BASE_INSTALL_DIR="${BASE_INSTALL_DIR:-}"
-ENV_NAME="${ENV_NAME:-cabs_hpc}"
+ENV_NAME="${ENV_NAME:-cabs}"
 CG2ALL_ENV_NAME="${CG2ALL_ENV_NAME:-${ENV_NAME}_cg2all}"
 
 INSTALL_MODELLER="${INSTALL_MODELLER:-TRUE}"
