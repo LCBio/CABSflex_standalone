@@ -145,6 +145,7 @@
                     "pdb-cache-dir",
                     "nsp3-model-path",
                     "verbose",
+                    "debug",
                     "log",
                     "no-progress-bar",
                     "version",
@@ -294,6 +295,7 @@
                     "nsp3-model-path",
                     "pdb-cache-dir",
                     "verbose",
+                    "debug",
                     "log",
                     "no-progress-bar",
                     "version",
@@ -856,6 +858,10 @@
             "type": "int",
             "metavar": "LEVEL",
             "help": "Set verbosity LEVEL: (default: %(default)s)\n0 - silent mode      (only CRITICAL messages)\n1 - WARNINGS\n2 - INFO\n3 - LOG FILES        (log files are generated)\n4 - DEBUG            (all messages)"
+        },
+        "debug": {
+            "action": "store_true",
+            "help": "Enable debugging mode: automatically sets verbosity to 4 (DEBUG) and saves the CABS run files to a .cbs archive in the working directory (as if --save-cabs-files were also passed), additionally including OUT, PROGRESS, cabs_source.dat and the compiled cabs binary so the run can be inspected after it finishes (default is '%(default)s')"
         },
         "version": {
             "action": "store_true",

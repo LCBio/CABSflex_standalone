@@ -177,6 +177,7 @@ class CabsRun(Thread):
         ndim = max(protein_complex.chain_list.values()) + 2
         nmols = len(protein_complex.chain_list)
         nreps = replicas
+        escape_distance = round(CabsRun.compute_escape_distance(protein_complex))
         random_number = randint(999, 10000)
         inp = CabsRun.make_inp(
             random_number=random_number,
@@ -221,7 +222,7 @@ class CabsRun(Thread):
             src_path = resource_filename("CABS", "data/data0.dat")
 
         run_cmd = CabsRun.build_exe(
-            params=(ndim, nreps, nmols, maxres),
+            params=(ndim, nreps, nmols, maxres, escape_distance),
             src=src_path,
             exe="cabs",
             build_command=self.FORTRAN_COMMAND,
@@ -334,13 +335,64 @@ class CabsRun(Thread):
             return "0 0.0\n"
 
     @staticmethod
+    def compute_escape_distance(protein_complex):
+        """
+        Mirrors the Fortran escape-distance check in data0.dat: for each chain,
+        the distance from that chain's own centroid to the population-weighted
+        centroid of all other chains combined, taking the max across chains.
+        Returns 50.0 directly for single-chain complexes (the Fortran check is
+        gated on mols.gt.1 and never runs there, and the centroid-of-others
+        calculation below would divide by zero with no other chains to average).
+        """
+        chains = protein_complex.models()[0].chains()
+        if len(chains) <= 1:
+            return 50.0
+
+        centroids = []
+        lengths = []
+        for chain in chains:
+            ca = [a for a in chain if a.name == "CA"]
+            n = len(ca)
+            centroids.append(
+                (
+                    sum(a.coord.x for a in ca) / n,
+                    sum(a.coord.y for a in ca) / n,
+                    sum(a.coord.z for a in ca) / n,
+                )
+            )
+            lengths.append(n)
+
+        native_max_distance = 0.0
+        for i in range(len(chains)):
+            other_len = sum(lengths[j] for j in range(len(chains)) if j != i)
+            sx = sum(
+                centroids[j][0] * lengths[j] for j in range(len(chains)) if j != i
+            ) / other_len
+            sy = sum(
+                centroids[j][1] * lengths[j] for j in range(len(chains)) if j != i
+            ) / other_len
+            sz = sum(
+                centroids[j][2] * lengths[j] for j in range(len(chains)) if j != i
+            ) / other_len
+            dist = (
+                (sx - centroids[i][0]) ** 2
+                + (sy - centroids[i][1]) ** 2
+                + (sz - centroids[i][2]) ** 2
+            ) ** 0.5
+            native_max_distance = max(native_max_distance, dist)
+
+        if native_max_distance < 30.0:
+            return 50.0
+        return native_max_distance + 20.0
+
+    @staticmethod
     def build_exe(
         params, src, exe="cabs", build_command=FORTRAN_COMMAND, destination="."
     ):
         with open(src) as f:
             lines = f.read()
 
-        names = ["NDIM", "NREPS", "NMOLS", "MAXRES"]
+        names = ["NDIM", "NREPS", "NMOLS", "MAXRES", "ESCAPEDISTANCE"]
         for name, value in zip(names, params):
             lines = re.sub(rf"{name}=\d+", rf"{name}=%i" % value, lines)
 
