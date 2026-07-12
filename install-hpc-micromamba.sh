@@ -361,11 +361,13 @@ main() {
     configure_cabs_paths
 
     # gfortran/binutils provide a Fortran toolchain for deps that build from source
-    # (mirrors install.sh). hdf5/libnetcdf/netcdf4/h5py are installed as conda-forge
-    # binaries here so that the pip step below finds them already satisfied instead
-    # of building netcdf4 from source, which fails against clusters' old system HDF5
-    # (no netCDF-4 support).
-    local main_specs=( "python=${PYTHON_VERSION_MAIN}" "pip" "dssp" "openmm" "gfortran" "binutils" "hdf5" "libnetcdf" "netcdf4" "h5py" "pandas" "plotly" "jupyter" "nbconvert" )
+    # (mirrors install.sh). Every requirements-runtime.txt package with a C/C++/
+    # Fortran extension (numpy, scipy, matplotlib+pillow, biopython, mdtraj, hdf5/
+    # netcdf4/h5py) is installed here as a conda-forge binary rather than left for
+    # pip to build, since old HPC clusters commonly have a glibc/system-library
+    # baseline (e.g. HDF5 1.8.x, libpng 1.5) too old for manylinux wheels or for a
+    # from-source build to succeed against.
+    local main_specs=( "python=${PYTHON_VERSION_MAIN}" "pip" "openmm" "gfortran" "binutils" "numpy" "scipy" "matplotlib" "pillow" "biopython" "mdtraj" "hdf5" "libnetcdf" "netcdf4" "h5py" "pandas" "plotly" "jupyter" "nbconvert" )
     if [ "${INSTALL_MODELLER}" = "TRUE" ]; then
         main_specs+=( "modeller" )
     fi
