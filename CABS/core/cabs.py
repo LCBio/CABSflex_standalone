@@ -140,6 +140,18 @@ class CabsRun(Thread):
     FORTRAN_COMMAND = "gfortran -O2 -fno-trapping-math"
     CABS_DIR_FMT = "%y%m%d%H%M%S"
 
+    # /pair/, /EPARAMS/ and /excl/ in data0.dat are the COMMON blocks whose
+    # size scales with nmols^2 * ndim^2 (three real*4 (nmols,nmols,ndim,ndim,2,2)
+    # arrays plus two real*4/integer*4 (nmols,nmols,ndim,ndim) arrays = 56
+    # bytes per nmols^2*ndim^2 unit) and which dominate the compiled binary's
+    # static data segment on large multi-chain systems.
+    LARGE_SYSTEM_DATA_BYTES_PER_UNIT = 56
+    # Threshold, in bytes, below the ~2GB addressing limit of gfortran's
+    # default "small" memory model, past which COMMON-block relocations
+    # start overflowing ("relocation truncated to fit" at link time).
+    LARGE_SYSTEM_DATA_THRESHOLD_BYTES = 1_500_000_000
+    LARGE_SYSTEM_MCMODEL_FLAG = "-mcmodel=medium"
+
     def __init__(
         self,
         protein_complex,
@@ -221,11 +233,14 @@ class CabsRun(Thread):
         except (ImportError, AttributeError, NameError):
             src_path = resource_filename("CABS", "data/data0.dat")
 
+        build_command = CabsRun.build_command_for_system_size(
+            nmols=nmols, ndim=ndim, build_command=self.FORTRAN_COMMAND
+        )
         run_cmd = CabsRun.build_exe(
             params=(ndim, nreps, nmols, maxres, escape_distance),
             src=src_path,
             exe="cabs",
-            build_command=self.FORTRAN_COMMAND,
+            build_command=build_command,
             destination=cabs_dir,
         )
 
@@ -384,6 +399,58 @@ class CabsRun(Thread):
         if native_max_distance < 30.0:
             return 50.0
         return native_max_distance + 20.0
+
+    @classmethod
+    def estimate_static_data_bytes(cls, nmols, ndim):
+        """
+        Rough estimate of the size of the chain/length-dependent COMMON
+        blocks that the compiled CABS binary will allocate, used to decide
+        whether the default gfortran small memory model will overflow.
+        """
+        return cls.LARGE_SYSTEM_DATA_BYTES_PER_UNIT * nmols * nmols * ndim * ndim
+
+    @classmethod
+    def build_command_for_system_size(cls, nmols, ndim, build_command=None):
+        """
+        Return build_command, adding a large memory model flag if the
+        estimated static data size for this system risks overflowing
+        gfortran's default small memory model (-mcmodel=small), which
+        only allows ~2GB of COMMON-block data reachable via 32-bit
+        relocations and fails with "relocation truncated to fit" on
+        large multi-chain systems.
+        """
+        if build_command is None:
+            build_command = cls.FORTRAN_COMMAND
+
+        estimated_bytes = cls.estimate_static_data_bytes(nmols, ndim)
+        if estimated_bytes <= cls.LARGE_SYSTEM_DATA_THRESHOLD_BYTES:
+            return build_command
+
+        if cls.LARGE_SYSTEM_MCMODEL_FLAG in build_command:
+            return build_command
+
+        if not sys.platform.startswith("linux"):
+            logger.warning(
+                module_name=_name,
+                msg=(
+                    f"Estimated CABS static data size ({estimated_bytes / 1e9:.1f} GB) "
+                    "for this large system may exceed the compiler's default memory "
+                    f"model limits on {sys.platform}, but automatic -mcmodel=medium "
+                    "is only applied on Linux. Compilation may fail with "
+                    "'relocation truncated to fit'."
+                ),
+            )
+            return build_command
+
+        logger.warning(
+            module_name=_name,
+            msg=(
+                f"Estimated CABS static data size ({estimated_bytes / 1e9:.1f} GB) for "
+                "this large system exceeds the default memory model limit. Adding "
+                f"{cls.LARGE_SYSTEM_MCMODEL_FLAG} to the compiler command."
+            ),
+        )
+        return f"{build_command} {cls.LARGE_SYSTEM_MCMODEL_FLAG}"
 
     @staticmethod
     def build_exe(
