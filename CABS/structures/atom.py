@@ -73,6 +73,25 @@ def hybrid36_encode(value: int, width: int) -> str:
     raise ValueError(f"Value {value} out of hybrid-36 range for width {width}")
 
 
+def hybrid36_decode(value: str, width: int) -> int:
+    """
+    Inverse of hybrid36_encode: parses a fixed-width PDB field, decoding the
+    hybrid-36 alphanumeric convention back to an int when a plain decimal parse
+    isn't applicable.
+    """
+    s = value.strip()
+    first = s[0]
+    if first == "-" or first.isdigit():
+        return int(s)
+    decimal_limit = 10**width
+    upper_limit = 26 * 36 ** (width - 1)
+    if first in _HYBRID36_DIGITS_UPPER:
+        return int(s, 36) - 10 * 36 ** (width - 1) + decimal_limit
+    if first in _HYBRID36_DIGITS_LOWER:
+        return int(s, 36) - 10 * 36 ** (width - 1) + upper_limit + decimal_limit
+    raise ValueError(f"Cannot decode hybrid-36 value: {value!r}")
+
+
 class Atom:
     """
     Class for representation of a single atom.

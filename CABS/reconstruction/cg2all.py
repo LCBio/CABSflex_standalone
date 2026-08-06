@@ -15,6 +15,7 @@ import numpy as np
 import numpy.typing as npt
 
 from CABS.io import logger
+from CABS.structures.atom import hybrid36_decode, hybrid36_encode
 from CABS.utils.utils import SCModeler, CG2ALL_REPRESENTATIONS
 
 
@@ -28,8 +29,8 @@ def _format_cg_pdb_line(
     if len(atom_name) == 4:
         fmt_name = atom_name
     return (
-        f"ATOM  {serial:5d} {fmt_name:4s}{source['alt']:1s}"
-        f"{source['resname']:<4s}{source['chain']:1s}{source['resnum']:4d}"
+        f"ATOM  {hybrid36_encode(serial, 5)} {fmt_name:4s}{source['alt']:1s}"
+        f"{source['resname']:<4s}{source['chain']:1s}{hybrid36_encode(source['resnum'], 4)}"
         f"{source['icode']:1s}   {coord[0]:8.3f}{coord[1]:8.3f}{coord[2]:8.3f}"
         f"{source['occ']:6.2f}{source['bfac']:6.2f} {source['tail']}\n"
     )
@@ -56,7 +57,7 @@ def _read_calpha_atoms(filename: Union[str, TextIO]) -> List[List[Dict[str, Any]
                     "alt": line[16],
                     "resname": line[17:21].strip(),
                     "chain": line[21],
-                    "resnum": int(line[22:26]),
+                    "resnum": hybrid36_decode(line[22:26], 4),
                     "icode": line[26],
                     "coord": np.array(
                         [
@@ -164,7 +165,7 @@ def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:
         if line.startswith("ATOM") and line[12:16].strip() == "CA":
             current_model.append(
                 {
-                    "resnum": int(line[22:26]),
+                    "resnum": hybrid36_decode(line[22:26], 4),
                     "chid": line[21],
                     "icode": line[26],
                 }
@@ -301,7 +302,7 @@ def sync_residues(input_pdb_path: Path, output_pdb_path: Path) -> str:
                 line = output_lines[idx]
                 if line.startswith(("ATOM", "HETATM", "TER")):
                     output_lines[idx] = (
-                        f"{line[:21]}{target_chid}{target_resnum:4d}{target_icode}{line[27:]}"
+                        f"{line[:21]}{target_chid}{hybrid36_encode(target_resnum, 4)}{target_icode}{line[27:]}"
                     )
 
     output_pdb_path.write_text("".join(output_lines))
@@ -437,7 +438,7 @@ def sync_residues_with_template(
                 line = output_lines[idx]
                 if line.startswith(("ATOM", "HETATM", "TER")):
                     output_lines[idx] = (
-                        f"{line[:21]}{target_chid}{target_resnum:4d}{target_icode}{line[27:]}"
+                        f"{line[:21]}{target_chid}{hybrid36_encode(target_resnum, 4)}{target_icode}{line[27:]}"
                     )
 
     output_pdb_path.write_text("".join(output_lines))
