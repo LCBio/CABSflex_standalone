@@ -38,6 +38,41 @@ from CABS.utils.utils import (
 )
 
 
+_HYBRID36_DIGITS_UPPER = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_HYBRID36_DIGITS_LOWER = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+
+def _hybrid36_encode_base36(value: int, width: int, digits: str) -> str:
+    chars = []
+    for _ in range(width):
+        value, rem = divmod(value, 36)
+        chars.append(digits[rem])
+    return "".join(reversed(chars))
+
+
+def hybrid36_encode(value: int, width: int) -> str:
+    """
+    Formats value right-justified in a field of the given width, falling back to the
+    hybrid-36 alphanumeric PDB convention once value no longer fits in width decimal
+    digits (e.g. atom serial > 99999 for width=5, resnum > 9999 for width=4).
+    """
+    decimal_limit = 10**width
+    if value < decimal_limit:
+        return f"{value:{width}d}"
+    upper_limit = 26 * 36 ** (width - 1)
+    offset = value - decimal_limit
+    if offset < upper_limit:
+        return _hybrid36_encode_base36(
+            offset + 10 * 36 ** (width - 1), width, _HYBRID36_DIGITS_UPPER
+        )
+    offset -= upper_limit
+    if offset < upper_limit:
+        return _hybrid36_encode_base36(
+            offset + 10 * 36 ** (width - 1), width, _HYBRID36_DIGITS_LOWER
+        )
+    raise ValueError(f"Value {value} out of hybrid-36 range for width {width}")
+
+
 class Atom:
     """
     Class for representation of a single atom.
@@ -103,7 +138,9 @@ class Atom:
         fmt_name = f" {self.name:<3s}"
         if len(self.name) == 4:
             fmt_name = self.name
-        line += f"{self.serial:5d} {fmt_name:4s}{self.alt:1s}{self.resname:<4s}{self.chid[:1]:1s}{self.resnum:4d}{self.icode:1s}   {self.coord:24s}{self.occ:6.2f}{self.bfac:6.2f} {self.tail}"
+        serial_str = hybrid36_encode(self.serial, 5)
+        resnum_str = hybrid36_encode(self.resnum, 4)
+        line += f"{serial_str} {fmt_name:4s}{self.alt:1s}{self.resname:<4s}{self.chid[:1]:1s}{resnum_str}{self.icode:1s}   {self.coord:24s}{self.occ:6.2f}{self.bfac:6.2f} {self.tail}"
         return line
 
     def __repr__(self) -> str:
