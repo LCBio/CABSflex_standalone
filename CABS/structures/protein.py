@@ -7,7 +7,7 @@ import json
 from math import exp
 import os
 import re
-from string import ascii_uppercase
+from string import ascii_uppercase, ascii_lowercase, digits
 from typing import Dict, List, Literal, Optional
 
 from CABS.io import logger
@@ -263,7 +263,10 @@ class Protein(Atoms):
                         else:
                             self.exclude[k].append(word)
                     else:
-                        chains = re.sub(r"[^%s]*" % word, "", ascii_uppercase)
+                        # A-Z, a-z, 0-9 (62 total) -- not just A-Z (26), which silently
+                        # resolved any lowercase/digit chain named in --exclude to an
+                        # empty set (no exclusion applied, no error).
+                        chains = re.sub(r"[^%s]*" % word, "", ascii_uppercase + ascii_lowercase + digits)
                         self.exclude[k].extend(
                             a.resid_id() for a in self.select("chain %s" % chains)
                         )
@@ -366,7 +369,9 @@ class Protein(Atoms):
 
     @staticmethod
     def read_flexibility(filename):
-        key = r"[0-9A-Z]+:[A-Z]"
+        # chid part widened to [0-9A-Za-z] -- was [A-Z] only, which raised
+        # "Invalid syntax" for any lowercase/digit chain ID in this override file.
+        key = r"[0-9A-Z]+:[0-9A-Za-z]"
         val = r"[0-9.]+"
 
         patt_range = re.compile(f"({key}) *-* *({key}) +({val})")
@@ -493,7 +498,9 @@ class Protein(Atoms):
 
     @staticmethod
     def read_category(filename):
-        key = r"[0-9A-Z]+:[A-Z]"
+        # chid part widened to [0-9A-Za-z] -- was [A-Z] only, which raised
+        # "Invalid syntax" for any lowercase/digit chain ID in this override file.
+        key = r"[0-9A-Z]+:[0-9A-Za-z]"
         val = r"[0-9.]+"
 
         patt_range = re.compile(f"({key}) *-* *({key}) +({val})")

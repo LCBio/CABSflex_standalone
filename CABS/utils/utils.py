@@ -4,7 +4,7 @@ from contextlib import closing
 import os
 from pathlib import Path
 import re
-from string import ascii_uppercase
+from string import ascii_uppercase, ascii_lowercase, digits
 import subprocess
 from tempfile import NamedTemporaryFile
 from typing import (
@@ -316,8 +316,11 @@ def aa_to_short(seq: str) -> AminoAcidCode:
 
 
 def next_letter(taken_letters: str) -> str:
-    """Returns next available letter for new protein chain."""
-    return re.sub("[" + taken_letters + "]", "", ascii_uppercase)[0]
+    """Returns next available single-character chain ID for a new protein chain.
+    A-Z, a-z, 0-9 (62 total, same pool pdblib.py uses for its own chain remapping) --
+    not just A-Z (26), which silently ran out (IndexError on the [0] below) for any
+    real >26-chain system."""
+    return re.sub("[" + taken_letters + "]", "", ascii_uppercase + ascii_lowercase + digits)[0]
 
 
 def line_count(filename: Union[str, Path]) -> int:

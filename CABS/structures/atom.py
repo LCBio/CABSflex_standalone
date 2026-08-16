@@ -9,7 +9,7 @@ import json
 from math import sqrt
 from random import randint
 import re
-from string import ascii_uppercase
+from string import ascii_uppercase, ascii_lowercase, digits
 from typing import (
     Any,
     Iterator,
@@ -1141,9 +1141,16 @@ class Atoms:
                     chid = prev.chid
                     d = (ca.coord - prev.coord).length()
                     if d > cut_off:
-                        chid = sorted(
-                            re.sub("[" + used_letters + "]", "", ascii_uppercase)
-                        )[0]
+                        # A-Z, a-z, 0-9 (62 total, matches pdblib.py's own chain-remap
+                        # pool and next_letter()'s order) -- not just A-Z (26), which
+                        # silently ran out of new letters (sorted("")[0] -> IndexError)
+                        # for any real >26-chain system needing a chain split. No
+                        # sorted(): the old code's sorted() was a no-op over plain A-Z
+                        # (already ascending), but sorting the wider pool would reorder
+                        # it into ASCII order (digits before lowercase), breaking the
+                        # intended A-Z-then-a-z-then-0-9 priority and making this
+                        # function's assignment order inconsistent with next_letter()'s.
+                        chid = re.sub("[" + used_letters + "]", "", ascii_uppercase + ascii_lowercase + digits)[0]
                         used_letters += chid
                     for a in residue:
                         a.chid = chid

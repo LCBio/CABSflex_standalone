@@ -67,7 +67,11 @@ def ca2all(
         aa_names = {v: k for k, v in aa_names.items()}
 
         atoms = []
-        pattern = re.compile("ATOM.{9}(.{3}).([A-Z]{3}) ([A-Z ])(.{5}).{27}(.{12}).*")
+        # 3rd group is the chain ID column, widened to [A-Za-z0-9 ] -- was [A-Z ] only,
+        # which silently failed to match (and dropped) any ATOM line on a lowercase/
+        # digit-ID chain before the MODELLER all-atom rebuild. 2nd group is the 3-letter
+        # residue name, correctly uppercase-only, left unchanged.
+        pattern = re.compile("ATOM.{9}(.{3}).([A-Z]{3}) ([A-Za-z0-9 ])(.{5}).{27}(.{12}).*")
 
         with closing(filename) as f:
             for line in f:

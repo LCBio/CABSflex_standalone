@@ -1954,9 +1954,15 @@ class DockTask(CABSTask):
         rchs = self.initial_complex.protein_chains
         lchs = self.initial_complex.peptide_chains
 
-        # Map to sequential chain IDs for the sequential trajectory template ca_traj.template
+        # Map to sequential chain IDs for the sequential trajectory template ca_traj.template.
+        # NOT sorted(): alphabetical order only coincidentally matched assignment/encounter
+        # order while chain IDs were uppercase-only (A-Z); now that IDs can also be
+        # lowercase/digit (A-Z, a-z, 0-9), Python's ASCII sort would reorder as
+        # digits-then-uppercase-then-lowercase, silently pairing each original chain with
+        # the WRONG template chain for any >26-chain system. dict key order is already the
+        # real encounter/assignment order (matches the working pattern at line ~1016).
         all_orig = (self.initial_complex.protein_chains or []) + (self.initial_complex.peptide_chains or [])
-        all_temp = sorted(list(ca_traj.template.list_chains().keys()))
+        all_temp = list(ca_traj.template.list_chains().keys())
         chain_map = {}
         for i, orig_ch in enumerate(all_orig):
             if i < len(all_temp):
@@ -2185,9 +2191,15 @@ class FlexTask(CABSTask):
 
         rchs = self.initial_complex.protein_chains or self.initial_complex.peptide_chains
 
-        # Map to sequential chain IDs for the sequential trajectory template ca_traj.template
+        # Map to sequential chain IDs for the sequential trajectory template ca_traj.template.
+        # NOT sorted(): alphabetical order only coincidentally matched assignment/encounter
+        # order while chain IDs were uppercase-only (A-Z); now that IDs can also be
+        # lowercase/digit (A-Z, a-z, 0-9), Python's ASCII sort would reorder as
+        # digits-then-uppercase-then-lowercase, silently pairing each original chain with
+        # the WRONG template chain for any >26-chain system. dict key order is already the
+        # real encounter/assignment order (matches the working pattern at line ~1016).
         all_orig = (self.initial_complex.protein_chains or []) + (self.initial_complex.peptide_chains or [])
-        all_temp = sorted(list(ca_traj.template.list_chains().keys()))
+        all_temp = list(ca_traj.template.list_chains().keys())
         chain_map = {}
         for i, orig_ch in enumerate(all_orig):
             if i < len(all_temp):

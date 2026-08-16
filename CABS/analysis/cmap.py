@@ -208,13 +208,13 @@ class ContactMap:
                 if ":" in lbl:
                     parts = lbl.split(":")
                     short_labels.append(f"{parts[0]}:{parts[1]}" if show_chain_id else parts[1])
+                elif lbl:
+                    # Chain ID is always exactly 1 character -- fixed-position split,
+                    # not a digit scan (which broke for a digit-named chain, e.g. "5",
+                    # by finding the chain's own digit immediately).
+                    short_labels.append(lbl if show_chain_id else lbl[1:])
                 else:
-                    for i, c in enumerate(lbl):
-                        if c.isdigit():
-                            short_labels.append(lbl if show_chain_id else lbl[i:])
-                            break
-                    else:
-                        short_labels.append(lbl)
+                    short_labels.append(lbl)
             return inds, short_labels
 
         x_inds, x_lbls = clean_ticks(self.s1, show_chain_x)

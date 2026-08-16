@@ -322,11 +322,13 @@ def plot_RMSF_seq(series, labels, fname, fmt="svg", ss_vals=None):
     for lbl in labels:
         if ":" in lbl:
             unique_chains.add(lbl.split(":")[0])
-        else:
-            for i, c in enumerate(lbl):
-                if c.isdigit():
-                    unique_chains.add(lbl[:i])
-                    break
+        elif lbl:
+            # Chain ID is always exactly 1 character (fixed-column PDB convention, see
+            # Atom.fmt()) -- split by fixed position, not by scanning for the first
+            # digit. Digit-scanning broke as soon as the chain ID itself could be a
+            # digit (e.g. chain "5"): it found the chain's own digit immediately and
+            # mis-split the label.
+            unique_chains.add(lbl[:1])
     show_chain = len(unique_chains) > 1
 
     if ss_vals is not None and len(ss_vals) == n:
@@ -377,9 +379,9 @@ def plot_RMSF_seq(series, labels, fname, fmt="svg", ss_vals=None):
             if ":" in lbl:
                 parts = lbl.split(":")
                 return f"{parts[0]}:{parts[1]}" if show_chain else parts[1]
-            for i, c in enumerate(lbl):
-                if c.isdigit():
-                    return lbl if show_chain else lbl[i:]
+            if lbl:
+                # Same fixed-position split as unique_chains above -- not a digit scan.
+                return lbl if show_chain else lbl[1:]
             return lbl
         return ""
 
