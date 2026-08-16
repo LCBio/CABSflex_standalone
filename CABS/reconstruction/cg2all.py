@@ -576,17 +576,26 @@ def convert_cg_to_all(
         _write_cg2all_input_pdb(filename, tmp_file, cg2all_representation)
 
     if renumber_flag:
+        # Prefer the user's true original input file -- it's the actual "original" that
+        # --renumber-residues-to-original promises to restore chain IDs/residue numbers
+        # from. start_all.pdb/start.pdb are CABS's own internal post-preprocessing
+        # snapshots (chain IDs there reflect CABS's internal assignment, not necessarily
+        # the true original file), and almost always exist, so checking them first meant
+        # the true original was essentially never used -- residue numbers often still
+        # looked right (CABS's snapshot commonly preserves the same numbering), but chain
+        # IDs came back as CABS's internal A/B/C... scheme instead of the real original.
+        # Still fall back to CABS's own snapshots when no usable original is available.
         reference_path = None
         start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
         start_path = Path(work_dir) / "output_pdbs" / "start.pdb"
-        if start_all_path.exists():
-            reference_path = start_all_path
-        elif start_path.exists():
-            reference_path = start_path
-        elif reference_pdb:
+        if reference_pdb:
             candidate = Path(str(reference_pdb).split(":")[0])
             if candidate.exists():
                 reference_path = candidate
+        if reference_path is None and start_all_path.exists():
+            reference_path = start_all_path
+        elif reference_path is None and start_path.exists():
+            reference_path = start_path
 
         if reference_path is None:
             raise FileNotFoundError(
