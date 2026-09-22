@@ -50,6 +50,12 @@ class ContactMapFactory:
         self.res2 = sorted(
             [(k, (v[0], v[-1])) for k, v in res2.items()], key=lambda x: x[1][0]
         )
+        # Real chain IDs, as given -- not re-derived from the concatenated
+        # "chid+resnum+icode" label text later (see ContactMap.save_fig), since
+        # chain IDs are not always 1 character (e.g. CABSdock's internal
+        # peptide labels "PEP1", "PEP2", ...) and that text has no separator.
+        self.chains1 = list(chains1)
+        self.chains2 = list(chains2)
 
     def mk_cmap(self, traj, thr, frames=None, replicas=None):
         """Creates map of contacts between two given chains.
@@ -81,7 +87,8 @@ class ContactMapFactory:
                 nframes += 1
             resl.append(
                 ContactMap(
-                    cmtx, [i[0] for i in self.res1], [i[0] for i in self.res2], nframes
+                    cmtx, [i[0] for i in self.res1], [i[0] for i in self.res2], nframes,
+                    chains1=self.chains1, chains2=self.chains2,
                 )
             )
         return resl
@@ -121,18 +128,25 @@ class ContactMapFactory:
 
 
 class ContactMap:
-    def __init__(self, mtx, nms1, nms2, n):
+    def __init__(self, mtx, nms1, nms2, n, chains1=None, chains2=None):
         """Contact map init.
 
         Arguments:
         mtx -- 2D np.array of distances between (pseudo)atoms.
         atoms1, atoms2 -- CABS.atom.Atoms instance; template for cmap.
         n -- number of frames.
+        chains1, chains2 -- optional; the real chain IDs used to build nms1/nms2
+            (see ContactMapFactory). May be longer than 1 character. Used for
+            plotting/labeling; when omitted, plotting falls back to guessing a
+            single-character chain ID from each label (may mislabel chain IDs
+            longer than 1 character).
         """
         self.cmtx = mtx
         self.s1 = nms1
         self.s2 = nms2
         self.n = n
+        self.chains1 = chains1
+        self.chains2 = chains2
 
     def zero_diagonal(self):
         np.fill_diagonal(self.cmtx, 0)
@@ -171,17 +185,30 @@ class ContactMap:
             ["#" + color if "#" not in color else color for color in colors_lst],
         )
 
-        # Plot matrix with origin='lower' to get diagonal from bottom-left to top-right
+        # Plot matrix with origin='lower' to get diagonal from bottom-left to top-right.
+        # aspect="auto" (not "equal"): receptor and peptide chains are typically very
+        # different lengths, and "equal" squeezes the shorter axis down to keep cells
+        # square, crowding its tick labels into an illegible sliver.
+        # interpolation="nearest": without it, matplotlib smooths/blurs neighboring
+        # cells together when the array is upsampled a lot to fill the figure (e.g.
+        # a 6-residue peptide axis stretched to ~800 pixels), so distinct residues'
+        # colors bleed into each other instead of showing as sharp, separate cells.
         im = sfig.imshow(
             plot_mtx,
             cmap=colors,
             vmin=0.0,
             vmax=vmax,
             origin="lower",
-            aspect="equal",
+            aspect="auto",
+            interpolation="nearest",
         )
 
-        # Extract unique chains in s1 and s2
+        # Extract unique chains in s1 and s2. Prefer the real chain IDs carried
+        # through from ContactMapFactory (self.chains1/self.chains2); a chain ID
+        # is not always 1 character (e.g. CABSdock's internal peptide labels
+        # "PEP1", "PEP2", ...), so guessing it back out of the concatenated
+        # "chid+resnum+icode" label text (no separator) is only a fallback for
+        # ContactMap objects built without that information.
         def get_unique_chains(labels_list):
             if not labels_list:
                 return []
@@ -192,15 +219,18 @@ class ContactMap:
                     chains.append(ch)
             return chains
 
-        chains1 = get_unique_chains(self.s1)
-        chains2 = get_unique_chains(self.s2)
+        chains1 = self.chains1 if self.chains1 else get_unique_chains(self.s1)
+        chains2 = self.chains2 if self.chains2 else get_unique_chains(self.s2)
         show_chain_x = len(chains1) > 1
         show_chain_y = len(chains2) > 1
 
         # Configure X and Y ticks to show clean residue numbers (with chain ID if multiple chains exist)
-        def clean_ticks(labels_list, show_chain_id, n_ticks=6):
+        def clean_ticks(labels_list, known_chains, show_chain_id, n_ticks=6):
             if not labels_list:
                 return [], []
+            # Match each label against the known chain IDs, longest first, so a
+            # chain like "PEP1" isn't mistaken for "P" if both were ever present.
+            candidates = sorted(known_chains, key=len, reverse=True)
             inds = np.linspace(0, len(labels_list) - 1, n_ticks).astype(int)
             short_labels = []
             for idx in inds:
@@ -209,16 +239,14 @@ class ContactMap:
                     parts = lbl.split(":")
                     short_labels.append(f"{parts[0]}:{parts[1]}" if show_chain_id else parts[1])
                 elif lbl:
-                    # Chain ID is always exactly 1 character -- fixed-position split,
-                    # not a digit scan (which broke for a digit-named chain, e.g. "5",
-                    # by finding the chain's own digit immediately).
-                    short_labels.append(lbl if show_chain_id else lbl[1:])
+                    chain_id = next((c for c in candidates if lbl.startswith(c)), lbl[:1])
+                    short_labels.append(lbl if show_chain_id else lbl[len(chain_id):])
                 else:
                     short_labels.append(lbl)
             return inds, short_labels
 
-        x_inds, x_lbls = clean_ticks(self.s1, show_chain_x)
-        y_inds, y_lbls = clean_ticks(self.s2, show_chain_y)
+        x_inds, x_lbls = clean_ticks(self.s1, chains1, show_chain_x)
+        y_inds, y_lbls = clean_ticks(self.s2, chains2, show_chain_y)
 
         sfig.set_xticks(x_inds)
         sfig.set_xticklabels(x_lbls)
@@ -360,4 +388,8 @@ class ContactMap:
         """
         if self.s1 != other.s1 or self.s2 != other.s2:
             raise ValueError("Cannot sum different particles' contact maps.")
-        return ContactMap(self.cmtx + other.cmtx, self.s1, self.s2, self.n + other.n)
+        return ContactMap(
+            self.cmtx + other.cmtx, self.s1, self.s2, self.n + other.n,
+            chains1=self.chains1 or other.chains1,
+            chains2=self.chains2 or other.chains2,
+        )

@@ -1970,10 +1970,25 @@ class DockTask(CABSTask):
 
         rchs_seq = [chain_map.get(ch, ch) for ch in rchs]
         lchs_seq = [chain_map.get(ch, ch) for ch in lchs]
+        # lchs_seq[i] is the ca_traj.template chain matching original lchs[i];
+        # used below to look up the same original chain in medoids_chain_map.
+        seq_to_orig = dict(zip(lchs_seq, lchs))
+
+        # self.medoids.template (reconstructed all-atom structures) assigns its
+        # own chain letters from scratch during reconstruction, independent of
+        # both the original PDB chains and ca_traj.template's -- e.g. it may use
+        # 'A'/'B' when the original/ca_traj chains were 'C'/'PEP1'. Build a
+        # separate positional chain map for it the same way as chain_map above.
+        medoids_chain_map = {}
+        if self.aa_rebuild:
+            all_medoid_temp = list(self.medoids.template.atoms.list_chains().keys())
+            for i, orig_ch in enumerate(all_orig):
+                if i < len(all_medoid_temp):
+                    medoids_chain_map[orig_ch] = all_medoid_temp[i]
 
         targ_cmf = ContactMapFactory(rchs_seq, rchs_seq, ca_traj.template)
 
-        cmfs = {lig: ContactMapFactory(rchs_seq, lig, ca_traj.template) for lig in lchs_seq}
+        cmfs = {lig: ContactMapFactory(rchs_seq, [lig], ca_traj.template) for lig in lchs_seq}
         # cmap10ktarg = self._add_cmaps(targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg = reduce(operator.add, targ_cmf.mk_cmap(sc_traj_full, thr))
         cmap10ktarg.zero_diagonal()
@@ -1997,7 +2012,9 @@ class DockTask(CABSTask):
                 cmapdir + "/top1000_ch_%s" % lig, norm_n=True, colors=colors
             )
             if self.aa_rebuild:
-                cmft = ContactMapFactory(rchs, rchs, self.medoids.template)
+                rchs_medoid = [medoids_chain_map.get(ch, ch) for ch in rchs]
+                lig_medoid = medoids_chain_map.get(seq_to_orig.get(lig, lig), lig)
+                cmft = ContactMapFactory(rchs_medoid, [lig_medoid], self.medoids.template)
             else:
                 cmft = cmf
             cmaps_top = cmft.mk_cmap(sc_med, thrt)
