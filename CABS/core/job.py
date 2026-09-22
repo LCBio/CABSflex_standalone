@@ -900,12 +900,37 @@ class CABSTask(metaclass=ABCMeta):
 
     def save_models(self):
         output_folder = os.path.join(self.work_dir, "output_pdbs")
-        
-        # Safe mapping of peptide aliases (PEP1, PEP2...) to actual chain IDs
+
+        # Map peptide aliases (PEP1, PEP2...) to the chain ID that will actually
+        # appear in the medoid PDB files handed to Modeller/cg2all for reconstruction.
+        #
+        # self.initial_complex.new_ids resolves aliases against a *different* single-
+        # letter scheme used for restraint bookkeeping (e.g. 'PEP1' -> 'A'), but the
+        # medoid PDB written by self.medoids.to_pdb() takes its chain IDs straight from
+        # self.medoids.template, and Atom.__str__ (the code that actually writes the PDB
+        # ATOM lines) truncates any chain ID longer than one character to its first
+        # letter -- so 'PEP1' ends up as 'P' on disk, not 'A'. Using new_ids here built
+        # a disulfide/cyclization spec for a chain ('A') that doesn't exist in the file
+        # Modeller/cg2all actually reads, crashing with e.g. "No such residue: 2:A".
+        # This bug predates cg2all/--aa-minimize: it reproduces identically with
+        # --aa-method modeller. (--aa-minimize used to mask it for cg2all by relying on
+        # an unrelated OpenMM side effect that also renamed the chain to 'A' during
+        # minimization -- see minimize_pdb_energy() in cg2all.py, now fixed to preserve
+        # chain IDs so this mapping is correct regardless of minimization.)
+        medoid_chain_map = {}
+        all_orig = (self.initial_complex.protein_chains or []) + (
+            self.initial_complex.peptide_chains or []
+        )
+        medoid_chains = list(self.medoids.template.list_chains().keys())
+        for i, orig_ch in enumerate(all_orig):
+            if i < len(medoid_chains):
+                medoid_chain_map[orig_ch] = medoid_chains[i][:1]
+
         def map_resid(resid):
-            if self.initial_complex and resid in self.initial_complex.new_ids:
-                return self.initial_complex.new_ids[resid]
-            return resid
+            if ":" not in resid:
+                return resid
+            num, ch = resid.split(":", 1)
+            return f"{num}:{medoid_chain_map.get(ch, ch[:1])}"
 
         mapped_cyclization = [map_resid(f"1:{c}") for c in self.cyclization] if self.cyclization else []
         mapped_cyclization = [c.split(":")[1] if ":" in c else c for c in mapped_cyclization]

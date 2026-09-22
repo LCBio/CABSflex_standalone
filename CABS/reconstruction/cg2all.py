@@ -480,7 +480,15 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
         # Load PDB file
         pdb = PDBFile(str(pdb_path))
         num_frames = pdb.getNumFrames()
-        
+        # Modeller.addHydrogens() rebuilds the topology and does not reliably keep
+        # each chain's original ID (e.g. a lone peptide chain "P" comes back as "A"),
+        # even though the atoms/residues themselves are unchanged. Restore the
+        # original IDs afterwards so this minimization step is a no-op on chain
+        # naming -- callers (e.g. disulfide/cyclization patching right after
+        # reconstruction) rely on the chain IDs being the same whether or not
+        # minimization ran.
+        original_chain_ids = [chain.id for chain in pdb.topology.chains()]
+
         forcefield = ForceField('amber19-all.xml')
         
         # Force the CPU platform for robustness, avoiding GPU memory/driver limits under concurrent workers
@@ -500,7 +508,9 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
             for i in range(num_frames):
                 modeller = Modeller(pdb.topology, pdb.getPositions(frame=i))
                 modeller.addHydrogens(forcefield)
-                
+                for chain, orig_id in zip(modeller.topology.chains(), original_chain_ids):
+                    chain.id = orig_id
+
                 system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff, constraints=None)
                 integrator = LangevinIntegrator(300*kelvin, 1/picosecond, 0.002*picosecond)
                 
@@ -518,11 +528,14 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
                 if minimized_topology is None:
                     minimized_topology = modeller.topology
             
-            # Save the multi-model structure back to the same path
+            # Save the multi-model structure back to the same path.
+            # keepIds=True: PDBFile.writeModel() defaults to renumbering/relettering
+            # chains itself (A, B, C, ...) regardless of chain.id on the topology, which
+            # silently undid the chain-ID restoration above.
             with open(str(pdb_path), 'w') as f:
                 PDBFile.writeHeader(minimized_topology, f)
                 for idx, pos in enumerate(all_minimized_positions):
-                    PDBFile.writeModel(minimized_topology, pos, f, modelIndex=idx+1)
+                    PDBFile.writeModel(minimized_topology, pos, f, modelIndex=idx+1, keepIds=True)
                 PDBFile.writeFooter(minimized_topology, f)
                 
             logger.debug(module_name="CG2ALL", msg=f"Successfully minimized energy and resolved clashes for multi-model PDB: {pdb_path}")
@@ -530,21 +543,30 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
             logger.debug(module_name="CG2ALL", msg=f"Performing vacuum energy minimization on: {pdb_path}")
             modeller = Modeller(pdb.topology, pdb.positions)
             modeller.addHydrogens(forcefield)
-            
+            for chain, orig_id in zip(modeller.topology.chains(), original_chain_ids):
+                chain.id = orig_id
+
             system = forcefield.createSystem(modeller.topology, nonbondedMethod=NoCutoff, constraints=None)
             integrator = LangevinIntegrator(300*kelvin, 1/picosecond, 0.002*picosecond)
-            
+
             if platform:
                 simulation = Simulation(modeller.topology, system, integrator, platform)
             else:
                 simulation = Simulation(modeller.topology, system, integrator)
-                
+
             simulation.context.setPositions(modeller.positions)
-            
+
             simulation.minimizeEnergy(maxIterations=500)
-            
+
+            # keepIds=True: see the multi-model branch above -- without it, writeFile()
+            # relabels chains itself and ignores the chain.id restoration.
             with open(str(pdb_path), 'w') as f:
-                PDBFile.writeFile(modeller.topology, simulation.context.getState(getPositions=True).getPositions(), f)
+                PDBFile.writeFile(
+                    modeller.topology,
+                    simulation.context.getState(getPositions=True).getPositions(),
+                    f,
+                    keepIds=True,
+                )
                 
             logger.debug(module_name="CG2ALL", msg=f"Successfully minimized energy and resolved clashes for: {pdb_path}")
     except Exception as e:
