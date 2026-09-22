@@ -29,10 +29,76 @@ HDF5_MODULE="intel-compilers/2023.2.1 HDF5/1.14.3-serial"
 CORE_DEPS=("numpy" "matplotlib" "requests" "biopython" "mdtraj" "biopandas" "tqdm" "scipy" "pandas" "plotly" "jupyter" "nbconvert" "ipymolstar")
 TORCH_URL="https://download.pytorch.org/whl/cpu"
 NSP3_REPO_URL="https://github.com/Eryk96/NetSurfP-3.0.git"
+
+# Unlike the settings above, the two options below are read from the
+# environment at run time (not just this file), so they don't need editing
+# here — e.g. `E3NN_USE_WHEEL=TRUE bash install-hpc.sh`.
+#
+# e3nn is built from source (--no-binary) by default for compatibility with
+# older cluster kernels/glibc. If that build fails, re-run with
+# E3NN_USE_WHEEL=TRUE to install the prebuilt wheel instead. See the wiki
+# Installation page, Section 6 (Troubleshooting & FAQ).
+E3NN_USE_WHEEL="${E3NN_USE_WHEEL:-FALSE}"
+
+# Set TRUE to reuse the existing main and cg2all reconstruction venvs
+# instead of rebuilding them from scratch (each is only reused if actually
+# found present and functional). Used to resume installation after manually
+# placing a cg2all checkpoint file (see Section 6 of the wiki Installation
+# page) without repeating the whole build.
+RESUME_AFTER_CHECKPOINT="${RESUME_AFTER_CHECKPOINT:-FALSE}"
 # ==============================================================================
 
 # Output Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+
+# Cross-platform MD5 helper (Linux: md5sum, macOS: md5)
+md5_of() {
+    if command -v md5sum &> /dev/null; then
+        md5sum "$1" | awk '{print $1}'
+    else
+        md5 -q "$1"
+    fi
+}
+
+# Download a cg2all checkpoint from Zenodo and verify its MD5, retrying a few
+# times. If it still can't be verified, print manual-download instructions
+# and return failure instead of installing a corrupt/blocked-response file.
+fetch_checkpoint() {
+    local name="$1" expected_md5="$2" model_home="$3"
+    local dest="$model_home/$name"
+    local url="https://zenodo.org/record/8393343/files/$name"
+    local attempt=1 max=3 delay=5
+
+    mkdir -p "$model_home"
+
+    if [ -f "$dest" ] && [ "$(md5_of "$dest")" = "$expected_md5" ]; then
+        echo -e "${GREEN}✅ $name already present and MD5-verified.${NC}"
+        return 0
+    fi
+
+    while true; do
+        echo -e "${YELLOW}📥 Downloading $name from Zenodo (attempt $attempt/$max)...${NC}"
+        rm -f "$dest"
+        if curl -fL -o "$dest" "$url" && [ "$(md5_of "$dest")" = "$expected_md5" ]; then
+            echo -e "${GREEN}✅ $name downloaded and MD5-verified.${NC}"
+            return 0
+        fi
+        rm -f "$dest"
+        if [[ $attempt -ge $max ]]; then
+            echo -e "${RED}❌ Could not obtain a valid $name after $max attempts.${NC}"
+            echo -e "${YELLOW}ℹ️  This can happen when Zenodo blocks automated downloads from some networks.${NC}"
+            echo -e "${YELLOW}   Please download it manually and place it at:${NC}"
+            echo -e "${YELLOW}      $dest${NC}"
+            echo -e "${YELLOW}   Source: $url${NC}"
+            echo -e "${YELLOW}   Expected MD5: $expected_md5${NC}"
+            echo -e "${YELLOW}   Then re-run with RESUME_AFTER_CHECKPOINT=TRUE bash install-hpc.sh${NC}"
+            echo -e "${YELLOW}   See the wiki Installation page, Section 6 (Troubleshooting & FAQ).${NC}"
+            return 1
+        fi
+        ((attempt++))
+        sleep $delay
+    done
+}
 
 echo -e "${BLUE}================================================================${NC}"
 echo -e "${BLUE}        CABS-flex Standalone Automated Installer (Beta)         ${NC}"
@@ -62,6 +128,27 @@ mkdir -p "$PIP_CACHE_DIR"
 cd "$TEMP_DIR"
 
 # --- 1. Preparing CABS Virtual Environment Management ---
+# RESUME_AFTER_CHECKPOINT also skips rebuilding this main env, but only if
+# it is actually found present and functional (never skipped on the flag
+# alone) — used when resuming after a manual checkpoint download: by the
+# time that failure happens, the main env is already built, and it is set
+# up before the reconstruction one, so redoing it on every retry would be
+# pure waste. If the main env is not actually there, it is built normally
+# regardless of the flag.
+MAIN_ENV_READY=false
+if [ "$RESUME_AFTER_CHECKPOINT" = "TRUE" ] && [ -x "$VENV_DIR/bin/CABSflex" ]; then
+    echo -e "${BLUE}ℹ️  RESUME_AFTER_CHECKPOINT=TRUE and an existing, functional main environment was found at $VENV_DIR — skipping rebuild.${NC}"
+    MAIN_ENV_READY=true
+fi
+
+if [ "$MAIN_ENV_READY" = true ]; then
+    unset PYTHONPATH
+    export PYTHONHOME=""
+    export PYTHONUSERBASE=""
+    export PYTHONNOUSERSITE=1
+    source "$VENV_DIR/bin/activate"
+    cd "$CABS_FLEX_LOCAL_PATH"
+else
 if [ -d "$VENV_DIR" ]; then
     echo -e "${YELLOW}⚠️  Existing venv found at $VENV_DIR. Recreating for clean install...${NC}"
     rm -rf "$VENV_DIR"
@@ -175,9 +262,14 @@ echo -e "${YELLOW}🧹 Cleaning up build artifacts from $CABS_FLEX_LOCAL_PATH...
 rm -rf "$CABS_FLEX_LOCAL_PATH/tests/test_cli_options" "$CABS_FLEX_LOCAL_PATH/build" "$CABS_FLEX_LOCAL_PATH/dist" "$CABS_FLEX_LOCAL_PATH"/*.egg-info
 echo -e "${YELLOW}📦 Installing CABSflex from local source...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" .
+fi
 deactivate
 
 # --- 5. Reconstruction (cg2all) in isolated environment (separate venv) ---
+if [ "$RESUME_AFTER_CHECKPOINT" = "TRUE" ] && [ -x "$CG2ALL_VENV_DIR/bin/convert_cg2all" ]; then
+    echo -e "${BLUE}ℹ️  RESUME_AFTER_CHECKPOINT=TRUE and an existing reconstruction environment was found at $CG2ALL_VENV_DIR — skipping rebuild.${NC}"
+    source "$CG2ALL_VENV_DIR/bin/activate"
+else
 if [ -d "$CG2ALL_VENV_DIR" ]; then
     echo -e "${YELLOW}⚠️  Existing venv found at $CG2ALL_VENV_DIR. Recreating for clean install...${NC}"
     rm -rf "$CG2ALL_VENV_DIR"
@@ -229,8 +321,33 @@ pip install --cache-dir "$PIP_CACHE_DIR" torch==2.2.0+cpu torchvision==0.17.0+cp
 echo -e "${YELLOW}📦 Installing dgl ...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" --no-deps dgl==1.1.3 -f https://data.dgl.ai/wheels/repo.html
 
+install_e3nn() {
+    local attempt=1 max=5 delay=5
+    local pip_args=(--cache-dir "$PIP_CACHE_DIR" --no-binary e3nn e3nn)
+    if [ "$E3NN_USE_WHEEL" = "TRUE" ]; then
+        echo -e "${BLUE}ℹ️  E3NN_USE_WHEEL=TRUE: installing e3nn from the prebuilt wheel.${NC}"
+        pip_args=(--cache-dir "$PIP_CACHE_DIR" e3nn)
+    fi
+    while true; do
+        pip install "${pip_args[@]}" && return 0
+        if [[ $attempt -lt $max ]]; then
+            ((attempt++))
+            echo -e "${YELLOW}⚠️  e3nn install failed. Attempt $attempt/$max. Retrying in $delay seconds...${NC}"
+            sleep $delay
+        else
+            echo -e "${RED}❌ e3nn install failed after $max attempts.${NC}"
+            if [ "$E3NN_USE_WHEEL" != "TRUE" ]; then
+                echo -e "${YELLOW}ℹ️  By default this installer builds e3nn from source (--no-binary) for compatibility with older cluster kernels.${NC}"
+                echo -e "${YELLOW}ℹ️  If this cluster doesn't need that, retry with the prebuilt wheel instead:${NC}"
+                echo -e "${YELLOW}      E3NN_USE_WHEEL=TRUE bash install-hpc.sh${NC}"
+            fi
+            echo -e "${YELLOW}   See the wiki Installation page, Section 6 (Troubleshooting & FAQ).${NC}"
+            exit 1
+        fi
+    done
+}
 echo -e "${YELLOW}📦 Installing e3nn ...${NC}"
-pip install --cache-dir "$PIP_CACHE_DIR" --no-binary e3nn e3nn
+install_e3nn
 
 echo -e "${YELLOW}📦 Installing /huhlim/mdtraj  ...${NC}"
 pip install --cache-dir "$PIP_CACHE_DIR" git+https://github.com/huhlim/mdtraj
@@ -253,6 +370,19 @@ git checkout a789cb5
 sed -i 's/torch = "[^"]*"/torch = ">=2.1.0"/' pyproject.toml
 sed -i 's/numpy = "[^"]1"/numpy = ">=1.21"/' pyproject.toml
 pip install --cache-dir "$PIP_CACHE_DIR" --no-binary :all: .
+fi
+
+# --- 5b. Verify cg2all checkpoint files (see CABS/utils/utils.py
+# CG2ALL_REPRESENTATIONS for the models CABS-flex actually uses) ---
+echo -e "${YELLOW}🔍 Verifying cg2all checkpoint files...${NC}"
+MODEL_HOME=$(python3 -c "import cg2all.lib.libconfig as c; print(c.MODEL_HOME)")
+CKPT_OK=true
+fetch_checkpoint "CalphaBasedModel.ckpt" "0b51f6fe4a12c878ec28b194e55099d3" "$MODEL_HOME" || CKPT_OK=false
+fetch_checkpoint "CalphaSCModel.ckpt"    "d42f297f94b4ea33dafa4145b6495344" "$MODEL_HOME" || CKPT_OK=false
+if [ "$CKPT_OK" = false ]; then
+    echo -e "${RED}❌ Installation stopped: cg2all checkpoint verification failed (see instructions above).${NC}"
+    exit 1
+fi
 
 deactivate
 

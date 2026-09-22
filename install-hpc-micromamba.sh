@@ -34,6 +34,19 @@ CG2ALL_COMMIT="${CG2ALL_COMMIT:-a789cb5}"
 
 RECREATE_ENVS="${RECREATE_ENVS:-TRUE}"
 
+# e3nn is built from source (--no-binary) by default for compatibility with
+# older cluster kernels/glibc. If that build fails, re-run with
+# E3NN_USE_WHEEL=TRUE to install the prebuilt wheel instead. See the wiki
+# Installation page, Section 6 (Troubleshooting & FAQ).
+E3NN_USE_WHEEL="${E3NN_USE_WHEEL:-FALSE}"
+
+# Set TRUE to reuse an existing cg2all reconstruction environment instead of
+# rebuilding it (overrides RECREATE_ENVS for the cg2all env only). Used to
+# resume installation after manually placing a cg2all checkpoint file (see
+# Section 6 of the wiki Installation page) without repeating the
+# multi-minute torch/dgl/e3nn/cg2all build.
+RESUME_AFTER_CHECKPOINT="${RESUME_AFTER_CHECKPOINT:-FALSE}"
+
 # ------------------------------------------------------------------------------
 # Derived paths
 # ------------------------------------------------------------------------------
@@ -113,6 +126,82 @@ run_with_retry() {
         fi
         attempt=$((attempt + 1))
         echo -e "${YELLOW}⚠️  Command failed. Retrying in ${delay}s (${attempt}/${max_attempts})...${NC}"
+        sleep "${delay}"
+    done
+}
+
+md5_of() {
+    if command -v md5sum >/dev/null 2>&1; then
+        md5sum "$1" | awk '{print $1}'
+    else
+        md5 -q "$1"
+    fi
+}
+
+# Download a cg2all checkpoint from Zenodo and verify its MD5, retrying a few
+# times. If it still can't be verified, print manual-download instructions
+# and return failure instead of installing a corrupt/blocked-response file.
+fetch_checkpoint() {
+    local name="$1" expected_md5="$2" model_home="$3"
+    local dest="${model_home}/${name}"
+    local url="https://zenodo.org/record/8393343/files/${name}"
+    local attempt=1 max=3 delay=5
+
+    mkdir -p "${model_home}"
+
+    if [ -f "${dest}" ] && [ "$(md5_of "${dest}")" = "${expected_md5}" ]; then
+        success "${name} already present and MD5-verified"
+        return 0
+    fi
+
+    while true; do
+        info "Downloading ${name} from Zenodo (attempt ${attempt}/${max})"
+        rm -f "${dest}"
+        if curl -fL -o "${dest}" "${url}" && [ "$(md5_of "${dest}")" = "${expected_md5}" ]; then
+            success "${name} downloaded and MD5-verified"
+            return 0
+        fi
+        rm -f "${dest}"
+        if [ "${attempt}" -ge "${max}" ]; then
+            echo -e "${RED}❌ Could not obtain a valid ${name} after ${max} attempts.${NC}"
+            echo -e "${YELLOW}ℹ️  This can happen when Zenodo blocks automated downloads from some networks.${NC}"
+            echo -e "${YELLOW}   Please download it manually and place it at:${NC}"
+            echo -e "${YELLOW}      ${dest}${NC}"
+            echo -e "${YELLOW}   Source: ${url}${NC}"
+            echo -e "${YELLOW}   Expected MD5: ${expected_md5}${NC}"
+            echo -e "${YELLOW}   Then re-run with RESUME_AFTER_CHECKPOINT=TRUE bash install-hpc-micromamba.sh${NC}"
+            echo -e "${YELLOW}   See the wiki Installation page, Section 6 (Troubleshooting & FAQ).${NC}"
+            return 1
+        fi
+        attempt=$((attempt + 1))
+        sleep "${delay}"
+    done
+}
+
+install_e3nn() {
+    local -a pip_args
+    if [ "${E3NN_USE_WHEEL}" = "TRUE" ]; then
+        info "E3NN_USE_WHEEL=TRUE: installing e3nn from the prebuilt wheel"
+        pip_args=(--cache-dir "${PIP_CACHE_DIR}" e3nn)
+    else
+        pip_args=(--cache-dir "${PIP_CACHE_DIR}" --no-binary e3nn e3nn)
+    fi
+
+    local attempt=1 max_attempts=5 delay=5
+    while true; do
+        if "${MAMBA_EXE}" run -p "${CG2ALL_ENV_DIR}" pip install "${pip_args[@]}"; then
+            return 0
+        fi
+        if [ "${attempt}" -ge "${max_attempts}" ]; then
+            if [ "${E3NN_USE_WHEEL}" != "TRUE" ]; then
+                echo -e "${YELLOW}ℹ️  By default this installer builds e3nn from source (--no-binary) for compatibility with older cluster kernels.${NC}"
+                echo -e "${YELLOW}ℹ️  If this cluster doesn't need that, retry with the prebuilt wheel instead:${NC}"
+                echo -e "${YELLOW}      E3NN_USE_WHEEL=TRUE bash install-hpc-micromamba.sh${NC}"
+            fi
+            die "e3nn install failed after ${max_attempts} attempts. See the wiki Installation page, Section 6 (Troubleshooting & FAQ)."
+        fi
+        attempt=$((attempt + 1))
+        echo -e "${YELLOW}⚠️  e3nn install failed. Retrying in ${delay}s (${attempt}/${max_attempts})...${NC}"
         sleep "${delay}"
     done
 }
@@ -355,11 +444,32 @@ main() {
     trap cleanup_temp_dir EXIT
     cd "${INSTALL_TEMP_DIR}"
 
-    reset_env_dir "${MAIN_ENV_DIR}"
-    reset_env_dir "${CG2ALL_ENV_DIR}"
+    # RESUME_AFTER_CHECKPOINT also skips rebuilding the main env, but only if
+    # it is actually found present and functional (never skipped on the flag
+    # alone) — used when resuming after a manual checkpoint download: by the
+    # time that failure happens, the main env is already built, and it is
+    # set up before the reconstruction one, so redoing it on every retry
+    # would be pure waste. If the main env is not actually there, it is
+    # built normally regardless of the flag.
+    MAIN_ENV_SKIP_BUILD=FALSE
+    if [ "${RESUME_AFTER_CHECKPOINT}" = "TRUE" ] && [ -x "${MAIN_ENV_DIR}/bin/CABSflex" ]; then
+        info "RESUME_AFTER_CHECKPOINT=TRUE and an existing, functional main environment was found at ${MAIN_ENV_DIR} — skipping rebuild"
+        MAIN_ENV_SKIP_BUILD=TRUE
+    else
+        reset_env_dir "${MAIN_ENV_DIR}"
+    fi
+
+    CG2ALL_SKIP_BUILD=FALSE
+    if [ "${RESUME_AFTER_CHECKPOINT}" = "TRUE" ] && [ -x "${CG2ALL_ENV_DIR}/bin/convert_cg2all" ]; then
+        info "RESUME_AFTER_CHECKPOINT=TRUE and an existing reconstruction environment was found at ${CG2ALL_ENV_DIR} — skipping rebuild"
+        CG2ALL_SKIP_BUILD=TRUE
+    else
+        reset_env_dir "${CG2ALL_ENV_DIR}"
+    fi
 
     configure_cabs_paths
 
+    if [ "${MAIN_ENV_SKIP_BUILD}" != "TRUE" ]; then
     # gfortran/binutils provide a Fortran toolchain for deps that build from source
     # (mirrors install.sh). Every requirements-runtime.txt package with a C/C++/
     # Fortran extension (numpy, scipy, matplotlib+pillow, biopython, mdtraj, hdf5/
@@ -396,7 +506,9 @@ main() {
         configure_modeller_license
         write_runtime_hooks "${MAIN_ENV_DIR}"
     fi
+    fi
 
+    if [ "${CG2ALL_SKIP_BUILD}" != "TRUE" ]; then
     info "Creating isolated cg2all reconstruction environment"
     "${MAMBA_EXE}" create -y -p "${CG2ALL_ENV_DIR}" \
         -c conda-forge --override-channels \
@@ -416,8 +528,7 @@ main() {
     run_with_retry "${MAMBA_EXE}" run -p "${CG2ALL_ENV_DIR}" pip install \
         --cache-dir "${PIP_CACHE_DIR}" --no-deps "dgl==1.1.3" \
         -f "https://data.dgl.ai/wheels/repo.html"
-    run_with_retry "${MAMBA_EXE}" run -p "${CG2ALL_ENV_DIR}" pip install \
-        --cache-dir "${PIP_CACHE_DIR}" --no-binary e3nn e3nn
+    install_e3nn
     run_with_retry "${MAMBA_EXE}" run -p "${CG2ALL_ENV_DIR}" pip install \
         --cache-dir "${PIP_CACHE_DIR}" git+https://github.com/huhlim/mdtraj
 
@@ -439,6 +550,17 @@ main() {
     sed -i 's/numpy = "[^"]1"/numpy = ">=1.21"/' pyproject.toml
     run_with_retry "${MAMBA_EXE}" run -p "${CG2ALL_ENV_DIR}" pip install \
         --cache-dir "${PIP_CACHE_DIR}" .
+    fi
+
+    info "Verifying cg2all checkpoint files"
+    local model_home
+    model_home="$("${CG2ALL_ENV_DIR}/bin/python" -c "import cg2all.lib.libconfig as c; print(c.MODEL_HOME)")"
+    local ckpt_ok=TRUE
+    fetch_checkpoint "CalphaBasedModel.ckpt" "0b51f6fe4a12c878ec28b194e55099d3" "${model_home}" || ckpt_ok=FALSE
+    fetch_checkpoint "CalphaSCModel.ckpt"    "d42f297f94b4ea33dafa4145b6495344" "${model_home}" || ckpt_ok=FALSE
+    if [ "${ckpt_ok}" != "TRUE" ]; then
+        die "cg2all checkpoint verification failed (see instructions above)"
+    fi
 
     write_activation_helper "${BASE_INSTALL_DIR}/activate-cabs.sh" "${MAIN_ENV_DIR}"
     write_activation_helper "${BASE_INSTALL_DIR}/activate-cg2all.sh" "${CG2ALL_ENV_DIR}"

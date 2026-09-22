@@ -16,6 +16,18 @@ IS_LOCAL=false
 INSTALL_MODELLER="TRUE"
 MODELLER_KEY=""   # <<< SET YOUR MODELLER LICENSE KEY HERE
 
+# e3nn is built from source (--no-binary) by default for compatibility with
+# older Linux kernels/glibc. If that build fails on your system, re-run with
+# E3NN_USE_WHEEL=TRUE to install the prebuilt wheel instead. See the wiki
+# Installation page, Section 6 (Troubleshooting & FAQ).
+E3NN_USE_WHEEL="${E3NN_USE_WHEEL:-FALSE}"
+
+# Set TRUE to reuse an existing cg2all reconstruction environment instead of
+# rebuilding it from scratch. Used to resume installation after manually
+# placing a cg2all checkpoint file (see Section 6 of the wiki Installation
+# page) without repeating the multi-minute torch/dgl/e3nn/cg2all build.
+RESUME_AFTER_CHECKPOINT="${RESUME_AFTER_CHECKPOINT:-FALSE}"
+
 # Root directory for Micromamba environments. Change this if you want Micromamba installed elsewhere.
 export MAMBA_ROOT_PREFIX="$HOME/micromamba"
 
@@ -187,6 +199,20 @@ sedi '/fair-esm/d' environment.yml
 # ---------------------------------------------------------
 # Main Environment Installation (cabs)
 # ---------------------------------------------------------
+# RESUME_AFTER_CHECKPOINT also skips rebuilding this main env, but only if
+# it is actually found present and functional (never skipped on the flag
+# alone) — used when resuming after a manual checkpoint download: by the
+# time that failure happens, the main env is already built, and it is set
+# up before the reconstruction one, so redoing it on every retry would be
+# pure waste. If the main env is not actually there, it is built normally
+# regardless of the flag.
+MAIN_ENV_PATH="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}/envs/$ENV_NAME"
+MAIN_ENV_READY=false
+if [ "$RESUME_AFTER_CHECKPOINT" = "TRUE" ] && [ -x "$MAIN_ENV_PATH/bin/CABSflex" ]; then
+    echo -e "${BLUE}ℹ️  RESUME_AFTER_CHECKPOINT=TRUE and an existing, functional main environment was found at $MAIN_ENV_PATH — skipping rebuild.${NC}"
+    MAIN_ENV_READY=true
+fi
+
 echo -e "${YELLOW}🔧 Creating/Updating environment '${ENV_NAME}'...${NC}"
 
 # Isolate Micromamba solve from system Python packages
@@ -196,6 +222,7 @@ export PYTHONHOME=""
 export PYTHONUSERBASE=""
 unset LD_LIBRARY_PATH
 
+if [ "$MAIN_ENV_READY" = false ]; then
 # Use micromamba with --override-channels to bypass Anaconda ToS issues
 if $MAMBA_EXE env list | grep -q "^${ENV_NAME} "; then
     echo -e "${BLUE}ℹ️  Updating existing environment...${NC}"
@@ -205,6 +232,7 @@ else
     echo -e "${BLUE}ℹ️  Creating new environment...${NC}"
     "$MAMBA_EXE" create -v -y -n $ENV_NAME -c conda-forge -c bioconda -c salilab --override-channels \
         python=3.10 pip modeller dssp gfortran binutils openmm
+fi
 fi
 
 # ---------------------------------------------------------
@@ -270,6 +298,55 @@ run_with_retry() {
     done
 }
 
+# Cross-platform MD5 helper (Linux: md5sum, macOS: md5)
+md5_of() {
+    if command -v md5sum &> /dev/null; then
+        md5sum "$1" | awk '{print $1}'
+    else
+        md5 -q "$1"
+    fi
+}
+
+# Download a cg2all checkpoint from Zenodo and verify its MD5, retrying a few
+# times. If it still can't be verified, print manual-download instructions
+# and return failure instead of installing a corrupt/blocked-response file.
+fetch_checkpoint() {
+    local name="$1" expected_md5="$2" model_home="$3"
+    local dest="$model_home/$name"
+    local url="https://zenodo.org/record/8393343/files/$name"
+    local attempt=1 max=3 delay=5
+
+    mkdir -p "$model_home"
+
+    if [ -f "$dest" ] && [ "$(md5_of "$dest")" = "$expected_md5" ]; then
+        echo -e "${GREEN}✅ $name already present and MD5-verified.${NC}"
+        return 0
+    fi
+
+    while true; do
+        echo -e "${YELLOW}📥 Downloading $name from Zenodo (attempt $attempt/$max)...${NC}"
+        rm -f "$dest"
+        if curl -fL -o "$dest" "$url" && [ "$(md5_of "$dest")" = "$expected_md5" ]; then
+            echo -e "${GREEN}✅ $name downloaded and MD5-verified.${NC}"
+            return 0
+        fi
+        rm -f "$dest"
+        if [[ $attempt -ge $max ]]; then
+            echo -e "${RED}❌ Could not obtain a valid $name after $max attempts.${NC}"
+            echo -e "${YELLOW}ℹ️  This can happen when Zenodo blocks automated downloads from some networks.${NC}"
+            echo -e "${YELLOW}   Please download it manually and place it at:${NC}"
+            echo -e "${YELLOW}      $dest${NC}"
+            echo -e "${YELLOW}   Source: $url${NC}"
+            echo -e "${YELLOW}   Expected MD5: $expected_md5${NC}"
+            echo -e "${YELLOW}   Then re-run: RESUME_AFTER_CHECKPOINT=TRUE bash install.sh${NC}"
+            echo -e "${YELLOW}   See the wiki Installation page, Section 6 (Troubleshooting & FAQ).${NC}"
+            return 1
+        fi
+        ((attempt++))
+        sleep $delay
+    done
+}
+
 micromamba config append channels conda-forge
 micromamba config remove channels defaults
 
@@ -296,6 +373,7 @@ echo -e "${GREEN}✅ Created cabs_paths.json configuration.${NC}"
 echo -e "${YELLOW}🧹 Cleaning up build artifacts from $INSTALL_SRC...${NC}"
 rm -rf "$INSTALL_SRC/tests/test_cli_options" "$INSTALL_SRC/build" "$INSTALL_SRC/dist" "$INSTALL_SRC"/*.egg-info
 
+if [ "$MAIN_ENV_READY" = false ]; then
 # ---------------------------------------------------------
 # Dependency Installation via micromamba (No solver bounds)
 # ---------------------------------------------------------
@@ -329,6 +407,7 @@ run_with_retry micromamba run -n $ENV_NAME pip install --no-cache-dir mdtraj
 # Install CABSflex from source (Local or the Temp Clone)
 echo -e "${YELLOW}📦 Installing CABSflex from $INSTALL_SRC...${NC}"
 micromamba run -n $ENV_NAME pip install --upgrade "$INSTALL_SRC"
+fi
 
 # Modeller Config Logic
 if [ ! -z "$MODELLER_KEY" ]; then
@@ -353,6 +432,13 @@ if [ ! -z "$MODELLER_KEY" ]; then
     fi
 fi
 
+CG2ALL_READY=false
+if [ "$RESUME_AFTER_CHECKPOINT" = "TRUE" ] && [ -x "$CG2ALL_ENV_PATH/bin/convert_cg2all" ]; then
+    echo -e "${BLUE}ℹ️  RESUME_AFTER_CHECKPOINT=TRUE and an existing reconstruction environment was found at $CG2ALL_ENV_PATH — skipping rebuild.${NC}"
+    CG2ALL_READY=true
+fi
+
+if [ "$CG2ALL_READY" = false ]; then
 # ---------------------------------------------------------
 # Setup CG2ALL (Reconstruction) in Separate Environment
 # ---------------------------------------------------------
@@ -389,10 +475,33 @@ run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
     dgl==1.1.3 \
     -f https://data.dgl.ai/wheels/repo.html
 
-# Istall e3nn
-run_with_retry micromamba run -n $CG2ALL_ENV_NAME pip install \
-    --no-cache-dir \
-    --no-binary e3nn e3nn
+# Install e3nn
+install_e3nn() {
+    local n=1 max=5 delay=5
+    local pip_args=(--no-cache-dir --no-binary e3nn e3nn)
+    if [ "$E3NN_USE_WHEEL" = "TRUE" ]; then
+        echo -e "${BLUE}ℹ️  E3NN_USE_WHEEL=TRUE: installing e3nn from the prebuilt wheel.${NC}"
+        pip_args=(--no-cache-dir e3nn)
+    fi
+    while true; do
+        micromamba run -n $CG2ALL_ENV_NAME pip install "${pip_args[@]}" && return 0
+        if [[ $n -lt $max ]]; then
+            ((n++))
+            echo -e "${YELLOW}⚠️  e3nn install failed. Attempt $n/$max. Retrying in $delay seconds...${NC}"
+            sleep $delay
+        else
+            echo -e "${RED}❌ e3nn install failed after $max attempts.${NC}"
+            if [ "$E3NN_USE_WHEEL" != "TRUE" ]; then
+                echo -e "${YELLOW}ℹ️  By default this installer builds e3nn from source (--no-binary) for compatibility with older Linux kernels.${NC}"
+                echo -e "${YELLOW}ℹ️  If your system doesn't need that, retry with the prebuilt wheel instead:${NC}"
+                echo -e "${YELLOW}      E3NN_USE_WHEEL=TRUE bash install.sh${NC}"
+            fi
+            echo -e "${YELLOW}   See the wiki Installation page, Section 6 (Troubleshooting & FAQ).${NC}"
+            exit 1
+        fi
+    done
+}
+install_e3nn
 
 # SE3Transformer
 echo -e "${BLUE}Installing SE3Transformer...${NC}"
@@ -416,6 +525,21 @@ sedi 's/torch = "[^"]*"/torch = ">=2.1.0"/' pyproject.toml
 sedi 's/numpy = "[^"]1"/numpy = ">=1.21"/' pyproject.toml
 micromamba run -n $CG2ALL_ENV_NAME pip install . --no-cache-dir
 popd
+fi
+
+# ---------------------------------------------------------
+# Verify cg2all checkpoint files (see CABS/utils/utils.py
+# CG2ALL_REPRESENTATIONS for the models CABS-flex actually uses)
+# ---------------------------------------------------------
+echo -e "${YELLOW}🔍 Verifying cg2all checkpoint files...${NC}"
+MODEL_HOME=$("$CG2ALL_ENV_PATH/bin/python" -c "import cg2all.lib.libconfig as c; print(c.MODEL_HOME)")
+CKPT_OK=true
+fetch_checkpoint "CalphaBasedModel.ckpt" "0b51f6fe4a12c878ec28b194e55099d3" "$MODEL_HOME" || CKPT_OK=false
+fetch_checkpoint "CalphaSCModel.ckpt"    "d42f297f94b4ea33dafa4145b6495344" "$MODEL_HOME" || CKPT_OK=false
+if [ "$CKPT_OK" = false ]; then
+    echo -e "${RED}❌ Installation stopped: cg2all checkpoint verification failed (see instructions above).${NC}"
+    exit 1
+fi
 
 micromamba activate $ENV_NAME
 
