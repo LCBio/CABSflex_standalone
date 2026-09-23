@@ -579,6 +579,171 @@ def minimize_pdb_energy(pdb_path: Path) -> None:
         )
 
 
+def _add_missing_oxt(lines: List[str]) -> List[str]:
+    """
+    Add a missing OXT atom to each chain's true C-terminal residue.
+
+    Modeller's automodel never writes this atom (the second carboxylate
+    oxygen a free C-terminus needs), which otherwise blocks OpenMM's
+    residue-template matching entirely for every chain Modeller produces --
+    not just disulfide-bonded or cyclic peptides, any of them.
+
+    Computed geometrically rather than via an external tool: for a
+    trigonal-planar sp2 carbon, its three substituent bond vectors sum to
+    ~zero, so OXT's direction from C is approximately -(unit(CA-C) +
+    unit(O-C)), placed at the same bond length as the existing C-O bond.
+    A no-op for any chain that already has OXT.
+    """
+    coords: Dict[tuple, Dict[str, np.ndarray]] = {}
+    resnames: Dict[tuple, str] = {}
+    last_key_per_chain: Dict[str, tuple] = {}
+    has_oxt: Dict[tuple, bool] = {}
+    last_line_idx: Dict[tuple, int] = {}
+    serial_max = 0
+
+    for idx, line in enumerate(lines):
+        if line.startswith(("ATOM", "HETATM")):
+            serial_max = max(serial_max, hybrid36_decode(line[6:11], 5))
+            chain = line[21]
+            resnum = hybrid36_decode(line[22:26], 4)
+            key = (chain, resnum)
+            name = line[12:16].strip()
+            coords.setdefault(key, {})[name] = np.array(
+                [float(line[30:38]), float(line[38:46]), float(line[46:54])]
+            )
+            resnames[key] = line[17:21].strip()
+            last_key_per_chain[chain] = key
+            last_line_idx[key] = idx
+            if name == "OXT":
+                has_oxt[key] = True
+
+    new_lines = list(lines)
+    insertions: List[tuple] = []  # (line_idx, new_line_text), applied last-first
+    for chain, key in last_key_per_chain.items():
+        if has_oxt.get(key):
+            continue
+        atoms = coords.get(key, {})
+        if not all(a in atoms for a in ("C", "CA", "O")):
+            continue
+        C, CA, O = atoms["C"], atoms["CA"], atoms["O"]
+        v_ca = CA - C
+        v_o = O - C
+        v_ca = v_ca / np.linalg.norm(v_ca)
+        v_o = v_o / np.linalg.norm(v_o)
+        direction = -(v_ca + v_o)
+        norm = np.linalg.norm(direction)
+        if norm < 1e-6:
+            continue
+        direction = direction / norm
+        bond_len = np.linalg.norm(O - C)
+        oxt_pos = C + bond_len * direction
+        serial_max += 1
+        oxt_line = (
+            f"ATOM  {hybrid36_encode(serial_max, 5)}  OXT {resnames[key]:<4s}{chain:1s}"
+            f"{hybrid36_encode(key[1], 4)}    "
+            f"{oxt_pos[0]:8.3f}{oxt_pos[1]:8.3f}{oxt_pos[2]:8.3f}  1.00  0.00           O  \n"
+        )
+        insertions.append((last_line_idx[key], oxt_line))
+
+    for idx, oxt_line in sorted(insertions, key=lambda x: -x[0]):
+        new_lines.insert(idx + 1, oxt_line)
+    return new_lines
+
+
+def minimize_bonded_pdb(pdb_path: Path, cyclized_chains: Optional[List[str]] = None) -> None:
+    """
+    Minimize a Modeller-reconstructed structure with OpenMM, working around
+    template-matching gaps in Modeller's automodel output that otherwise
+    make minimization fail for essentially any structure it produces:
+
+    - Every chain's true C-terminal residue is missing OXT -- fixed by
+      _add_missing_oxt() above, unconditionally safe for any structure.
+    - For each chain in `cyclized_chains` (--backbone-cyclization): its
+      first/last residues aren't genuine termini at all, so the extra atoms
+      normal protonation would add there (H2/H3 at the N-end, OXT at the
+      C-end) are wrong. These are stripped, the real ring-closing N-C bond
+      is added, and the correct (middle-residue) template is forced
+      explicitly via residueTemplates -- auto-matching won't select it even
+      with the bond present, since template selection there isn't purely
+      bond-driven.
+
+    Disulfide bonds need no special handling beyond the OXT fix: OpenMM
+    already auto-detects S-S proximity and picks the disulfide-bonded
+    residue template on its own.
+    """
+    try:
+        from openmm.app import PDBFile, ForceField, Simulation, Modeller, NoCutoff
+        from openmm import LangevinIntegrator, Platform
+        from openmm.unit import picosecond, kelvin
+    except ImportError:
+        logger.warning(
+            module_name="CG2ALL",
+            msg="openmm package not found. Skipping energy minimization for reconstructed structure.",
+        )
+        return
+
+    try:
+        with open(pdb_path) as f:
+            lines = f.readlines()
+        fixed_lines = _add_missing_oxt(lines)
+        with open(pdb_path, "w") as f:
+            f.writelines(fixed_lines)
+
+        pdb = PDBFile(str(pdb_path))
+        forcefield = ForceField('amber19-all.xml')
+        modeller = Modeller(pdb.topology, pdb.positions)
+        modeller.addHydrogens(forcefield)
+
+        residue_templates: Dict[Any, str] = {}
+        if cyclized_chains:
+            for chain_obj in modeller.topology.chains():
+                if chain_obj.id not in cyclized_chains:
+                    continue
+                residues = list(chain_obj.residues())
+                if len(residues) < 2:
+                    continue
+                first_res, last_res = residues[0], residues[-1]
+                to_delete = [a for a in first_res.atoms() if a.name in ("H2", "H3")]
+                to_delete += [a for a in last_res.atoms() if a.name == "OXT"]
+                modeller.delete(to_delete)
+                # modeller.delete() rebuilds the topology/residue objects; re-resolve them.
+                chain_obj = next(c for c in modeller.topology.chains() if c.id in cyclized_chains)
+                residues = list(chain_obj.residues())
+                first_res, last_res = residues[0], residues[-1]
+                n_atom = next(a for a in first_res.atoms() if a.name == "N")
+                c_atom = next(a for a in last_res.atoms() if a.name == "C")
+                modeller.topology.addBond(n_atom, c_atom)
+                residue_templates[first_res] = first_res.name
+                residue_templates[last_res] = last_res.name
+
+        system = forcefield.createSystem(
+            modeller.topology, nonbondedMethod=NoCutoff, constraints=None,
+            residueTemplates=residue_templates,
+        )
+        integrator = LangevinIntegrator(300 * kelvin, 1 / picosecond, 0.002 * picosecond)
+        try:
+            platform = Platform.getPlatformByName('CPU')
+            simulation = Simulation(modeller.topology, system, integrator, platform)
+        except Exception:
+            simulation = Simulation(modeller.topology, system, integrator)
+        simulation.context.setPositions(modeller.positions)
+        simulation.minimizeEnergy(maxIterations=500)
+
+        with open(str(pdb_path), 'w') as f:
+            PDBFile.writeFile(
+                modeller.topology,
+                simulation.context.getState(getPositions=True).getPositions(),
+                f,
+                keepIds=True,
+            )
+        logger.debug(module_name="CG2ALL", msg=f"Successfully minimized bonded structure: {pdb_path}")
+    except Exception as e:
+        logger.warning(
+            module_name="CG2ALL",
+            msg=f"OpenMM energy minimization of bonded structure failed with error: {e}. Reconstructed structure was kept as-is.",
+        )
+
+
 def convert_cg_to_all(
     filename: Union[str, TextIO],
     work_dir: str = ".",

@@ -41,7 +41,7 @@ from CABS.structures.protein import ProteinComplex
 from CABS.utils import utils
 from CABS.utils.align import AlignError, align_to, save_csv
 from CABS.utils.filter import Filter
-from CABS.reconstruction.cg2all import convert_cg_to_all
+from CABS.reconstruction.cg2all import convert_cg_to_all, _strip_hydrogens
 from CABS.reconstruction.cg2all_trajectory import reconstruct_job_outputs
 from CABS.utils import chimerax as chimerax_utils
 from CABS.utils import movie_script as movie_script_utils
@@ -1006,13 +1006,15 @@ class CABSTask(metaclass=ABCMeta):
                                 module_name=_name,
                                 msg=f"Running Modeller to rebuild models (iterations: {self.modeller_iterations}).",
                             )
+                            minimize_flag = self.aa_minimize is not False
+                            if minimize_flag:
+                                from CABS.reconstruction.cg2all import minimize_bonded_pdb
                             pdb_medoids = self.medoids.to_pdb(sc=False)
                             for i, fname in enumerate(pdb_medoids):
+                                model_path = os.path.join(output_folder, f"model_{i}.pdb")
                                 ca2all(
                                     fname,
-                                    output=os.path.join(
-                                        output_folder, f"model_{i}.pdb"
-                                    ),
+                                    output=model_path,
                                     iterations=self.modeller_iterations,
                                     out_mdl=os.path.join(
                                         self.work_dir,
@@ -1023,6 +1025,13 @@ class CABSTask(metaclass=ABCMeta):
                                     cyclization=mapped_cyclization,
                                     disulfide_bonds=mapped_disulfides,
                                 )
+                                if minimize_flag:
+                                    logger.info(
+                                        module_name=_name,
+                                        msg=f"Minimizing Modeller-reconstructed model_{i}...",
+                                    )
+                                    minimize_bonded_pdb(model_path, cyclized_chains=mapped_cyclization)
+                                    _strip_hydrogens(model_path)
                             save_to_ca = False
                     elif self.aa_method == "cg2all":
                         logger.log_file(
@@ -1061,12 +1070,11 @@ class CABSTask(metaclass=ABCMeta):
                                 pth_tmp = os.path.join(
                                     self.work_dir, "output_pdbs", f"model_{i}.pdb"
                                 )
+                                model_path = os.path.join(output_folder, f"model_{i}.pdb")
                                 with open(pth_tmp) as f:
                                     ca2all(
                                         f,
-                                        output=os.path.join(
-                                            output_folder, f"model_{i}.pdb"
-                                        ),
+                                        output=model_path,
                                         iterations=1,
                                         out_mdl=os.path.join(
                                             self.work_dir,
@@ -1078,6 +1086,19 @@ class CABSTask(metaclass=ABCMeta):
                                         disulfide_bonds=mapped_disulfides,
                                         only_cyclization=True,
                                     )
+                                # The Modeller patch above overwrites cg2all's own
+                                # (already-minimized) coordinates with idealized-geometry
+                                # ones around the new bond, discarding minimization's
+                                # clash-resolution benefit for exactly the residues that
+                                # need it most. Re-minimize the patched structure.
+                                if self.aa_minimize is not False:
+                                    from CABS.reconstruction.cg2all import minimize_bonded_pdb
+                                    logger.info(
+                                        module_name="CG2ALL",
+                                        msg=f"Minimizing disulfide/cyclization-patched model_{i}...",
+                                    )
+                                    minimize_bonded_pdb(model_path, cyclized_chains=mapped_cyclization)
+                                    _strip_hydrogens(model_path)
                         save_to_ca = False
                 else:
                     logger.warning(
