@@ -446,11 +446,14 @@ def sync_residues_with_template(
 
 
 def _strip_hydrogens(pdb_path: Path) -> None:
-    """Remove hydrogen atoms from a PDB file in-place."""
+    """Remove hydrogen atoms from a PDB file in-place, and OpenMM's own
+    "CREATED WITH OPENMM ..." REMARK line, if minimization wrote one."""
     with open(pdb_path, "r") as f:
         lines = f.readlines()
     with open(pdb_path, "w") as f:
         for line in lines:
+            if line.startswith("REMARK   1 CREATED WITH OPENMM"):
+                continue
             if line.startswith(("ATOM", "HETATM")):
                 atom_name = line[12:16].strip()
                 first_letter = next((c for c in atom_name if c.isalpha()), "")
@@ -580,7 +583,6 @@ def convert_cg_to_all(
     filename: Union[str, TextIO],
     work_dir: str = ".",
     iter: int = 0,
-    reference_pdb: Optional[str] = None,
     renumber_flag: bool = False,
     env_prefix: Optional[str] = None,
     output_filename: Optional[str] = None,
@@ -598,25 +600,15 @@ def convert_cg_to_all(
         _write_cg2all_input_pdb(filename, tmp_file, cg2all_representation)
 
     if renumber_flag:
-        # Prefer the user's true original input file -- it's the actual "original" that
-        # --renumber-residues-to-original promises to restore chain IDs/residue numbers
-        # from. start_all.pdb/start.pdb are CABS's own internal post-preprocessing
-        # snapshots (chain IDs there reflect CABS's internal assignment, not necessarily
-        # the true original file), and almost always exist, so checking them first meant
-        # the true original was essentially never used -- residue numbers often still
-        # looked right (CABS's snapshot commonly preserves the same numbering), but chain
-        # IDs came back as CABS's internal A/B/C... scheme instead of the real original.
-        # Still fall back to CABS's own snapshots when no usable original is available.
+        # start_all.pdb is CABS's own single-model, chain-filtered snapshot of the real
+        # input -- always saved now, so use it directly rather than the raw original
+        # (which may be a multi-model NMR ensemble or an unfiltered multi-chain file).
         reference_path = None
         start_all_path = Path(work_dir) / "output_pdbs" / "start_all.pdb"
         start_path = Path(work_dir) / "output_pdbs" / "start.pdb"
-        if reference_pdb:
-            candidate = Path(str(reference_pdb).split(":")[0])
-            if candidate.exists():
-                reference_path = candidate
-        if reference_path is None and start_all_path.exists():
+        if start_all_path.exists():
             reference_path = start_all_path
-        elif reference_path is None and start_path.exists():
+        elif start_path.exists():
             reference_path = start_path
 
         if reference_path is None:

@@ -229,15 +229,19 @@ class CABSTask(metaclass=ABCMeta):
             )
         )
         if self.generate_visualizations:
-            if not self.aa_rebuild:
-                self.aa_rebuild = "M"
-            elif "M" not in self.aa_rebuild and "A" not in self.aa_rebuild and "N" not in self.aa_rebuild:
-                self.aa_rebuild += "M"
             self.pdb_output = "A"
             self.pdb_bfac_output = "A"
             self.restraints_output = True
             self.contact_maps = True
             self.ss_output = True
+
+        # Whenever any reconstruction mode (M/C/T/A) is requested, always include M too
+        # -- not just when visualizations are on -- so medoid reconstruction never
+        # silently gets skipped by e.g. -A T alone.
+        if not self.aa_rebuild:
+            self.aa_rebuild = "M"
+        elif "M" not in self.aa_rebuild and "A" not in self.aa_rebuild and "N" not in self.aa_rebuild:
+            self.aa_rebuild += "M"
 
         if "N" in self.aa_rebuild:
             self.aa_rebuild = ""
@@ -352,10 +356,9 @@ class CABSTask(metaclass=ABCMeta):
                 elif "N" in self.pdb_bfac_output:
                     self.pdb_bfac_output = ""
 
-            if self.pdb_bfac_output or "S" in self.pdb_output:
-                self.save_initial_pdb = True
-            else:
-                self.save_initial_pdb = False
+            # Always save start_all.pdb for PDB/mmCIF-sourced jobs -- renumbering relies on
+            # this cached, single-model, chain-filtered snapshot instead of re-parsing raw input.
+            self.save_initial_pdb = True
 
         except ValueError as e:
             logger.exit_program(
@@ -1048,7 +1051,6 @@ class CABSTask(metaclass=ABCMeta):
                                 fname,
                                 work_dir=self.work_dir,
                                 iter=i,
-                                reference_pdb=self.input_protein,
                                 renumber_flag=self.renumber,
                                 env_prefix=self.cg2all_env_prefix,
                                 cg2all_representation=self.cg2all_representation,
@@ -1101,7 +1103,7 @@ class CABSTask(metaclass=ABCMeta):
                             if os.path.exists(model_path):
                                 try:
                                     sync_residues_with_template(
-                                        input_pdb_path=Path(self.input_protein.split(":")[0]),
+                                        input_pdb_path=Path(start_all_path),
                                         topology_pdb_path=Path(start_all_path),
                                         output_pdb_path=Path(model_path)
                                     )
@@ -1203,7 +1205,6 @@ class CABSTask(metaclass=ABCMeta):
                             ca_path,
                             work_dir=self.work_dir,
                             iter=model_idx,
-                            reference_pdb=self.input_protein,
                             renumber_flag=self.renumber,
                             env_prefix=self.cg2all_env_prefix,
                             output_filename=aa_name,

@@ -6,7 +6,7 @@ import mdtraj as md
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from CABS.io import logger
-from CABS.reconstruction.cg2all import convert_cg_to_all, sync_residues_with_template, sync_residues, minimize_pdb_energy
+from CABS.reconstruction.cg2all import convert_cg_to_all, sync_residues_with_template, sync_residues, minimize_pdb_energy, _strip_hydrogens
 from CABS.utils.utils import CG2ALL_REPRESENTATIONS
 from CABS.reconstruction.cg2all import _read_calpha_atoms, _write_calpha_sc_segment, _format_cg_pdb_line
 
@@ -66,7 +66,6 @@ def reconstruct_trajectory(
     n_proc: Optional[int] = None,
     device: str = "cpu",
     renumber_flag: bool = False,
-    reference_pdb: Optional[str] = None,
     minimize_flag: bool = True,
 ) -> None:
     """
@@ -167,24 +166,15 @@ def reconstruct_trajectory(
                 output_pdb_path=Path(output_pdb),
             )
             
-            # If renumbering to original PDB is requested, perform a second pass with the topology template.
+            # If renumbering to original PDB is requested, perform a second pass with the
+            # topology template. start_all.pdb is CABS's own single-model, chain-filtered
+            # snapshot -- always saved now, so use it directly rather than the raw original.
             if renumber_flag:
-                # Use start_all.pdb as the AA template for precise renumbering
                 start_all_path = Path(output_pdb).parent / "start_all.pdb"
-                
-                # Resolve reference path
-                reference_path = None
                 if start_all_path.exists():
-                    reference_path = start_all_path
-                elif reference_pdb:
-                    candidate = Path(str(reference_pdb).split(":")[0])
-                    if candidate.exists():
-                        reference_path = candidate
-                
-                if start_all_path.exists() and reference_path:
                     try:
                         sync_residues_with_template(
-                            input_pdb_path=reference_path,
+                            input_pdb_path=start_all_path,
                             topology_pdb_path=start_all_path,
                             output_pdb_path=Path(output_pdb),
                         )
@@ -195,7 +185,7 @@ def reconstruct_trajectory(
                         )
                         try:
                             sync_residues(
-                                input_pdb_path=reference_path,
+                                input_pdb_path=start_all_path,
                                 output_pdb_path=Path(output_pdb),
                             )
                         except Exception as e2:
@@ -203,34 +193,18 @@ def reconstruct_trajectory(
                                 module_name="CG2ALL",
                                 msg=f"Fallback trajectory synchronization also failed: {e2}. Keeping default numbering."
                             )
-                elif reference_path:
-                    # Fallback to sync_residues if start_all.pdb is missing
-                    try:
-                        sync_residues(
-                            input_pdb_path=reference_path,
-                            output_pdb_path=Path(output_pdb),
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            module_name="CG2ALL",
-                            msg=f"Standard trajectory synchronization failed: {e}. Keeping default numbering."
-                        )
                 else:
-                    # Final fallback to standard synchronization with trajectory file
-                    try:
-                        sync_residues(
-                            input_pdb_path=Path(trajectory_file),
-                            output_pdb_path=Path(output_pdb),
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            module_name="CG2ALL",
-                            msg=f"Standard trajectory synchronization failed: {e}. Keeping default numbering."
-                        )
+                    logger.warning(
+                        module_name="CG2ALL",
+                        msg="start_all.pdb not found; skipping renumbering to original."
+                    )
             
             if minimize_flag and output_pdb and os.path.exists(output_pdb):
                 minimize_pdb_energy(Path(output_pdb))
-                
+                # Matches the medoid path (convert_cg_to_all): strip the full explicit
+                # hydrogen set OpenMM's minimizer adds, back to heavy atoms only.
+                _strip_hydrogens(Path(output_pdb))
+
             if os.path.exists(output_dcd):
                 os.remove(output_dcd)
             if os.path.exists(temp_output_pdb):
@@ -254,7 +228,6 @@ def reconstruct_parallel(
     env_prefix: Optional[str] = None,
     cg_model: str = "CalphaBasedModel",
     renumber: bool = False,
-    reference_pdb: Optional[str] = None,
     work_dir: str = ".",
     minimize: bool = True,
 ) -> None:
@@ -271,7 +244,6 @@ def reconstruct_parallel(
             "filename": input_file,
             "work_dir": work_dir,
             "iter": i,
-            "reference_pdb": reference_pdb,
             "renumber_flag": renumber,
             "env_prefix": env_prefix,
             "output_filename": out_name,
@@ -334,7 +306,6 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
                     batch_size=getattr(job, "batch_size", None),
                     n_proc=getattr(job, "aa_rebuild_workers", None),
                     renumber_flag=job.renumber,
-                    reference_pdb=getattr(job, "input_protein", None),
                     minimize_flag=minimize_flag,
                 )
 
@@ -375,6 +346,5 @@ def reconstruct_job_outputs(job, output_folder: str) -> None:
                     batch_size=getattr(job, "batch_size", None),
                     n_proc=getattr(job, "aa_rebuild_workers", None),
                     renumber_flag=job.renumber,
-                    reference_pdb=getattr(job, "input_protein", None),
                     minimize_flag=minimize_flag,
                 )
