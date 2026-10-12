@@ -65,7 +65,9 @@
                     "ca-rest-weight",
                     "sc-rest-weight",
                     "ca-rest-file",
-                    "sc-rest-file"
+                    "sc-rest-file",
+                    "disulfide-bonds",
+                    "backbone-cyclization"
                 ]
             ],
             [
@@ -405,10 +407,10 @@
         },
         "backbone-cyclization": {
             "nargs": "?",
-            "const": "A",
+            "const": null,
             "action": "append",
             "metavar": "CHAIN",
-            "help": "Indicate if this is a backbone cyclic peptide protein. CABS adds a restraint between the first and last residues of the specified chains. By default, cyclization is added for chain 'A' if no argument is provided.\n\nExamples:\n--backbone-cyclization       # Chain A is cyclic\n--backbone-cyclization --backbone-cyclization B  # Chains A and B are both cyclic\nInvalid:\n--backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-cyclization"
+            "help": "Indicate if this is a backbone cyclic peptide protein. CABS adds a restraint between the first and last residues of the specified chains. Peptides added with '-p'/'-P' are referred to as PEP1, PEP2, ... in the order given.\n\nIf no argument is provided:\n- with exactly one peptide, PEP1 is cyclized\n- with more than one peptide, the chain must be given explicitly (error otherwise)\n- with no peptides (structure given with '-i'), chain 'A' is cyclized\n\nExamples:\n--backbone-cyclization       # PEP1 is cyclic (single peptide), or chain A (no peptides)\n--backbone-cyclization PEP2  # PEP2 is cyclic\n--backbone-cyclization PEP1 --backbone-cyclization PEP2  # PEP1 and PEP2 are both cyclic\nInvalid:\n--backbone-cyclization A B   # Error: only one chain can be specified per use of --backbone-cyclization"
         },
         "binding-interactions": {
             "flag": "-b",

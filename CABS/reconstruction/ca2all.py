@@ -113,6 +113,10 @@ def ca2all(
         # Update the last chain
         chain_length[current_chain] = current_length
 
+        # "resnum:chain" as in the input PDB -> index in the Modeller model; Modeller
+        # numbers residues continuously across chains, so '1:P' on a 3rd chain is '67:P' there
+        res_index = {f"{a[2].strip()}:{a[1].strip()}": i for i, a in enumerate(atoms)}
+
         pir = prefix + ".pir"
         with open(pir, "w") as f:
             f.write(_PIR_TEMPLATE % (prefix, seq, pdb))
@@ -143,9 +147,12 @@ def ca2all(
                         )
                 if disulfide_bonds:
                     for bond in disulfide_bonds:
+                        missing = [b for b in bond if b not in res_index]
+                        if missing:
+                            raise KeyError(f"Disulfide residue(s) not found in structure: {', '.join(missing)}")
                         self.patch(
                             residue_type="DISU",
-                            residues=(self.residues[bond[0]], self.residues[bond[1]]),
+                            residues=(self.residues[res_index[bond[0]]], self.residues[res_index[bond[1]]]),
                         )
 
             def special_disulfides(self, aln):

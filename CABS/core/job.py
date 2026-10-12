@@ -324,6 +324,17 @@ class CABSTask(metaclass=ABCMeta):
         if self.add_peptide:
             self.peptides.extend([p for p in self.add_peptide if p])
 
+        # bare --backbone-cyclization (None): PEP1 for a single peptide, chain A without peptides
+        if self.cyclization and None in self.cyclization:
+            if len(self.peptides) > 1:
+                raise ValueError(
+                    "--backbone-cyclization requires an explicit chain (e.g. PEP1, PEP2) "
+                    "when more than one peptide is given."
+                )
+            default_chain = "PEP1" if self.peptides else "A"
+            self.cyclization = [default_chain if c is None else c for c in self.cyclization]
+            self.config["backbone_cyclization"] = self.cyclization
+
         valid_letters = set("RFCMSAN")
 
         try:
