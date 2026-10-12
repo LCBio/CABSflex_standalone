@@ -194,9 +194,9 @@ def reconstruct_trajectory(
                                 msg=f"Fallback trajectory synchronization also failed: {e2}. Keeping default numbering."
                             )
                 else:
-                    logger.warning(
+                    logger.info(
                         module_name="CG2ALL",
-                        msg="start_all.pdb not found; skipping renumbering to original."
+                        msg="No start_all.pdb (no input structure); nothing to synchronize, keeping CABS numbering.",
                     )
             
             if minimize_flag and output_pdb and os.path.exists(output_pdb):

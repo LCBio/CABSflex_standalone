@@ -881,14 +881,10 @@ def convert_cg_to_all(
                                 msg=f"Fallback synchronization also failed: {e2}. Structure was kept with default numbering."
                             )
                 else:
-                    # Fallback to sync_residues if template is missing
-                    try:
-                        sync_residues(input_pdb_path=reference_path, output_pdb_path=output_file_path)
-                    except Exception as e:
-                        logger.warning(
-                            module_name="CG2ALL",
-                            msg=f"Standard synchronization failed: {e}. Structure was kept with default numbering."
-                        )
+                    logger.info(
+                        module_name="CG2ALL",
+                        msg="No start_all.pdb (no input structure); nothing to synchronize, keeping CABS numbering.",
+                    )
             
             if minimize_flag:
                 minimize_pdb_energy(output_file_path)
